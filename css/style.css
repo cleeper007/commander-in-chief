@@ -1,21 +1,58 @@
 /* Commander in Chief: Persian Gulf Crisis — situation room theme */
 
 :root {
-  --bg: #060a12;
-  --bg-panel: #0b1220;
-  --bg-panel2: #0e1729;
-  --line: #1d2c47;
-  --text: #c8d4e8;
-  --dim: #6d7d99;
-  --amber: #ffb347;
-  --red: #ff4d4d;
-  --red-dark: #7a1f1f;
-  --green: #4dd97a;
-  --blue: #4da3ff;
+  /* ---- surfaces ----
+     An elevation ladder rather than two flat panel colors. Each step is a real
+     lightness increase, so a raised control reads as raised without needing a
+     border to say so. --bg-panel/--bg-panel2 are kept as aliases: 9 rules and
+     several JS inline styles still name them, and renaming buys nothing. */
+  --bg: #070b13;
+  --surface-0: #0b1220;
+  --surface-1: #101a2c;
+  --surface-2: #16223a;
+  --bg-panel: var(--surface-0);
+  --bg-panel2: var(--surface-1);
+
+  --line: #1e2c46;
+  --line-strong: #2b3d5e;
+
+  --text: #dbe4f2;
+  --dim: #8496b0;
+
+  /* ---- accents ----
+     Pulled off full chroma. The old set was pure-saturation on near-black —
+     #ff4d4d and #ffb347 both sat at maximum and fought each other for the eye,
+     which is the single most dated thing about the old palette. These are
+     desaturated ~15% and separated by lightness instead, so red still reads as
+     the loudest thing on screen but amber no longer shouts alongside it. */
+  --amber: #e0a355;
+  --red: #e8574f;
+  --red-dark: #6e2320;
+  --green: #5cc47f;
+  --blue: #6ba4e8;
+
   --water: #0a1626;
   --land: #16233b;
   --land-line: #2a3d5f;
+
+  /* ---- type ----
+     Two faces, split by job. --sans carries the interface and all prose; --mono
+     is demoted to what it is actually good at — numbers, counters, clocks,
+     designators and map labels, where fixed advance width means a changing value
+     doesn't reflow the line next to it. Setting narrative in a code font was the
+     game's loudest "old software" tell. */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
   --mono: "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+
+  /* ---- shape + depth ----
+     Small radii only. This is command software, not a consumer app: 6px reads as
+     "built" where 12px would read as "friendly", which is the wrong register for
+     a screen about killing people. */
+  --radius: 6px;
+  --radius-lg: 8px;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 18px 50px rgba(0, 0, 0, 0.65);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -25,31 +62,55 @@ html, body { height: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 13px;
+  line-height: 1.5;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 .hidden { display: none !important; }
 .dim { color: var(--dim); }
 
+/* ---- the readout face ----
+   Everything that is a number, a counter, a clock or a designator keeps the
+   monospace. Applied by selector rather than by hand at each site so the split
+   stays honest as the markup changes: if it is data, it is in this list. */
+#map-clock, .version-badge, .panel-badge, .stat-value, #capacity-value,
+#resources-list .res-count, #intel-buttons .intel-line .il-value,
+.cv-hull, .cv-state, .grade-table td:last-child, .title-eyebrow,
+.breakout, .estimate-box .est-good, .estimate-box .est-warn,
+.estimate-box .est-bad {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ============ overlays / modals ============ */
+/* `align-items: center` on its own clips a child taller than the viewport at
+   BOTH ends and gives you no way to scroll to what it cut — the title brief
+   already overran an 800px-tall laptop before this overhaul and lost its first
+   line. `margin: auto` on the child centers it exactly the same way when there
+   is room, but degrades to top-aligned-and-scrollable when there isn't, which
+   is the behaviour you actually want. */
 .overlay {
   position: fixed; inset: 0;
   background: rgba(3, 6, 12, 0.88);
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
+  overflow-y: auto; padding: 20px;
   z-index: 100;
 }
+.overlay > * { margin: auto; }
 
 .version-badge {
   position: fixed;
   top: 14px;
   left: 16px;
   z-index: 101;
-  font-size: 11px;
-  letter-spacing: 2px;
+  font-size: 10.5px;
+  letter-spacing: 1px;
   color: var(--dim);
   border: 1px solid var(--line);
+  border-radius: var(--radius);
   padding: 3px 8px;
   background: rgba(3, 6, 12, 0.6);
 }
@@ -57,22 +118,31 @@ body {
 .title-box {
   max-width: 640px;
   padding: 40px;
-  border: 1px solid var(--line);
-  background: var(--bg-panel);
-  box-shadow: 0 0 60px rgba(255, 77, 77, 0.08);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-0);
+  box-shadow: var(--shadow-3);
   text-align: center;
 }
 .title-eyebrow {
-  color: var(--red); letter-spacing: 3px; font-size: 11px; margin-bottom: 18px;
+  color: var(--red); letter-spacing: 2px; font-size: 10.5px; margin-bottom: 18px;
 }
+/* The wordmark keeps its tracking — it is a title card, not a control — but
+   comes down from 8px, which at 34px was wide enough to break the phrase into
+   loose letters rather than two words. */
 .title-box h1 {
-  font-size: 34px; letter-spacing: 8px; color: #fff; margin-bottom: 4px;
+  font-size: 36px; letter-spacing: 5px; color: #fff; margin-bottom: 5px;
+  font-weight: 500;
 }
 .title-box h2 {
-  font-size: 16px; letter-spacing: 6px; color: var(--amber); margin-bottom: 24px;
+  font-size: 15px; letter-spacing: 4px; color: var(--amber); margin-bottom: 26px;
+  font-weight: 500;
 }
+/* The brief is the first prose in the game and the reason the sans exists:
+   five sentences of narrative that were being read in a code font. */
 .title-brief {
-  text-align: left; color: var(--text); line-height: 1.55; margin-bottom: 26px;
+  text-align: left; color: var(--text); line-height: 1.65; margin-bottom: 26px;
+  font-size: 13.5px;
 }
 .title-brief p { margin-bottom: 12px; }
 .disclaimer {
@@ -82,49 +152,65 @@ body {
 
 .modal {
   width: 560px; max-width: 92vw; max-height: 86vh;
-  background: var(--bg-panel);
-  border: 1px solid var(--line);
+  background: var(--surface-0);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
   display: flex; flex-direction: column;
-  box-shadow: 0 12px 60px rgba(0,0,0,0.7);
+  box-shadow: var(--shadow-3);
 }
 .modal.wide { width: 720px; }
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 12px 16px; border-bottom: 1px solid var(--line);
-  background: var(--bg-panel2);
+  padding: 13px 16px; border-bottom: 1px solid var(--line);
+  background: var(--surface-1);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 .modal-close {
   background: none; border: none; color: var(--dim); cursor: pointer;
-  font-family: var(--mono); font-size: 14px;
+  font-size: 15px; line-height: 1; padding: 4px 6px;
+  border-radius: var(--radius);
 }
-.modal-close:hover { color: var(--red); }
-.modal-body { padding: 16px; overflow-y: auto; line-height: 1.5; }
+.modal-close:hover { color: var(--red); background: var(--surface-2); }
+.modal-body { padding: 16px; overflow-y: auto; line-height: 1.6; }
 .modal-footer {
   padding: 12px 16px; border-top: 1px solid var(--line);
   display: flex; justify-content: flex-end; gap: 10px;
+  background: var(--surface-0);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 /* ============ buttons ============ */
-button { font-family: var(--mono); }
+button { font-family: var(--sans); }
 
+/* Sentence-cased labels are set in the markup; the uppercasing is done here so
+   the military register survives without shouting in the HTML. Letter-spacing
+   drops from 1px to 0.6px — at uppercase 12px the old value was wide enough to
+   read as a 90s splash screen rather than a control. */
 .btn-primary, .btn-secondary, .btn-danger {
-  padding: 10px 18px; font-size: 12px; letter-spacing: 1px;
-  border: 1px solid; cursor: pointer; text-transform: uppercase;
+  padding: 10px 18px; font-size: 12px; letter-spacing: 0.6px;
+  border: 1px solid; border-radius: var(--radius); cursor: pointer;
+  text-transform: uppercase; font-weight: 500;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 .btn-primary {
-  background: #12233f; color: var(--blue); border-color: #2a4a7a;
+  background: #16294a; color: #a8ccf5; border-color: #2f5286;
+  box-shadow: var(--shadow-1);
 }
-.btn-primary:hover { background: #1a3156; }
+.btn-primary:hover:not(:disabled) { background: #1d3660; border-color: #3d6aa8; }
 .btn-secondary {
-  background: transparent; color: var(--dim); border-color: var(--line);
+  background: transparent; color: var(--dim); border-color: var(--line-strong);
 }
-.btn-secondary:hover { color: var(--text); }
+.btn-secondary:hover:not(:disabled) { color: var(--text); background: var(--surface-1); }
 .btn-danger {
-  background: #3a0f0f; color: var(--red); border-color: #7a2525;
+  background: #3d1512; color: #f08b84; border-color: #7d2e29;
+  box-shadow: var(--shadow-1);
 }
-.btn-danger:hover:not(:disabled) { background: #571717; }
+.btn-danger:hover:not(:disabled) { background: #521c18; border-color: #9c3b34; }
 .btn-danger:disabled, .btn-primary:disabled {
-  opacity: 0.35; cursor: not-allowed;
+  opacity: 0.35; cursor: not-allowed; box-shadow: none;
+}
+.btn-primary:focus-visible, .btn-secondary:focus-visible, .btn-danger:focus-visible {
+  outline: 1px solid var(--blue); outline-offset: 2px;
 }
 
 /* ============ layout ============ */
@@ -147,19 +233,23 @@ button { font-family: var(--mono); }
 }
 #map-header {
   display: flex; align-items: center; gap: 18px;
-  padding: 8px 14px; border-bottom: 1px solid var(--line);
-  background: var(--bg-panel);
+  padding: 9px 14px; border-bottom: 1px solid var(--line);
+  background: var(--surface-0);
 }
-#map-clock { color: var(--amber); font-size: 12px; }
+#map-clock { color: var(--amber); font-size: 12px; letter-spacing: 0.3px; }
 #map-zoom-controls { margin-left: auto; display: flex; gap: 6px; }
 #map-zoom-controls button {
-  width: 26px; height: 26px; background: var(--bg-panel2);
-  border: 1px solid var(--line); color: var(--text); cursor: pointer;
+  width: 27px; height: 27px; background: var(--surface-1);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  color: var(--text); cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
-#map-zoom-controls button:hover { border-color: var(--blue); }
+#map-zoom-controls button:hover {
+  border-color: var(--blue); background: var(--surface-2);
+}
 #toggle-bases {
-  width: auto !important; padding: 0 9px;
-  font-size: 10px; letter-spacing: 1.5px; color: var(--dim) !important;
+  width: auto !important; padding: 0 10px;
+  font-size: 10px; letter-spacing: 0.8px; color: var(--dim) !important;
 }
 #toggle-bases.layer-on { color: var(--amber) !important; border-color: var(--amber) !important; }
 
@@ -169,8 +259,9 @@ button { font-family: var(--mono); }
 
 #tooltip {
   position: absolute; pointer-events: none; z-index: 20;
-  background: rgba(6, 10, 18, 0.95); border: 1px solid var(--line);
-  padding: 8px 10px; font-size: 11px; max-width: 240px; line-height: 1.45;
+  background: rgba(8, 13, 23, 0.96); border: 1px solid var(--line-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow-2);
+  padding: 9px 11px; font-size: 11.5px; max-width: 250px; line-height: 1.5;
 }
 #tooltip .tt-name { color: var(--amber); font-weight: bold; }
 #tooltip .tt-status { text-transform: uppercase; }
@@ -185,10 +276,15 @@ button { font-family: var(--mono); }
   display: flex; flex-direction: column; gap: 10px;
 }
 .panel {
-  background: var(--bg-panel); border: 1px solid var(--line); padding: 10px 12px;
+  background: var(--surface-0); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 10px 12px;
+  box-shadow: var(--shadow-1);
+  transition: border-color 0.15s ease;
 }
+.panel:hover { border-color: var(--line-strong); }
 .panel-title {
-  font-size: 11px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase;
+  font-size: 11px; letter-spacing: 1.2px; color: var(--dim);
+  text-transform: uppercase; font-weight: 500;
 }
 
 /* ---- collapsible panels ----
@@ -210,12 +306,19 @@ button { font-family: var(--mono); }
 }
 .panel.collapsed .panel-caret { transform: rotate(-90deg); }
 .panel-head:hover .panel-caret { color: var(--blue); }
+/* A count, so it reads as a pill rather than a boxed label — the one place the
+   radius goes fully round, because it is the only element on screen whose whole
+   job is "this many are still available". */
 .panel-badge {
-  font-size: 10px; letter-spacing: 1px; color: var(--amber);
-  border: 1px solid #4a3a12; padding: 1px 6px; white-space: nowrap;
+  font-size: 10px; letter-spacing: 0.5px; color: var(--amber);
+  background: rgba(224, 163, 85, 0.09);
+  border: 1px solid rgba(224, 163, 85, 0.28);
+  border-radius: 20px; padding: 1px 8px; white-space: nowrap;
 }
 .panel-badge:empty { display: none; }
-.panel-badge.badge-none { color: var(--dim); border-color: var(--line); }
+.panel-badge.badge-none {
+  color: var(--dim); border-color: var(--line); background: transparent;
+}
 .panel-meta {
   grid-column: 2 / 4; font-size: 10px; letter-spacing: 1px; color: var(--dim);
   text-transform: uppercase; margin-top: 3px;
@@ -240,11 +343,18 @@ button { font-family: var(--mono); }
 }
 #resources-list .res-count { color: var(--amber); }
 
+/* Advisor lines and report events keep square corners: both are accented with a
+   single left rule, and a radius on one side of a border reads as a rendering
+   mistake rather than a choice. */
 .advisor {
-  border-left: 2px solid var(--line); padding: 6px 10px; margin-bottom: 8px;
-  font-size: 11.5px; line-height: 1.45;
+  border-left: 2px solid var(--line); padding: 6px 11px; margin-bottom: 8px;
+  font-size: 12px; line-height: 1.5;
+  background: linear-gradient(90deg, rgba(255,255,255,0.02), transparent 60%);
 }
-.advisor .adv-name { color: var(--blue); font-weight: bold; font-size: 11px; }
+.advisor .adv-name {
+  color: var(--blue); font-weight: 500; font-size: 11.5px;
+  letter-spacing: 0.2px;
+}
 .advisor.hawk { border-left-color: var(--red); }
 .advisor.dove { border-left-color: var(--green); }
 .advisor.mil  { border-left-color: var(--amber); }
@@ -274,13 +384,19 @@ button { font-family: var(--mono); }
 }
 #fleet-buttons button, #diplo-buttons button, #intel-buttons button,
 #specops-buttons button, #csar-buttons button {
-  text-align: left; padding: 7px 10px; font-size: 11.5px; line-height: 1.35;
-  background: var(--bg-panel2); border: 1px solid var(--line);
-  color: var(--text); cursor: pointer;
+  text-align: left; padding: 8px 11px; font-size: 12px; line-height: 1.4;
+  background: var(--surface-1); border: 1px solid var(--line);
+  border-radius: var(--radius); color: var(--text); cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 #fleet-buttons button:hover:not(:disabled), #diplo-buttons button:hover:not(:disabled),
 #intel-buttons button:hover:not(:disabled), #specops-buttons button:hover:not(:disabled),
-#csar-buttons button:hover:not(:disabled) { border-color: var(--blue); }
+#csar-buttons button:hover:not(:disabled) {
+  border-color: var(--blue); background: var(--surface-2);
+}
+#fleet-buttons button:focus-visible, #diplo-buttons button:focus-visible,
+#intel-buttons button:focus-visible, #specops-buttons button:focus-visible,
+#csar-buttons button:focus-visible { outline: 1px solid var(--blue); outline-offset: 2px; }
 #fleet-buttons button:disabled, #diplo-buttons button:disabled,
 #intel-buttons button:disabled, #specops-buttons button:disabled,
 #csar-buttons button:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -320,7 +436,22 @@ button { font-family: var(--mono); }
   color: var(--amber); display: block; margin-bottom: 2px;
 }
 
-#btn-end-turn, #btn-skip-turn { width: 100%; padding: 14px; }
+/* The action cluster docks to the foot of the rail. It used to float in the
+   middle of whatever vertical space the panels left over, which read as an
+   unfinished layout rather than a deliberate one; the rule above it draws the
+   line between "what you are reading" and "what you do about it". */
+#btn-end-turn, #btn-skip-turn {
+  width: 100%; padding: 14px; font-size: 12.5px;
+}
+#btn-end-turn { border-top: 1px solid transparent; }
+#sidebar-scroll + button { margin-top: 4px; }
+#sidebar > #btn-end-turn, #sidebar > #btn-skip-turn {
+  position: relative;
+}
+#sidebar > #btn-end-turn::before, #sidebar > #btn-skip-turn::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -7px;
+  border-top: 1px solid var(--line);
+}
 
 /* The turn is ended once. While it resolves the only live control in the
    sidebar is the skip button that stands in the end-turn button's place. */
@@ -333,19 +464,25 @@ button { font-family: var(--mono); }
 #app.turn-resolving #session-buttons { pointer-events: none; opacity: 0.45; }
 
 /* ============ bottom bar ============ */
-#bottom-bar { border-top: 1px solid var(--line); background: var(--bg-panel); }
+#bottom-bar { border-top: 1px solid var(--line-strong); background: var(--surface-0); }
 #status-row {
-  display: flex; align-items: stretch; gap: 0; padding: 8px 14px;
+  display: flex; align-items: stretch; gap: 0; padding: 9px 14px;
 }
 .stat {
   padding: 0 18px; border-right: 1px solid var(--line);
-  display: flex; flex-direction: column; justify-content: center; gap: 3px;
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
 }
 .stat:first-child { padding-left: 0; }
 .stat:last-child { border-right: none; }
-.stat-label { font-size: 9.5px; letter-spacing: 1.5px; color: var(--dim); }
+.stat-label {
+  font-size: 9.5px; letter-spacing: 1.1px; color: var(--dim);
+  font-family: var(--sans); font-weight: 500;
+}
+/* The readouts are the one place weight is earned: these are the four numbers
+   the player loses to, and they should out-rank their own labels by more than
+   size alone. */
 .stat-value { font-size: 13px; }
-.stat-value.big { font-size: 18px; color: #fff; }
+.stat-value.big { font-size: 19px; color: #fff; font-weight: 500; }
 .stat-value.warn { color: var(--amber); }
 .stat-value.crit { color: var(--red); }
 .stat-value.good { color: var(--green); }
@@ -353,11 +490,12 @@ button { font-family: var(--mono); }
 /* Iran war capacity meter */
 .defcon-meter { display: flex; gap: 2px; }
 .defcon-meter .seg {
-  width: 14px; height: 14px; background: #16233b; border: 1px solid var(--line);
+  width: 13px; height: 13px; background: #16233b; border: 1px solid var(--line);
+  border-radius: 2px;
 }
-.defcon-meter .seg.on-low { background: #2f6b3f; }
-.defcon-meter .seg.on-mid { background: #a87b1f; }
-.defcon-meter .seg.on-high { background: #b32424; box-shadow: 0 0 6px rgba(255,60,60,0.6); }
+.defcon-meter .seg.on-low { background: #35704a; border-color: #3f8355; }
+.defcon-meter .seg.on-mid { background: #9c7526; border-color: #b58a2e; }
+.defcon-meter .seg.on-high { background: #a83430; border-color: #c24039; }
 #capacity-value { color: var(--red); font-size: 15px; }
 
 /* news ticker */
@@ -377,17 +515,36 @@ button { font-family: var(--mono); }
 
 /* ============ strike modal ============ */
 .pkg-option {
-  display: block; border: 1px solid var(--line); background: var(--bg-panel2);
-  padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+  display: block; border: 1px solid var(--line); background: var(--surface-1);
+  border-radius: var(--radius); padding: 11px 13px; margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
-.pkg-option:hover { border-color: var(--blue); }
-.pkg-option.selected { border-color: var(--amber); background: #1a2138; }
-.pkg-option.unavailable { opacity: 0.4; cursor: not-allowed; }
-.pkg-name { color: #fff; }
-.pkg-detail { color: var(--dim); font-size: 11px; display: block; margin-top: 2px; }
+.pkg-option:hover:not(.unavailable) {
+  border-color: var(--blue); background: var(--surface-2);
+}
+.pkg-option.selected {
+  border-color: var(--amber); background: #1c2438;
+  box-shadow: inset 2px 0 0 var(--amber);
+}
+/* A package you cannot fly used to differ from one you can by opacity alone,
+   which left a 10px grey run-on ("MAGAZINE SHORT") carrying the entire
+   explanation. Dimming now says "not available"; the struck-through left rule
+   and the reason chip say why, at a size worth reading. */
+.pkg-option.unavailable {
+  opacity: 0.55; cursor: not-allowed; background: transparent;
+  border-style: dashed; border-color: var(--line);
+}
+.pkg-option.unavailable .pkg-name { color: var(--dim); }
+.pkg-name { color: #fff; font-weight: 500; font-size: 12.5px; }
+.pkg-detail {
+  color: var(--dim); font-size: 11.5px; display: block; margin-top: 3px;
+  line-height: 1.45;
+}
 
 .estimate-box {
-  border: 1px solid var(--line); padding: 10px 12px; margin-top: 6px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 11px 13px; margin-top: 8px;
   background: #0a0f1c; font-size: 12px; line-height: 1.7;
 }
 .estimate-box .est-good { color: var(--green); }
@@ -395,11 +552,16 @@ button { font-family: var(--mono); }
 .estimate-box .est-bad { color: var(--red); }
 
 /* ============ turn report ============ */
-.report-event { border-left: 2px solid var(--red); padding: 6px 12px; margin-bottom: 10px; }
+.report-event {
+  border-left: 2px solid var(--red); padding: 7px 13px; margin-bottom: 10px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.02), transparent 60%);
+}
 .report-event.friendly { border-left-color: var(--blue); }
 .report-event.world { border-left-color: var(--amber); }
-.report-event .ev-title { color: #fff; font-weight: bold; }
-.report-event .ev-effects { color: var(--dim); font-size: 11px; margin-top: 3px; }
+.report-event .ev-title { color: #fff; font-weight: 500; }
+.report-event .ev-effects {
+  color: var(--dim); font-size: 11.5px; margin-top: 4px; line-height: 1.5;
+}
 
 /* ============ endgame ============ */
 .grade-table { width: 100%; border-collapse: collapse; margin: 12px 0; }

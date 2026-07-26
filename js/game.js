@@ -231,7 +231,13 @@ const Game = (() => {
     // v5: downed aircrew and their recovery counters became state. A v4 save has
     // no `downed` field and a stats block missing three counters — retired
     // rather than migrated, the same as every version before it.
-    const KEY = 'cic-save-v10';  // bump the version to invalidate old saves
+    // Branch-isolated slot. The UI overhaul will eventually add trend history to
+    // FIELDS and bump VERSION, and read() rejects on a strict version mismatch —
+    // so a save written here would be refused by main, and main's save refused
+    // here. Different key, no collision: a war in progress on either branch
+    // survives switching between them. Fold this back to the shared key when the
+    // overhaul merges.
+    const KEY = 'cic-save-c';    // bump the version to invalidate old saves
     const VERSION = 11;
     const FIELDS = [
       'turn', 'maxTurns', 'approval', 'oil', 'world',
