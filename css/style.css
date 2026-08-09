@@ -1445,6 +1445,72 @@ button { font-family: var(--mono); }
 .csar-evading { color: var(--amber); }
 
 /* ============================================================
+   THE SQUADRON — who is flying tonight, and how many times before
+   ============================================================ */
+/* Four columns on a fixed grid rather than a flex row, because the whole point
+   of the panel is that SORTIES reads as a column the eye can run down. A flex
+   row sizes each cell to its own content and the numbers stagger. */
+/* Column widths are measured against the longest thing each can hold, not
+   guessed: TOLLBOOTH is nine characters, "F/A-18F" is seven, and "Lt Col.
+   Vandermeer" is eighteen. The first cut of this clipped the callsign into the
+   name and the type into an ellipsis.
+   PIXELS, NOT EM, AND THAT IS THE LOAD-BEARING PART. The legend and the data
+   rows are two separate grids at two different font sizes (9px and 11px), so
+   an `em` track resolves to a different width in each and the header column
+   headings sit over the wrong columns — which is what the first version did,
+   by eleven pixels, on every row of the panel. */
+.ac-row {
+  display: grid; grid-template-columns: 68px 1fr 50px 36px;
+  gap: 6px; align-items: baseline;
+  font-size: 11px; line-height: 1.75;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.ac-legend {
+  display: grid; grid-template-columns: 68px 1fr 50px 36px;
+  gap: 6px; font-size: 9px; letter-spacing: 1px; color: var(--dim);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 2px;
+}
+/* SORTIES is the widest label over the narrowest column, so it alone drops the
+   tracking rather than every column widening to carry one word. */
+.ac-legend span:last-child { letter-spacing: 0; font-size: 8px; }
+.ac-legend span:last-child, .ac-sorties { text-align: right; }
+.ac-cs { color: var(--txt); letter-spacing: 0.5px; }
+.ac-name, .ac-air { color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-sorties { font-variant-numeric: tabular-nums; }
+/* On tonight's order: the callsign lifts out of the roster so a player scanning
+   the list can see at a glance which of these thirteen are over Iran right now. */
+.ac-flying .ac-cs { color: var(--amber); }
+.ac-out .ac-cs, .ac-out .ac-name { opacity: 0.6; }
+
+.ac-head {
+  font-size: 9px; letter-spacing: 1.5px; color: var(--dim);
+  margin: 8px 0 2px; padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.ac-head:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.ac-pkg { margin-bottom: 5px; }
+.ac-pkg-head { font-size: 10px; color: var(--amber); letter-spacing: 0.5px; }
+.ac-quiet { font-size: 11px; padding: 2px 0; }
+
+/* Status colours, shared by the sidebar rows and the after-action table so the
+   two can never disagree about what amber means. */
+.ac-active { color: var(--txt); }
+.ac-rest { color: var(--cyan, #5fd3f3); }
+.ac-mia { color: var(--amber); }
+.ac-pow { color: var(--red); }
+.ac-kia { color: var(--red); opacity: 0.75; }
+
+/* the after-action roster: same vocabulary as the timeline table below it */
+.end-squadron-note { margin: 4px 0 8px; font-size: 12px; }
+.squadron-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.squadron-table th {
+  text-align: left; font-size: 9px; letter-spacing: 1px; color: var(--dim);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding: 3px 6px 3px 0;
+}
+.squadron-table td { padding: 3px 6px 3px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.squadron-table td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
    RAID SCOPE — the leadership mission, narrated live in the map panel
    ============================================================ */
 /* While the task force is on the objective the war is frozen: the sidebar

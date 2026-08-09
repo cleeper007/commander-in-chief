@@ -21,22 +21,38 @@ const CSAR = (() => {
   let running = false;   // recovery in progress: the war is locked out
 
   // ---- who was flying ----
-  // Weighted toward two-seat airframes: a crew of two is what makes the
-  // partial recovery possible, and a partial recovery is the worst night.
-  const AIRFRAMES = [
-    { type: 'F-15E Strike Eagle', cs: 'DUDE', crew: 2, w: 4 },
-    { type: 'F/A-18F Super Hornet', cs: 'GUNSLINGER', crew: 2, w: 3 },
-    { type: 'F/A-18E Super Hornet', cs: 'RHINO', crew: 1, w: 2 },
-    { type: 'F-16C Fighting Falcon', cs: 'VIPER', crew: 1, w: 2 },
-  ];
+  // The airframe used to be rolled here off a weighted table, which meant the
+  // jet that went down had no connection to the package that flew. It now comes
+  // off the roster (see aircrew.js): the aircraft is whatever the aviator the
+  // player watched get fragged is qualified in, and `ANON` is the fallback for
+  // a package with nobody named on it — a Tomahawk salvo, or a squadron with
+  // nothing left on status.
+  const ANON = { air: 'strike aircraft', short: 'strike aircraft', flight: 'a strike aircraft', crew: 1, aboard: [] };
   const DIRS = ['east', 'south-east', 'north-east', 'south', 'north'];
 
-  function pickAirframe() {
-    const total = AIRFRAMES.reduce((n, a) => n + a.w, 0);
-    let r = Math.random() * total;
-    for (const a of AIRFRAMES) { r -= a.w; if (r <= 0) return a; }
-    return AIRFRAMES[0];
-  }
+  // The flight callsign the jet checked in under — the roster carries the
+  // squadron's, this puts the two-digit tail on it. Distinct from the personal
+  // callsigns the aircrew themselves are known by.
+  const flightCallsign = (lost) => `${lost.flight} ${rand(1, 7)}${rand(1, 9)}`;
+
+  // ---- the crew, named ----
+  // `who` is the sentence the prose uses for the people. It is built from the
+  // roster wherever there is one, so the report names aviators the player has
+  // been reading in the sidebar for nine nights, and falls back to the old
+  // anonymous wording where there is not.
+  const crewNoun = (d) => d.crew === 2 ? 'Both crew' : 'The pilot';
+  const crewNames = (d) => {
+    const G = Game.G;
+    const list = (d.crewIds || []).map((id) => Aircrew.byId(G, id)).filter(Boolean);
+    return list.length ? Aircrew.names(list) : null;
+  };
+  // "Maj. Hollis “TWITCH” and Capt. Ueda “SPUD”" where the roster has them,
+  // "both crew" where it does not.
+  const crewPhrase = (d, capitalized) => {
+    const named = crewNames(d);
+    if (named) return named;
+    return capitalized ? crewNoun(d) : (d.crew === 2 ? 'both crew' : 'the pilot');
+  };
 
   // ============================================================
   // THE SHOOTDOWN — called by game.js when a strike package loses an aircraft
@@ -46,50 +62,86 @@ const CSAR = (() => {
   // no one is counted dead here. Only one recovery situation runs at a time —
   // a second shootdown while a crew is still on the ground is a crew nobody
   // could have reached.
-  function aircraftDown(target) {
+  //
+  // `mission` is the frag this loss came out of, and it carries the roster ids
+  // of the crew that flew it. Optional: without one the aircraft and the people
+  // in it are anonymous, exactly as they were before v1.83.
+  function aircraftDown(target, mission) {
     const G = Game.G;
-    const af = pickAirframe();
-    const callsign = `${af.cs} ${rand(1, 7)}${rand(1, 9)}`;
-    const crewWord = af.crew === 2 ? 'Both crew' : 'The pilot';
+    const lost = Aircrew.crewLost(G, mission) || ANON;
+    const callsign = lost === ANON ? 'callsign unknown' : flightCallsign(lost);
+    const aboard = lost.aboard;
+    // the sentence naming the people, for the two branches where they die in
+    // the aircraft and there is no roster entry left to point at
+    const named = aboard.length ? Aircrew.names(aboard) : null;
+    const crewWord = lost.crew === 2 ? 'Both crew' : 'The pilot';
+    // "One strike aircraft — DUDE 61, F-15E Strike Eagle —" : the callsign and
+    // the type in apposition, which is how the watch floor says it and how this
+    // line has read since v5. The roster changed where the type comes from, not
+    // the shape of the sentence.
+    const ident = lost === ANON
+      ? 'One strike aircraft'
+      : `One strike aircraft — ${callsign}, ${lost.air} —`;
 
     if (G.downed) {
+      Aircrew.setStatus(G, aboard, 'kia', G.turn);
       return {
-        casualties: af.crew,
-        text: `A second aircraft — ${callsign}, ${af.type} — was lost to surface-to-air fire in the ` +
-          `same package. ${crewWord} died in the aircraft. With a recovery already pending there was ` +
-          `nothing airborne that could have reached them.`,
+        casualties: lost.crew,
+        text: `A second aircraft — ${callsign}, ${lost.air} — was lost to surface-to-air fire in the ` +
+          `same package. ${named || crewWord} died in the aircraft. With a recovery already pending ` +
+          `there was nothing airborne that could have reached them.`,
       };
     }
 
     // Ejection: modern seats work more often than not, and a working seat is
     // what turns a casualty report into a rescue problem.
     if (Math.random() >= 0.62) {
+      Aircrew.setStatus(G, aboard, 'kia', G.turn);
       return {
-        casualties: af.crew,
-        text: `One strike aircraft — ${callsign}, ${af.type} — was lost to surface-to-air fire. ` +
-          `No chutes were seen. ${crewWord} died in the aircraft; footage of the wreckage is already ` +
-          `on Iranian state TV.`,
+        casualties: lost.crew,
+        text: `${ident} was lost to surface-to-air fire. No chutes were seen. ` +
+          `${named || crewWord} died in the aircraft; footage of the wreckage is already on ` +
+          `Iranian state TV.`,
       };
     }
 
     const km = rand(18, 70);
     const dir = DIRS[Math.floor(Math.random() * DIRS.length)];
     G.downed = {
-      callsign, type: af.type, crew: af.crew,
+      callsign, type: lost.air, crew: lost.crew,
+      // the roster entries for the people on the ground. `crew` stays a count
+      // because the recovery set piece — the survivor markers, the partial
+      // branch — has been built around one or two since v5.
+      crewIds: aboard.map((a) => a.id),
       targetId: target.id,
       loc: `${km} km ${dir} of ${target.name}`,
       x: target.x + rand(-26, 26), y: target.y + rand(-22, 22),
       turn: G.turn, turnsOut: 0, isr: false,
     };
+    Aircrew.setStatus(G, aboard, 'mia', G.turn);
     G.stats.downedCrews++;
     syncMap(G);
 
+    // The sortie count, which is the whole reason the roster exists — but hung
+    // off the end of the sentence that already named them rather than repeating
+    // the name, and phrased as the night it was for THEM rather than as a
+    // statistic. A player who has been reading the squadron panel recognises
+    // the number; one who has not is being told why it matters.
+    const flownFor = aboard.length
+      ? ` — ${Txt.ordinal(aboard[0].sorties)} sortie of the war for ${aboard[0].cs}`
+      : '';
     return {
       casualties: 0,
-      text: `One strike aircraft — ${callsign}, ${af.type} — was lost to surface-to-air fire. ` +
-        `${af.crew === 2 ? 'Two good chutes' : 'One good chute'} came off the aircraft and both ` +
-        `beacons are transmitting from broken ground ${G.downed.loc}. ${af.crew === 2 ? 'The crew is' : 'The pilot is'} ` +
-        `alive, on the ground, and being hunted. Personnel recovery is now a decision on your desk.`,
+      text: `${ident} was lost to surface-to-air fire. ` +
+        // "both beacons" was written when every shootdown was a two-seater and
+        // said so over a single chute for half of them. Counted, but with the
+        // article rather than the numeral — a bare "1 beacon" in the middle of
+        // a sentence reads like a field on a form.
+        `${lost.crew === 2 ? 'Two good chutes' : 'One good chute'} came off the aircraft and ` +
+        `${lost.crew === 2 ? 'both beacons are' : 'the beacon is'} transmitting from broken ground ` +
+        `${G.downed.loc}. ` +
+        `${named ? `${named} ${Txt.are(aboard.length)}` : (lost.crew === 2 ? 'The crew is' : 'The pilot is')} ` +
+        `alive, on the ground, and being hunted${flownFor}. Personnel recovery is now a decision on your desk.`,
     };
   }
 
@@ -97,7 +149,7 @@ const CSAR = (() => {
   function syncMap(G) {
     const d = G.downed;
     MapView.setSurvivor(d ? { x: d.x, y: d.y } : null,
-      d ? `${d.callsign} — ${d.crew === 2 ? 'two aircrew' : 'one aviator'} evading, ${d.loc}` : '');
+      d ? `${d.callsign} — ${crewNames(d) || Txt.plural(d.crew, 'aviator')} evading, ${d.loc}` : '');
   }
 
   // ============================================================
@@ -132,7 +184,7 @@ const CSAR = (() => {
     if (d.turnsOut > 0) {
       const cost = -0.14 * d.turnsOut;
       p += cost;
-      parts.push([`Time on the ground — ${d.turnsOut} turn${d.turnsOut === 1 ? '' : 's'} hunted`, cost]);
+      parts.push([`Time on the ground — ${Txt.turns(d.turnsOut)} hunted`, cost]);
     }
 
     return { p: clamp(p, 0.10, 0.90), parts };
@@ -160,7 +212,7 @@ const CSAR = (() => {
       return {
         cls: 'friendly', title: `SURVIVAL RADIO CONTACT — ${d.callsign}`, internal: true,
         text: `The rescue coordination center has two-way contact with ${d.callsign} and has ` +
-          `authenticated ${d.crew === 2 ? 'both crew' : 'the pilot'} against the ISOPREP file. ` +
+          `authenticated ${crewPhrase(d, false)} against the ISOPREP file. ` +
           `They are ${d.loc}, in broken ground, moving away from the wreck. Alert helicopters and ` +
           `their escort are cocked on the ramp. Every hour they spend down there makes the ` +
           `recovery harder and the search parties closer.`,
@@ -172,7 +224,7 @@ const CSAR = (() => {
 
     return {
       cls: 'iran', title: `${d.callsign} STILL EVADING — SEARCH TIGHTENING`, internal: true,
-      text: `${d.crew === 2 ? 'The crew has' : 'The pilot has'} moved again and is still up on the ` +
+      text: `${crewPhrase(d, true)} ${d.crew === 2 ? 'have' : 'has'} moved again and ${Txt.are(d.crew)} still up on the ` +
         `radio, but the picture is getting worse: IRGC ground units have cordoned the area, ` +
         `helicopters are working a search pattern over it, and Iranian state media is promising ` +
         `the country an American in custody by morning. The recovery force is standing by. ` +
@@ -184,16 +236,19 @@ const CSAR = (() => {
   // ---- taken alive: the outcome the whole panel exists to prevent ----
   function capture(G, how) {
     const d = G.downed;
-    const who = d.crew === 2 ? 'Both aircrew' : 'The pilot';
+    const who = crewPhrase(d, true);
     G.stats.aircrewCaptured += d.crew;
     G.hostageCrisis = true;
+    // the roster is stamped before `downed` is cleared — after it there is
+    // nothing left pointing at who this was
+    Aircrew.setStatus(G, (d.crewIds || []).map((id) => Aircrew.byId(G, id)), 'pow', G.turn);
     G.downed = null;
     syncMap(G);
     AudioSys.play('retaliation');
     return {
       cls: 'iran', title: `${d.callsign} CAPTURED — AMERICAN AIRCREW IN IRGC CUSTODY`,
-      text: `The beacon stopped. ${who} ${d.crew === 2 ? 'were' : 'was'} taken alive ${d.loc} and ` +
-        `${d.crew === 2 ? 'are' : 'is'} being moved to Tehran. Within the hour Iranian state ` +
+      text: `The beacon stopped. ${who} ${Txt.were(d.crew)} taken alive ${d.loc} and ` +
+        `${Txt.are(d.crew)} being moved to Tehran. Within the hour Iranian state ` +
         `television is airing the footage: a flight suit, a blindfold, a name read aloud in English. ` +
         (how === 'timeout'
           ? 'No recovery was attempted. That is the sentence every network is running under the picture, '
@@ -238,12 +293,19 @@ const CSAR = (() => {
 
     const { p } = odds(G);
     const risk = Math.round(captureRisk(G) * 100);
+    // Named, and with the sortie count beside the name. The player has been
+    // reading these two facts in the squadron panel all campaign; the whole
+    // point of the roster is that this line is not the first time.
+    const down = (d.crewIds || []).map((id) => Aircrew.byId(Game.G, id)).filter(Boolean);
     brief.innerHTML =
       `<div class="csar-line"><span class="csar-key">AIRCREW</span>` +
-      `<span>${d.crew === 2 ? 'Two — pilot and WSO' : 'One — pilot'}, ${d.type}</span></div>` +
+      `<span>${down.length
+        ? down.map((a) => `${Aircrew.label(a)} <span class="dim">· ${Txt.plural(a.sorties, 'sortie')}</span>`).join('<br>')
+        : `${Txt.plural(d.crew, 'aviator')}`}</span></div>` +
+      `<div class="csar-line"><span class="csar-key">AIRFRAME</span><span>${d.type}</span></div>` +
       `<div class="csar-line"><span class="csar-key">POSITION</span><span>${d.loc}</span></div>` +
       `<div class="csar-line"><span class="csar-key">STATUS</span>` +
-      `<span class="csar-evading">EVADING — ${d.turnsOut === 0 ? 'first hours' : `${d.turnsOut} turn${d.turnsOut === 1 ? '' : 's'} on the ground`}</span></div>` +
+      `<span class="csar-evading">EVADING — ${d.turnsOut === 0 ? 'first hours' : `${Txt.turns(d.turnsOut)} on the ground`}</span></div>` +
       `<div class="csar-line"><span class="csar-key">CAPTURE RISK</span>` +
       `<span class="${risk >= 55 ? 'est-bad' : risk >= 30 ? 'est-warn' : 'est-good'}">${risk}% before your next order</span></div>`;
 
@@ -301,7 +363,7 @@ const CSAR = (() => {
     const pct = Math.round(p * 100);
     const sCls = pct >= 60 ? 'est-good' : pct >= 40 ? 'est-warn' : 'est-bad';
     $('csar-brief-text').textContent =
-      `${d.callsign} — ${d.type} — went down ${d.loc}. ${d.crew === 2 ? 'Two aircrew are' : 'One aviator is'} ` +
+      `${d.callsign} — ${d.type} — went down ${d.loc}. ${crewPhrase(d, true)} ${Txt.are(d.crew)} ` +
       `on the ground and authenticated. The package is a pair of HH-60W Jolly Green IIs with a ` +
       `pararescue team aboard, an armed MQ-9 Reaper flying overwatch and precision fires, and tankers holding off the ` +
       `coast. It is the most exposed thing the Air Force does, it is flown into an alerted area, and ` +
@@ -464,14 +526,22 @@ const CSAR = (() => {
   // ============================================================
   // OUTCOMES — applied when the timeline finishes, never during it
   // ============================================================
+  // Who was on the ground, as roster entries. `d` is a detached copy by the time
+  // these run — executeRescue clears G.downed before the timeline plays — so the
+  // ids are the only way back to the people.
+  const aboardOf = (G, d) => (d.crewIds || []).map((id) => Aircrew.byId(G, id)).filter(Boolean);
+
   const OUTCOMES = {
     clean(G, d, events) {
       G.stats.aircrewRescued += d.crew;
+      // back on the flight schedule after REST turns, which is the only good
+      // news this subsystem ever posts to the squadron panel
+      Aircrew.setStatus(G, aboardOf(G, d), 'recovering', G.turn);
       G.approval = clamp(G.approval + 8, 0, 100);
       G.world = clamp(G.world + 3, 0, 100);
       events.push({
         cls: 'friendly', title: `RECOVERY COMPLETE — ${d.callsign} IS OUT`,
-        text: `${d.crew === 2 ? 'Both aircrew are' : 'The pilot is'} aboard the recovery ship, dehydrated ` +
+        text: `${crewPhrase(d, true)} ${Txt.are(d.crew)} aboard the recovery ship, dehydrated ` +
           `and intact, ${Math.round(4 + Math.random() * 6)} hours after ejecting over hostile ground. ` +
           `Nobody in the rescue package was hurt. The footage Tehran was preparing to run tonight does ` +
           `not exist, and the picture the country gets instead is a flight suit walking off a ramp under ` +
@@ -482,11 +552,12 @@ const CSAR = (() => {
 
     costly(G, d, events) {
       G.stats.aircrewRescued += d.crew;
+      Aircrew.setStatus(G, aboardOf(G, d), 'recovering', G.turn);
       G.casualties.us += 1;
       G.approval = clamp(G.approval + 5, 0, 100);
       events.push({
         cls: 'friendly', title: `RECOVERY COMPLETE — ONE PARARESCUEMAN KILLED`,
-        text: `${d.crew === 2 ? 'Both aircrew are' : 'The pilot is'} out. It cost a pararescueman, ` +
+        text: `${crewPhrase(d, true)} ${Txt.are(d.crew)} out. It cost a pararescueman, ` +
           `killed on the ground covering the pickup, and an airframe that will not fly again without a ` +
           `depot. The aircraft came off the objective heavy, on one good engine, trailing fuel, and put ` +
           `down on a destroyer with the survivors alive in the back. Everyone in that squadron would ` +
@@ -501,22 +572,32 @@ const CSAR = (() => {
       const taken = d.crew - saved;
       G.stats.aircrewRescued += saved;
       G.stats.aircrewCaptured += taken;
+      // The branch that splits a crew splits the roster with it: the front
+      // seater comes home and the back seater does not, and both names stay on
+      // the panel saying so for the rest of the war. This is the whole reason
+      // the two of them were separate entries rather than one "crew" record.
+      const on = aboardOf(G, d);
+      Aircrew.setStatus(G, on.slice(0, saved), 'recovering', G.turn);
+      Aircrew.setStatus(G, on.slice(saved), 'pow', G.turn);
       G.approval = clamp(G.approval - (saved ? 6 : 9), 0, 100);
       G.world = clamp(G.world - 3, 0, 100);
+      const out = on[0], left = on[1];
       events.push({
         cls: 'iran', title: saved
           ? 'PARTIAL RECOVERY — ONE AIRCREW ABOARD, ONE IN IRGC HANDS'
           : `RECOVERY FAILED — ${d.callsign} TAKEN ALIVE`,
         text: saved
-          ? `The pilot is out. The weapons systems officer was four hundred metres away when the second ` +
-            `search element came over the ridge, and the aircraft was taking fire it could not sit through. ` +
-            `The on-scene commander made the call that everyone in that cockpit will spend the rest of ` +
-            `their life defending. By morning Iranian television has the man they took, blindfolded, ` +
-            `named — and the man who came home has to watch it too.`
+          ? `${out ? Aircrew.label(out) : 'The pilot'} is out. ` +
+            `${left ? Aircrew.label(left) : 'The weapons systems officer'} was four hundred metres away ` +
+            `when the second search element came over the ridge, and the aircraft was taking fire it ` +
+            `could not sit through. The on-scene commander made the call that everyone in that cockpit ` +
+            `will spend the rest of their life defending. By morning Iranian television has the ` +
+            `prisoner they took, blindfolded, named — and the one who came home has to watch it too.`
           : `The recovery force reached the position and found the search parties already on it. The ` +
-            `survival radio changed hands while the helicopters were in the hold. ${d.callsign} is in ` +
-            `IRGC custody, on television by morning, and the aircraft that went to get him came back ` +
-            `shot up and empty. Nothing about this reads as anything but a failure, because it was one.`,
+            `survival radio changed hands while the helicopters were in the hold. ` +
+            `${out ? Aircrew.label(out) : d.callsign} is in IRGC custody, on television by morning, ` +
+            `and the aircraft that went in came back shot up and empty. ` +
+            `Nothing about this reads as anything but a failure, because it was one.`,
         dApproval: saved ? -6 : -9, dWorld: -3,
       });
     },
@@ -524,6 +605,7 @@ const CSAR = (() => {
     disaster(G, d, events) {
       G.hostageCrisis = true;
       G.stats.aircrewCaptured += d.crew;
+      Aircrew.setStatus(G, aboardOf(G, d), 'pow', G.turn);
       G.stats.aircraftLost += 2;
       const c = rand(4, 9);
       G.casualties.us += c;
@@ -533,8 +615,8 @@ const CSAR = (() => {
         cls: 'iran', title: 'RECOVERY FORCE DESTROYED — THE RESCUE IS NOW THE STORY',
         text: `The beacon was a trap and the package flew into it. A Jolly went in on short final with a ` +
           `pararescue team aboard, the MQ-9 flying overwatch was knocked out of the sky by a shoulder-launched missile ` +
-          `over the ridge, and the second helicopter could not get in to either of them. ${c} Americans ` +
-          `are dead. ${d.crew === 2 ? 'The aircrew and' : 'The aviator and'} the survivors of the ` +
+          `over the ridge, and the second helicopter could not get in to either of them. ` +
+          `${Txt.plural(c, 'American')} ${Txt.are(c)} dead. ${crewPhrase(d, true)} and the survivors of the ` +
           `helicopter crew are in IRGC custody — more prisoners than the shootdown created, taken by the ` +
           `operation launched to prevent it. Iranian state television is running the wreckage on a loop ` +
           `with the prisoners intercut. Every network at home is running it too, and the question under ` +

@@ -84,7 +84,11 @@ const UI = (() => {
     { key: 'recovery', label: 'RESCUE',  urgent: true, panels: ['csar'] },
     { key: 'tonight',  label: 'TONIGHT', panels: ['coa', 'specops'] },
     { key: 'mission',  label: 'MISSION', panels: ['objectives', 'intel'] },
-    { key: 'forces',   label: 'FORCES',  panels: ['resources', 'fleet'] },
+    // SQUADRON rides with FORCES rather than taking a seventh chip: seven
+    // labels across a 268px sidebar is ~38px each, which is below the seven
+    // characters the constraint above is written against. It also belongs here
+    // — the squadron is what STRIKE ASSETS is a count of.
+    { key: 'forces',   label: 'FORCES',  panels: ['resources', 'fleet', 'squadron'] },
     { key: 'advisors', label: 'STAFF',   panels: ['advisors'] },
     // `slot` says this group's orders share ONE budget, so its chip must not be
     // a count of rows. See railBadge — this is the flag that stops the tab
@@ -2382,6 +2386,10 @@ const UI = (() => {
     renderCoa(G);          // first in the sidebar; absent entirely on hard
     renderObjectives(G);
     renderResources(G);
+    // Immediately under STRIKE ASSETS on purpose. That panel counts sorties;
+    // this one says whose they are, and the roster only does its job if it is
+    // read on the nights nothing has gone wrong (see aircrew.js).
+    Aircrew.renderPanel(G);
     renderFleet(G);
     renderAdvisors(G);
     renderWorld(G);        // the board, then the one order against it
@@ -3359,6 +3367,11 @@ const UI = (() => {
           : ' <span class="warn">(never assessed — you fought this campaign without knowing it)</span>') +
         `<div class="dim">${result.posture.brief}</div></div>`;
     }
+
+    // Who flew it. Below the grade and outside it — the roster is a record, not
+    // a score, and PERSONNEL RECOVERY already grades what happened to aircrew
+    // (see the note in aircrew.js and WAR_GRADE in data.js).
+    html += Aircrew.endgameHtml(result.aircrew);
 
     // The campaign, one line a turn. The numbers are the shape of the war: you
     // can see the night it went wrong.

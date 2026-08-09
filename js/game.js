@@ -242,8 +242,13 @@ const Game = (() => {
     raid: 'none', raidThisTurn: false, isrPrep: 0,
     regimeChaosTurns: 0, regimeErratic: false, hostageCrisis: false,
     // downed aircrew awaiting recovery, or null — the whole CSAR subsystem
-    // (see csar.js) exists only while this does
+    // (see csar.js) exists only while this does. `downed.crewIds` points into
+    // the roster below rather than naming a stranger.
     downed: null,
+    // The squadron: thirteen named aviators carried for the campaign, drawn onto
+    // every package that flies and read in the sidebar before anything goes
+    // wrong (see aircrew.js). Built in newWar; nothing in here simulates.
+    aircrew: [],
     stats: { strikes: 0, destroyed: 0, aircraftLost: 0, peakOil: 84, backchannels: 0, carriersLost: 0,
       downedCrews: 0, aircrewRescued: 0, aircrewCaptured: 0, telsKilled: 0 },
 
@@ -552,14 +557,23 @@ const Game = (() => {
     // stock, and — worse — was played on a level whose name no longer describes
     // what it does: an EASY save would resume into a war that has taken the
     // target list away from a president who has been using it for nine turns.
-    const VERSION = 25;
+    // v26: aircrew stopped being invented at the moment they were lost. The
+    // campaign now carries a roster of named aviators with a sortie count each,
+    // and `downed` points into it instead of minting a callsign. This is the
+    // ADDING-TO-IT rule rather than the changing-the-meaning one — no v25 number
+    // means anything different here — but a v25 save has no roster and no record
+    // of who flew the first nine nights, and a squadron rebuilt from nothing on
+    // load would hand the player thirteen strangers at zero sorties in a war
+    // that has already lost two of them. There is no honest way to reconstruct
+    // that, which is the same argument every bump above makes.
+    const VERSION = 26;
     const FIELDS = [
       'turn', 'softCap', 'approval', 'oil', 'world',
       'hormuz', 'hormuzClosedTurns', 'casualties', 'res', 'caps',
       'strikesThisTurn', 'struckThisTurn', 'fatigue', 'atoPlan',
       'missions', 'sanctions', 'coalition', 'leaderCalls',
       'addressCooldown', 'sprReleases', 'negotiationsAccepted', 'negotiationMomentum',
-      'diploUsed', 'intelUsed', 'over', 'raid', 'raidThisTurn', 'isrPrep', 'downed',
+      'diploUsed', 'intelUsed', 'over', 'raid', 'raidThisTurn', 'isrPrep', 'downed', 'aircrew',
       'israelPosture', 'israelPressure', 'israelSorties', 'israelHolds', 'israelHold',
       'israelJointAvailable',
       'regimeChaosTurns', 'regimeErratic', 'hostageCrisis', 'stats',
@@ -3062,9 +3076,17 @@ const Game = (() => {
     // back exactly what this package cost rather than what a package costs
     // tonight — the tanker plan and the tasking order are both rewritten at the
     // turn boundary, and a refund computed later would be a different number.
+    // and who is flying it. Drawn here rather than at time-on-target because
+    // the whole point of the roster is that the player reads the names on the
+    // ORDER — a crew assigned at resolution is a crew nobody ever saw. The ids
+    // ride on the mission for the same reason `tanker` and `surge` do: a recall
+    // hands back exactly what this package booked (see recallMission), and the
+    // shootdown needs to know who was actually up there.
+    const crew = Aircrew.frag(G, pkg);
     G.missions.push({
       targetId: target.id, pkg: { ...pkg }, eta: pkg.eta || MISSION_ETA[pkg.asset],
       turn: G.turn, tanker: cost, surge: atoOver(pkg) > 0, coa: coaId || null,
+      crew,
     });
     AudioSys.play('targetMarked');
     UI.renderAll(G);
@@ -3116,6 +3138,9 @@ const Game = (() => {
     if (m.surge) G.fatigue = Math.max(0, (G.fatigue || 0) - ATO.fatiguePerSurge);
     if (pkg.asset !== 'cruise') G.strikesThisTurn = Math.max(0, G.strikesThisTurn - 1);
     G.stats.strikes = Math.max(0, G.stats.strikes - 1);
+    // nobody flew a package that never launched, so the sortie comes back off
+    // their count too — the panel must not credit a night that did not happen
+    Aircrew.unfrag(G, m.crew);
 
     G.missions.splice(idx, 1);
     AudioSys.play('cable');
@@ -3632,7 +3657,11 @@ const Game = (() => {
   const freeTargeting = () => diff().freeTargeting !== false;
 
   // resolve one mission at time-on-target; returns the BDA event
-  function resolveImpact(target, pkg) {
+  // `mission` is the frag this impact came from, carried in only so the loss
+  // path can name the crew that was on it (see aircrew.js). Nothing about the
+  // strike arithmetic reads it, and it is optional — a caller without one gets
+  // the anonymous shootdown csar.js has always written.
+  function resolveImpact(target, pkg, mission) {
     if (target.status === 'destroyed') {
       // an earlier package in the same volley (or turn) already finished it
       return {
@@ -3766,7 +3795,7 @@ const Game = (() => {
       G.approval = clamp(G.approval - 4, 0, 100);
       ev.dApproval = (ev.dApproval || 0) - 4;
       ev.aircraftLost = true;   // reported as a chip on the report line, not in the summary
-      const loss = CSAR.aircraftDown(target);
+      const loss = CSAR.aircraftDown(target, mission);
       text += ' ' + loss.text;
       if (loss.casualties) {
         G.casualties.us += loss.casualties;
@@ -3818,7 +3847,7 @@ const Game = (() => {
         if (resolved) return;
         resolved = true;
         AudioSys.play('impact');
-        const batchEvents = batch.map(bm => resolveImpact(target, bm.pkg));
+        const batchEvents = batch.map(bm => resolveImpact(target, bm.pkg, bm));
         for (const ev of batchEvents) events.push(ev);
         // The packages looked at more than the target on the way through. A
         // strike on a type some gap in the folder feeds off can come back with a
@@ -5293,6 +5322,9 @@ const Game = (() => {
 
     if (G.addressCooldown > 0) G.addressCooldown--;
     if (G.regimeChaosTurns > 0) G.regimeChaosTurns--;
+    // a recovered aviator goes back on the flight schedule. No RNG and no
+    // event: it is the squadron panel quietly filling back in.
+    Aircrew.turnTick(G);
     // Crew rest pays back one package a night, unconditionally, against the
     // accrual each late frag already booked. So a late frag costs exactly one
     // package-night of future tempo and no more: surge four past the plan and
@@ -5658,6 +5690,12 @@ const Game = (() => {
       kind, title: titles[reason], verdict: verdicts[reason], narrative: narratives[reason],
       grades, total: totalGrade(grades, kind, reason),
       timeline: G.timeline,
+      // The squadron, as the war left it. DISPLAY ONLY — it is deliberately not
+      // a grade row and not a term in one: PERSONNEL RECOVERY above already
+      // scores what happened to aircrew, and WAR_GRADE is a closed system
+      // measured over 1,440 campaigns. What this carries is the part a score
+      // cannot — which name it was, and how many nights they had flown first.
+      aircrew: Aircrew.roster(G).map((a) => ({ ...a })),
       // the war plan Tehran was actually running, revealed at the end whether or
       // not the player ever paid to find out during it
       posture: IranAI.posture(),
@@ -5834,6 +5872,13 @@ const Game = (() => {
       t.released = false;
       syncStatus(t);
     }
+
+    // A new squadron. Same leak class as the TARGETS loop above and it is
+    // cleared for the same reason — a second campaign must not open with the
+    // last one's sortie counts, or with two of its aviators still in Iranian
+    // custody. `downed` points into this array, so the two are reset together.
+    G.aircrew = Aircrew.newRoster();
+    G.downed = null;
 
     // Tehran's war plan, and how far along the centrifuges already are
     const plans = Object.keys(IRAN_POSTURES);
