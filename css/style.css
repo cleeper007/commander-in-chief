@@ -1957,6 +1957,12 @@ button { font-family: var(--mono); }
 .timeline-table td:not(.tl-text) { color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .timeline-table .tl-text { color: var(--text); width: 100%; }
 
+/* Believed vs actual. Same table, one loud column: the miss is the only thing
+   on the row the player did not already know, and it ties the numeric-cell rule
+   above on specificity — so it has to sit AFTER it to win. */
+.bda-table td.bda-out { color: var(--amber); font-weight: 600; }
+.end-narrative .warn { color: var(--amber); }
+
 /* ============================================================
    ALLIED HEAD-OF-GOVERNMENT CALL
    ------------------------------------------------------------

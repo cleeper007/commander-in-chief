@@ -2654,6 +2654,11 @@ const UI = (() => {
     // layer exists to make interesting: "one, probably — maybe two" is a
     // decision, and "two" is arithmetic.
     const band = Game.estimate(target);
+    // The reading goes in the record here rather than at openStrikeModal,
+    // because this is the line that actually puts a number in front of the
+    // president — the dialog above it is a name, a blurb and a package menu.
+    // See logReading in game.js.
+    Game.logReading(target);
     const hitsLo = est.gradual ? Math.max(1, Math.ceil(band.lo / est.damage)) : 0;
     const hitsHi = est.gradual ? Math.max(1, Math.ceil(band.hi / est.damage)) : 0;
     const hits = hitsLo === hitsHi ? `${hitsLo}` : `${hitsLo}–${hitsHi}`;
@@ -2768,6 +2773,9 @@ const UI = (() => {
     $('target-card-name').textContent = target.name;
     const st = target.status || 'intact';
     const band = Game.estimate(target);
+    // On easy this card is the only place a band is read, so it is the reading
+    // that gets recorded — same contract as showEstimate above.
+    Game.logReading(target);
     const col = st === 'intact' ? 'var(--red)' : st === 'damaged' ? 'var(--amber)' : 'var(--dim)';
     $('target-card-status').innerHTML =
       `<span style="color:${col}">ASSESSED ${st.toUpperCase()}` +
@@ -3299,8 +3307,11 @@ const UI = (() => {
   // ---- endgame ----
   //
   // Read top to bottom: what the war got graded, what happened, what it cost,
-  // how each part of it scored, what Tehran was doing, and then the whole thing
-  // turn by turn. The single grade goes FIRST and largest because it is the one
+  // how each part of it scored, what Tehran was doing, who flew it, how good the
+  // numbers you flew it on turned out to be, and then the whole thing turn by
+  // turn. The last three are the reveals — three different things the president
+  // could not see from inside the war, and they sit together for that reason.
+  // The single grade goes FIRST and largest because it is the one
   // thing a player takes away from the screen — the old layout opened with a
   // seven-line verdict and put six independent letters under it, which asked
   // the president to do the weighting themselves and gave them no weights.
@@ -3372,6 +3383,82 @@ const UI = (() => {
     // a score, and PERSONNEL RECOVERY already grades what happened to aircrew
     // (see the note in aircrew.js and WAR_GRADE in data.js).
     html += Aircrew.endgameHtml(result.aircrew);
+
+    // What the intelligence picture was actually worth. Every band a reading put
+    // in front of the president, against what was standing behind it at the
+    // time — the one thing thirty turns of banded estimates never told them.
+    //
+    // THE COVERT-COUNT RULE DOES NOT BIND HERE, AND THE NEXT PERSON SHOULD NOT
+    // HAVE TO RE-DERIVE WHY. Inside the war, nothing on screen may report how
+    // many gaps are left in the folder — the intel panel gives leads carried,
+    // boxes up and nights flown, and never the remainder — because that number
+    // IS the mechanic: a president who can read it knows exactly when to stop
+    // paying for collection, and the whole tier stops being a bet. This section
+    // is post-war. There is no slot left to spend, no package left to write and
+    // no decision left to corrupt, which is the same ground the Iranian war plan
+    // above is revealed on. The in-war rule is about information reaching a live
+    // decision, not about secrecy for its own sake. Anything that moves this
+    // table back inside the campaign re-opens it.
+    const readings = result.bdaLog || [];
+    if (readings.length) {
+      // WHICH ERROR THIS TABLE MEASURES, AND WHY IT IS NOT THE OBVIOUS ONE.
+      // The first cut ranked readings by how far the truth sat OUTSIDE the band,
+      // which is the natural question and produces an empty table: measured over
+      // 120 campaigns in `.claude/betatest/bdalog.js`, the truth escaped the band
+      // in 1% of readings and in 0% of the ones a collection deck flew. That is
+      // the uncertainty layer working exactly as designed — the band opens six
+      // points wide and grows six a night, so it is almost never WRONG. It is
+      // just enormous: median 21 points of the condition track, mean 35, and at
+      // the top of the range it is the whole track and says nothing at all.
+      //
+      // So the error the president actually ate is the distance from the middle
+      // of the band — the number you plan against when the screen says 20–70 and
+      // you have one package. That runs a median of 6 points and a maximum of
+      // 50, with 13% of readings 30 or more points out. THAT is the lesson this
+      // section exists to deliver, and a table of band escapes would have hidden
+      // it behind a rounding error.
+      //
+      // Midpoint rather than estimate()'s own `mid`, deliberately: `mid` carries
+      // the repair bias and is never shown, and what is being scored here is the
+      // number the president could read off the screen.
+      const mid = (r) => (r.lo + r.hi) / 2;
+      const off = (r) => Math.round(r.truth - mid(r));
+      const escaped = (r) => r.truth > r.hi || r.truth < r.lo;
+      // Worst first and capped: the lesson is the reading that was furthest out,
+      // not the ninety that were close, and a war that opens a lot of target
+      // cards takes a couple of hundred of these (median 94, max 222 measured).
+      // Sorting and capping are presentation — nothing here feeds a grade, per
+      // logReading in game.js.
+      const CAP = 12;
+      const worst = readings.slice().sort((a, b) => Math.abs(off(b)) - Math.abs(off(a)));
+      const out = worst.filter((r) => escaped(r)).length;
+
+      // No AFTER-ACTION prefix: the timeline below carries one, and two of them
+      // stacked reads as a repeated heading rather than two different reveals.
+      html += '<div class="end-section">WHAT YOU WERE TOLD, AND WHAT WAS TRUE</div>';
+      html += `<p class="dim end-narrative">${plural(readings.length, 'assessment')} read during the ` +
+        `campaign. An estimate opens six points wide the night a collection deck flies it and grows ` +
+        `twelve wider for every night nobody looks again, so the band nearly always held the true ` +
+        `condition — it failed ` +
+        (out ? `<span class="warn">${plural(out, 'time')}</span>. ` : 'not once. ') +
+        `What it could not tell you is where inside it you were. These are the readings you were ` +
+        `furthest out on: a plus is a site standing in better shape than the middle of your estimate — ` +
+        `a package you believed had done the job and had not — and a minus is one already further gone ` +
+        `than you thought, and ordnance spent on damage that was already there.</p>`;
+      html += '<table class="timeline-table bda-table"><tr><th>T</th><th>AIMPOINT</th>' +
+        '<th>ASSESSED</th><th>ACTUAL</th><th>OUT BY</th></tr>';
+      for (const r of worst.slice(0, CAP)) {
+        html += `<tr><td>${r.turn}</td><td class="tl-text">${r.name}` +
+          (escaped(r) ? ' <span class="dim">— outside the band entirely</span>' : '') + `</td>` +
+          `<td>${r.lo}–${r.hi}%</td><td>${r.truth}%</td>` +
+          `<td class="bda-out">${off(r) === 0 ? '—' : signed(off(r))}</td></tr>`;
+      }
+      html += '</table>';
+      if (readings.length > CAP) {
+        html += `<p class="dim end-narrative">` +
+          `${plural(readings.length - CAP, 'further reading')} closer than these.</p>`;
+      }
+    }
 
     // The campaign, one line a turn. The numbers are the shape of the war: you
     // can see the night it went wrong.

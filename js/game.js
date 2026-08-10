@@ -334,6 +334,12 @@ const Game = (() => {
     // one line per turn, for the after-action recap on the endgame screen
     timeline: [],
 
+    // one row per reading the president paid for, for the believed-vs-actual
+    // table on the same screen. Written only by logReading; read only by the
+    // endgame. Not reset in newWar for the same reason `timeline` is not —
+    // every path to a new campaign reloads the page, so G is already fresh.
+    bdaLog: [],
+
     // Platforms flown, and the deepest counter Iran has been seen to develop
     // against each. See IranAI.adaptPenalty.
     adapt: { cruise: 0, f35: 0, fighter: 0, stealth: 0, heavy: 0 },
@@ -566,7 +572,16 @@ const Game = (() => {
     // load would hand the player thirteen strangers at zero sorties in a war
     // that has already lost two of them. There is no honest way to reconstruct
     // that, which is the same argument every bump above makes.
-    const VERSION = 26;
+    // v27: the war now keeps a record of what it told the president. `bdaLog` is
+    // every band a reading put in front of them beside what was actually
+    // standing at the time, read back on the endgame screen (see logReading).
+    // ADDING-TO-IT again — no v26 number changes meaning — but the table is a
+    // claim about the whole campaign, and a v26 save carries no readings from
+    // the nights already flown. Resuming one would end in a believed-vs-actual
+    // section reporting that the president was never handed a wrong number for
+    // the first half of their war, which is not a smaller record than the real
+    // one. It is a different and flattering one, presented as the record.
+    const VERSION = 27;
     const FIELDS = [
       'turn', 'softCap', 'approval', 'oil', 'world',
       'hormuz', 'hormuzClosedTurns', 'casualties', 'res', 'caps',
@@ -703,6 +718,46 @@ const Game = (() => {
       mid: clamp(Math.round(rec.hp + growth / 2), 0, 100),
       known: false, age,
     };
+  }
+
+  // ============================================================
+  // WHAT THE PRESIDENT WAS TOLD, AND WHAT WAS TRUE
+  // ------------------------------------------------------------
+  // The band above is the entire point of the intelligence layer, and until now
+  // the player never found out whether it was any good — they made thirty turns
+  // of decisions on numbers with error bars and the war ended without ever
+  // saying which of those numbers were lies. Every reading is written down here
+  // beside the truth it was standing in front of, and the pair is read back
+  // after the shooting stops (see the believed-vs-actual table in showEndgame).
+  //
+  // LOGGED ON LOOK, NOT ON TICK. The obvious implementation is a sweep of every
+  // target at the turn boundary, and it is wrong twice: forty rows a night is a
+  // save blob carrying a thousand rows of a table nobody scrolls, and — the part
+  // that actually matters — most of those rows are beliefs the president never
+  // formed. What goes in here is a reading they SPENT something on: an
+  // intelligence slot on a BDA tasking, a slot on a collection deck against the
+  // folder, or the deliberate act of opening a target's card while writing the
+  // night. Those are the numbers they acted on, which is the only question the
+  // table asks. The map tooltip is deliberately not one of them — a band that
+  // appears because the cursor crossed an icon is not a decision.
+  //
+  // One row per target per turn, latest look wins, so a card opened four times
+  // while building a package is one belief rather than four. And only readings
+  // that are genuinely judgement calls are kept: a `known` estimate is one of
+  // the two states that are never in doubt — untouched, or visibly collapsed —
+  // so its band is the truth by construction and a row saying so teaches
+  // nothing except that the table is padded.
+  //
+  // NOTHING READS THIS. It is a recorder and a display: no grade term, no
+  // advisor input, no mechanic. If something here ever becomes an input, it
+  // stops being a record of what the president believed and starts being a
+  // second intelligence channel that reports the answer.
+  function logReading(t) {
+    const e = estimate(t);
+    if (e.known) return;
+    const row = { turn: G.turn, id: t.id, lo: e.lo, hi: e.hi, truth: Math.round(t.hp) };
+    const i = G.bdaLog.findIndex(r => r.turn === row.turn && r.id === row.id);
+    if (i >= 0) G.bdaLog[i] = row; else G.bdaLog.push(row);
   }
 
   // The sites a collection deck would actually be worth flying against: hit at
@@ -973,8 +1028,10 @@ const Game = (() => {
         t.worked = 0;
         G.stats.covertFound = (G.stats.covertFound || 0) + 1;
         // it goes onto the plot with a fresh, deliberate assessment rather than
-        // as an unknown quantity — the deck that found it also looked at it
+        // as an unknown quantity — the deck that found it also looked at it,
+        // and that look is a reading the slot was spent on like any other
         observe(t, true);
+        logReading(t);
         MapView.syncCovert();
         MapView.updateTarget(t);
         return {
@@ -4478,7 +4535,10 @@ const Game = (() => {
           });
           break;
         }
-        for (const { t } of stale) observe(t, true);
+        // logged after the observe, because what goes in the record is the
+        // number the event text below is about to read out — not the stale one
+        // that made the site worth the sortie
+        for (const { t } of stale) { observe(t, true); logReading(t); }
         events.push({
           cls: 'friendly', title: 'BATTLE DAMAGE REASSESSMENT COMPLETE', internal: true,
           text: 'A full collection deck — overhead passes, a Global Hawk orbit and the signals picture — ' +
@@ -5690,6 +5750,14 @@ const Game = (() => {
       kind, title: titles[reason], verdict: verdicts[reason], narrative: narratives[reason],
       grades, total: totalGrade(grades, kind, reason),
       timeline: G.timeline,
+      // Every band a reading put in front of the president, beside what was
+      // actually standing when they were shown it. DISPLAY ONLY, on the same
+      // terms as the roster below — see logReading. Resolved to names here so
+      // the endgame screen never has to reach into TARGETS to draw a table.
+      bdaLog: G.bdaLog.map((r) => {
+        const t = TARGETS.find((x) => x.id === r.id);
+        return { turn: r.turn, name: t ? t.short : r.id, lo: r.lo, hi: r.hi, truth: r.truth };
+      }),
       // The squadron, as the war left it. DISPLAY ONLY — it is deliberately not
       // a grade row and not a term in one: PERSONNEL RECOVERY above already
       // scores what happened to aircrew, and WAR_GRADE is a closed system
@@ -6069,8 +6137,10 @@ const Game = (() => {
     // the precision-munitions stock. pgmBlock is the one sentence for "we
     // cannot build this package up", the same contract pkgBlock has.
     pgmLedger, pgmBlock, pgmCost, pgmNights,
-    // the uncertainty layer: everything the player sees goes through these
-    estimate, condition, staleEstimates, targetDesc, breakoutEstimate, barred, canReach, tankersFor, tankerCapacity,
+    // the uncertainty layer: everything the player sees goes through these.
+    // logReading is the write side of it — the panels that show a band call it
+    // so the after-action screen can say how good the band was.
+    estimate, condition, logReading, staleEstimates, targetDesc, breakoutEstimate, barred, canReach, tankersFor, tankerCapacity,
     casualtyLimit, difficulty: diff,
     // the southern front, for the council panel — `houthiStrength` is what the
     // readout draws and `reachesYemen` is why the aimpoints are greyed out
