@@ -468,30 +468,63 @@ button { font-family: var(--mono); }
    of a black-and-amber war room. (That panel has since been merged back in, but
    the rule is why a new one cannot repeat it.) #session-buttons is deliberately
    outside #sidebar-scroll and keeps its own styling. */
-#sidebar-scroll [id$="-buttons"] {
+/* A section this level does not have. Two classes rather than one because they
+   have two owners: `hidden` is the renderers' — CSAR toggles it as aircrew go
+   down and come home, renderCoa as the staff finds something to brief — and
+   `mode-off` is the difficulty's, written once at boot by UI.applyPanelTrim off
+   DIFFICULTY.railPanels. One class for both would mean every render undoing the
+   trim and every turn re-applying it, which is a panel that flickers on a level
+   that does not have it. */
+.panel.mode-off { display: none; }
+
+/* …and the same order rows inside a dialog, for the two decisions that arrive
+   as one on a staffed level (see DIFFICULTY.popups). The selector is extended
+   rather than copied for exactly the reason the note above gives: a list of ids
+   is what once shipped a whole panel unstyled, and the shape — a container
+   named `…-buttons` full of order buttons — is identical in both homes. */
+#sidebar-scroll [id$="-buttons"],
+.modal [id$="-buttons"] {
   display: flex; flex-direction: column; gap: 6px;
 }
 /* `:not(.action-why)` throughout: the disclosure caret is a button in these
    same containers but it is not an order, and this id-scoped rule would
    otherwise out-specify everything the .action rules below try to say about
    it — including its width, which is a touch target. */
-#sidebar-scroll [id$="-buttons"] button:not(.action-why) {
+#sidebar-scroll [id$="-buttons"] button:not(.action-why),
+.modal [id$="-buttons"] button:not(.action-why) {
   text-align: left; padding: 7px 10px; font-size: 11.5px; line-height: 1.35;
   background: var(--bg-panel2); border: 1px solid var(--line);
   color: var(--text); cursor: pointer;
 }
-#sidebar-scroll [id$="-buttons"] button:not(.action-why):hover:not(:disabled) {
+#sidebar-scroll [id$="-buttons"] button:not(.action-why):hover:not(:disabled),
+.modal [id$="-buttons"] button:not(.action-why):hover:not(:disabled) {
   border-color: var(--blue);
 }
-#sidebar-scroll [id$="-buttons"] button:disabled { opacity: 0.35; cursor: not-allowed; }
+#sidebar-scroll [id$="-buttons"] button:disabled,
+.modal [id$="-buttons"] button:disabled { opacity: 0.35; cursor: not-allowed; }
 /* the order line reads first; the cost of giving it reads second.
    Special operations and recovery still render this shape directly — they are
    one-button panels whose whole description IS the odds, so there is nothing
    to fold away. */
-#sidebar-scroll [id$="-buttons"] .diplo-desc {
+#sidebar-scroll [id$="-buttons"] .diplo-desc,
+.modal [id$="-buttons"] .diplo-desc {
   color: var(--dim); display: block; font-size: 10.5px; line-height: 1.45;
   margin-top: 3px;
 }
+
+/* What CENTCOM did without being asked, above what it is asking. Set off from
+   the options rather than written as another card, because it is not a choice
+   and must not be mistaken for the one the president is about to make. */
+.brief-notes {
+  border-left: 2px solid var(--blue); padding: 2px 0 2px 9px; margin-bottom: 11px;
+}
+.brief-notes-head {
+  color: var(--blue); font-size: 9.5px; letter-spacing: 0.08em; margin-bottom: 5px;
+}
+.brief-note {
+  color: var(--dim); font-size: 11px; line-height: 1.45; margin-bottom: 5px;
+}
+.brief-note:last-child { margin-bottom: 0; }
 
 /* An action is an order, its live state, and — folded away — what the order
    actually is. The mechanism text is identical every turn for thirty turns;

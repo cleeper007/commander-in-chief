@@ -123,6 +123,12 @@ const Game = (() => {
   const diff = () => DIFFICULTY[G.difficulty] || DIFFICULTY.normal;
   const casualtyLimit = () => diff().casualties;
 
+  // Does this decision arrive as a dialog rather than as a drawer in the
+  // sidebar? One reader for DIFFICULTY.popups, exported, so that the four
+  // places that ask (the staff's brief, a recovery, and the diplomatic and
+  // intelligence briefs behind them) cannot each grow their own answer.
+  const popup = (key) => (diff().popups || []).includes(key);
+
   // The congressional clock. Early in the second week the authorization the war
   // has been running on runs out and the Hill votes. Pulled forward from turn 13:
   // most campaigns were being decided before the old date, so the vote — and its
@@ -1962,6 +1968,103 @@ const Game = (() => {
     AudioSys.play('cable');
     UI.renderAll(G);
     Save.write();
+  }
+
+  // ============================================================
+  // CENTCOM MAKES THE THEATER CALLS — DIFFICULTY.autoTheater
+  // ------------------------------------------------------------
+  // The force flow is the one part of THEATER FORCES that a staffed level could
+  // not simply stop offering. Fordow has exactly one key and it is at Whiteman
+  // until somebody sends for it, so a president who never opens that panel
+  // cannot finish the enrichment program — the war's whole objective — at any
+  // skill level. Taking the panel away without taking the DECISION away does
+  // not simplify the level, it makes it unwinnable.
+  //
+  // So on easy the staff makes these calls, and the order below is the argument
+  // for what "optimal" means here rather than a preference:
+  //
+  //   1. The 509th first, always, and on night one. It is a one-turn transit
+  //      against a fifteen-day war and it is the only thing on this list that
+  //      unlocks a target rather than adding weight to targets already reachable.
+  //   2. The screen's magazine before the second deck. A dry Aegis screen is
+  //      casualties on the ramps at Al Udeid and Al Dhafra tonight, and the
+  //      rearm costs three nights whenever it is taken — so it is taken while
+  //      there are still rounds to fight with rather than after.
+  //   3. The Ford, which is a second air wing and five turns of waiting.
+  //   4. The heavies, the moment the belt is breaking enough for Air Combat
+  //      Command to release them. They cannot fly until the sky is taken, so
+  //      calling them at `degraded` is the earliest a real staff would.
+  //
+  // Fifth Fleet cuts ONE transit plan a night (see transitCommitted), which is
+  // what makes this a priority list rather than four independent yes/nos — the
+  // order above IS the decision the panel was asking for.
+  //
+  // Posture is separate from the transit slot and is decided every night: the
+  // deck sits forward, because the Aegis umbrella, the weight on the strait and
+  // the lid on the oil premium all hang off that station and a president who is
+  // not managing the fleet is not managing the anti-ship threat either. She
+  // comes back only to reload, which is the one thing that cannot be done on
+  // station.
+  //
+  // Everything here goes through the SAME order functions the panel's buttons
+  // call. Nothing in this block may write G directly — same rule takeCoa follows
+  // for the tasking order, and for the same reason: an automatic call that took
+  // a shortcut around orderBombers would be a second force-flow path to keep in
+  // step with the first.
+  const AUTO_REARM_AT = 0.25;   // fraction of the magazine left before she reloads
+
+  // What the staff did tonight, in the president's words, for the brief dialog
+  // to read back. Transient by design — a note that survived a reload would
+  // report an order given yesterday as tonight's news — so it never goes near
+  // FIELDS. Read and cleared by UI.openBrief.
+  let theaterNotes = [];
+  const takeTheaterNotes = () => { const n = theaterNotes; theaterNotes = []; return n; };
+
+  function autoTheater() {
+    if (G.over || !diff().autoTheater) return;
+
+    // ---- posture, which does not spend the transit plan ----
+    const cv = G.carriers.find(c => c.arrived && !c.lost && !cvFixed(c));
+    if (cv && !bmdRearming()) {
+      if (bmdFrac() < AUTO_REARM_AT && IranAI.missileStrength() > 0) {
+        orderRearm();
+        theaterNotes.push(`The escort screen is down to ${Math.round(bmdFrac() * 100)}% of its ` +
+          `interceptors. ${cvShort(cv)} is detaching to the ammunition ship to reload — no umbrella ` +
+          `over the Gulf bases for ${Txt.turns(NAVAL_BMD.rearmTurns)}.`);
+      } else if (cv.posture !== 'forward' && !cv.moving) {
+        toggleCarrierPosture(cv.id);
+        theaterNotes.push(`${cvShort(cv)} is moving back up into the Gulf of Oman — Aegis over the ` +
+          `Gulf bases, weight on the strait, and a lid on the barrel.`);
+      }
+    }
+
+    // ---- the transit plan, one a night ----
+    if (transitCommitted()) return;
+    if (!G.bombersOrdered) {
+      orderBombers();
+      theaterNotes.push('The 509th is moving Whiteman to Diego Garcia tonight. Until those aircraft ' +
+        'are on the ramp the GBU-57 is not in theater, and Fordow is a briefing slide.');
+    } else if (!G.secondCarrierOrdered) {
+      orderCarrier();
+      theaterNotes.push(`${cvShort(G.carriers.find(c => !c.arrived) || G.carriers[0])} has been surged ` +
+        'out of the Mediterranean and down through the canal. Five turns out, and a second air wing ' +
+        'when she gets there.');
+    } else if (!G.heaviesOrdered && phaseAtLeast('degraded')) {
+      orderHeavies();
+      theaterNotes.push('The belt is breaking, so Air Combat Command has released the heavies. B-1s ' +
+        'and B-52s are moving to RAF Fairford against the night the sky is finally ours.');
+    }
+  }
+
+  // Where tonight's decision arrives. Two shapes of the same brief: a dialog
+  // the president has to answer before the room moves on, or the sidebar panel
+  // that has always held it. The level decides (see DIFFICULTY.popups), and this
+  // is the only thing that opens either — nextTurn and start both come here so
+  // the first night and the twenty-ninth are staged identically.
+  function openBrief() {
+    const list = diff().coa ? coaOptions() : [];
+    if (popup('brief')) UI.openBrief(list, takeTheaterNotes());
+    else if (list.length) UI.openPanel('coa', true);
   }
 
   // ---- end-of-turn fleet movement ----
@@ -5536,6 +5639,10 @@ const Game = (() => {
     // is not what tonight's is, and an open section scrolls the rest past the fold
     UI.closeAllPanels();
 
+    // Before the brief rather than after it: the theater calls are part of what
+    // the staff has to report, and the dialog below reads their notes back.
+    autoTheater();
+
     UI.renderAll(G);
     // ...except the staff's brief, which is not "a section the player might
     // want" — on easy it is the entire night's decision, and a shut panel over
@@ -5543,7 +5650,7 @@ const Game = (() => {
     // player can end a turn without knowing they were asked anything. Opened
     // AFTER renderAll, because renderCoa is what decides whether the panel
     // exists tonight at all.
-    if (diff().coa && coaOptions().length) UI.openPanel('coa', true);
+    openBrief();
     Save.write();
   }
 
@@ -5909,6 +6016,10 @@ const Game = (() => {
   function start(resume) {
     document.getElementById('title-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
+    // which sections this level has at all, before anything is opened or shut.
+    // First thing in start() because the difficulty is only settled now — the
+    // title screen is where it is chosen, and a resumed save carries its own.
+    UI.applyPanelTrim();
     // a war opens — and a save resumes — with every sidebar section shut
     UI.closeAllPanels();
     MapView.render();
@@ -5951,16 +6062,23 @@ const Game = (() => {
     // shown once at the top of a fresh war; the HOW TO PLAY button in the
     // sidebar brings it back for the rest of the campaign.
     if (!resume) {
-      UI.showPrimer();
+      // The theater calls run before either dialog: night one is the night the
+      // 509th moves, and the brief is where the president is told so.
+      autoTheater();
+      // Chained rather than stacked. Both of these are dialogs, and opening the
+      // night's decision on top of the how-to-play screen puts the one thing
+      // the player must answer behind the one thing they are still reading.
+      UI.showPrimer(false, () => {
       // Turn one, fresh war only. The sidebar's own opening-night content IS the
       // tutorial: two advisors start the campaign flagged URGENT and between
       // them they name the first move — kill the SAM belt, and move either the
       // Ford or the 509th tonight, because Fifth Fleet only cuts one transit
-      // plan a night. Shipping that behind a shut drawer meant the last thing a
-      // new player saw before their first order was seven closed panels and a
-      // row of badges. This does not reverse the shut-sidebar policy in ui.js:
-      // nextTurn's closeAllPanels shuts it again at the top of turn 2, and a
-      // resumed save never sees it at all.
+      // plan a night (on a level with `autoTheater` that second half is already
+      // done and the brief has said so). Shipping that behind a shut drawer
+      // meant the last thing a new player saw before their first order was seven
+      // closed panels and a row of badges. This does not reverse the
+      // shut-sidebar policy in ui.js: nextTurn's closeAllPanels shuts it again
+      // at the top of turn 2, and a resumed save never sees it at all.
       //
       // ONE panel, not two. Opening the objectives checklist as well sounds
       // helpful and is not: together they overrun the scroll pane at every
@@ -5973,7 +6091,9 @@ const Game = (() => {
       // ...unless the staff is briefing, in which case that outranks it: on
       // easy the options ARE turn one, and the advisors argue for the same
       // doctrines one panel down.
-      UI.openPanel(diff().coa && coaOptions().length ? 'coa' : 'advisors', true);
+        if (popup('brief') || (diff().coa && coaOptions().length)) openBrief();
+        else UI.openPanel('advisors', true);
+      });
     }
   }
 
@@ -6225,6 +6345,12 @@ const Game = (() => {
       if (busy()) return;   // never over a resolving turn or an open set piece
       UI.showPrimer(true);
     });
+    // The way back into a dismissed brief. No theater notes: those were tonight's
+    // news the first time the dialog opened and are not news twice.
+    document.getElementById('btn-brief').addEventListener('click', () => {
+      if (busy()) return;
+      UI.openBrief();
+    });
   }
 
   document.addEventListener('DOMContentLoaded', init);
@@ -6273,6 +6399,9 @@ const Game = (() => {
     // so the after-action screen can say how good the band was.
     estimate, condition, logReading, staleEstimates, targetDesc, breakoutEstimate, barred, canReach, tankersFor, tankerCapacity,
     casualtyLimit, difficulty: diff,
+    // where a decision arrives on this level — a dialog, or a drawer. ui.js and
+    // csar.js both ask; neither is allowed its own answer (see DIFFICULTY.popups)
+    popup,
     // the southern front, for the council panel — `houthiStrength` is what the
     // readout draws and `reachesYemen` is why the aimpoints are greyed out
     houthiStrength, reachesYemen, yemenTargets,

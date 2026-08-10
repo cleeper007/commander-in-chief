@@ -262,13 +262,59 @@ const CSAR = (() => {
   // ============================================================
   // SIDEBAR PANEL — exists only while there is someone to go get
   // ============================================================
+  // ============================================================
+  // WHERE A RECOVERY IS READ — DIFFICULTY.popups
+  // ------------------------------------------------------------
+  // Two homes for the same three lines and two orders: the sidebar section, or
+  // a dialog on a level that pops it. The dialog is the better fit for what this
+  // actually is — Americans on the ground in Iran is the one thing in the game
+  // that is genuinely an interruption, and the panel has always had to fake that
+  // by opening itself. A pop-up does not have to fake it.
+  //
+  // The pop-up is a BRIEF, not the authorization. LAUNCH THE RECOVERY still
+  // hands off to the mission modal below, with the odds broken out row by row,
+  // because that dialog is the one that spends the sortie and there is one
+  // attempt ever. Two dialogs is right here and nowhere else in this file.
+  const popped = () => Game.popup('recovery');
+
+  // Opened once per arrival, not once per render. renderPanel runs several times
+  // inside a turn — every strike redraws the sidebar — and a dialog that
+  // reopened on each of them would be unclosable for as long as the crew is out.
+  let briefShown = false;
+
+  // RECOVERY sits beside BRIEF ME in the session buttons, on for exactly as long
+  // as there is somebody on the ground to go and get.
+  function syncButton(on) {
+    const btn = $('btn-recovery');
+    if (btn) btn.classList.toggle('hidden', !on);
+  }
+
   function renderPanel(G) {
     const panel = $('csar-panel');
     if (!panel) return;
     const d = G.downed;
-    if (!d && !running) { panel.classList.add('hidden'); return; }
+    syncButton(popped() && !!d && !running);
+    if (!d && !running) {
+      panel.classList.add('hidden');
+      briefShown = false;   // the next crew down is news again
+      if (popped()) closeBrief();
+      return;
+    }
     const wasHidden = panel.classList.contains('hidden');
-    panel.classList.remove('hidden');
+    // On a level that pops the recovery the panel is trimmed out of the sidebar
+    // entirely (see DIFFICULTY.railPanels) and openPanel refuses it, so leaving
+    // `hidden` off would put a section on the rail that CSS has already hidden.
+    if (!popped()) panel.classList.remove('hidden');
+
+    if (popped()) {
+      renderBrief(G);
+      // Americans on the ground do not wait behind a caret, and they do not wait
+      // behind a dismissed dialog either: the brief opens on the turn the crew
+      // goes down, and after that it is the player's to reopen.
+      if (!briefShown) { briefShown = true; $('recovery-modal').classList.remove('hidden'); }
+      return;
+    }
+
     // The sidebar is shut at the top of every turn and opens only when clicked
     // — with this one exception. Americans on the ground in Iran is not news
     // that waits behind a caret for the player to go looking for it, so the
@@ -291,14 +337,23 @@ const CSAR = (() => {
     status.textContent = `— ${d.callsign} DOWN`;
     status.style.color = 'var(--amber)';
 
-    const { p } = odds(G);
+    brief.innerHTML = briefLines(G);
+    box.innerHTML = orderRows(G);
+    wireOrders(box);
+  }
+
+  // The five lines and the two orders, built once for both homes. Same argument
+  // as coaRows in ui.js: a second copy of this markup is a second place for the
+  // capture-risk line to fall out of, and that line is the whole reason the
+  // player is being asked to decide tonight rather than tomorrow.
+  function briefLines(G) {
+    const d = G.downed;
     const risk = Math.round(captureRisk(G) * 100);
     // Named, and with the sortie count beside the name. The player has been
     // reading these two facts in the squadron panel all campaign; the whole
     // point of the roster is that this line is not the first time.
     const down = (d.crewIds || []).map((id) => Aircrew.byId(Game.G, id)).filter(Boolean);
-    brief.innerHTML =
-      `<div class="csar-line"><span class="csar-key">AIRCREW</span>` +
+    return `<div class="csar-line"><span class="csar-key">AIRCREW</span>` +
       `<span>${down.length
         ? down.map((a) => `${Aircrew.label(a)} <span class="dim">· ${Txt.plural(a.sorties, 'sortie')}</span>`).join('<br>')
         : `${Txt.plural(d.crew, 'aviator')}`}</span></div>` +
@@ -308,7 +363,11 @@ const CSAR = (() => {
       `<span class="csar-evading">EVADING — ${d.turnsOut === 0 ? 'first hours' : `${Txt.turns(d.turnsOut)} on the ground`}</span></div>` +
       `<div class="csar-line"><span class="csar-key">CAPTURE RISK</span>` +
       `<span class="${risk >= 55 ? 'est-bad' : risk >= 30 ? 'est-warn' : 'est-good'}">${risk}% before your next order</span></div>`;
+  }
 
+  function orderRows(G) {
+    const d = G.downed;
+    const { p } = odds(G);
     const noEscort = G.res.fighters < 1;
     const buttons = [
       {
@@ -330,12 +389,43 @@ const CSAR = (() => {
         danger: true,
       },
     ];
-    box.innerHTML = buttons.map(b =>
+    return buttons.map(b =>
       `<button data-csar="${b.id}" ${b.disabled ? 'disabled' : ''} class="${b.danger ? 'specops-danger' : ''}">` +
       `${b.name}<span class="diplo-desc">${b.desc}</span></button>`).join('');
+  }
+
+  function wireOrders(box) {
     for (const btn of box.querySelectorAll('button')) {
-      btn.addEventListener('click', () => btn.dataset.csar === 'isr' ? doIsr() : openModal());
+      btn.addEventListener('click', () => {
+        // Either order closes the brief. ISR resolves into a report of its own,
+        // and LAUNCH hands off to the authorization dialog — in both cases the
+        // next thing on screen is the answer to the question this dialog asked.
+        if (popped()) closeBrief();
+        btn.dataset.csar === 'isr' ? doIsr() : openModal();
+      });
     }
+  }
+
+  // ---- the recovery, as a dialog ----
+  function renderBrief(G) {
+    const body = $('recovery-brief');
+    const box = $('recovery-buttons');
+    if (!body || !box) return;
+    if (running) {
+      body.innerHTML = '<div class="dim">The recovery force is on the objective. Watch the feed. ' +
+        'Nothing else happens until they are out — with our people or without them.</div>';
+      box.innerHTML = '';
+      return;
+    }
+    $('recovery-modal-who').textContent = `${G.downed.callsign} DOWN`;
+    body.innerHTML = briefLines(G);
+    box.innerHTML = orderRows(G);
+    wireOrders(box);
+  }
+
+  function closeBrief() {
+    const m = $('recovery-modal');
+    if (m) m.classList.add('hidden');
   }
 
   // ---- ISR push (spends the turn's intelligence slot) ----
@@ -703,6 +793,15 @@ const CSAR = (() => {
   // ---- wiring ----
   function init() {
     $('btn-confirm-rescue').addEventListener('click', executeRescue);
+    // The way back into a dismissed recovery brief, and the reason the brief is
+    // allowed to be dismissed at all. Waiting a night is a real option here —
+    // the capture risk on the card is the price of it — so this cannot be a
+    // dialog with no close, the way the allied call is.
+    $('btn-recovery').addEventListener('click', () => {
+      if (Game.busy() || running || !Game.G.downed) return;
+      renderBrief(Game.G);
+      $('recovery-modal').classList.remove('hidden');
+    });
   }
 
   return { init, renderPanel, aircraftDown, turnTick, syncMap, busy: () => running };

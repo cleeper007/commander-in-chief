@@ -2314,15 +2314,57 @@ const COA = {
 // everything a fighter or a bomber dropped regenerated overnight forever, so
 // the wing had infinite bombs and the war had no logistics in it. It does now,
 // on the one level that asked for it.
+//
+// v1.87 — WHERE THE DECISION ARRIVES, AND HOW MANY DRAWERS ARE OPEN.
+// Three more knobs, and all three are the same argument as `coa` taken one step
+// further: a level that staffs the night for the president should not also hand
+// them the eleven-section sidebar the level that staffs nothing needs.
+//
+//   railPanels   the sidebar sections this level HAS. null = all eleven.
+//   popups       decisions that arrive as a dialog instead of a drawer.
+//   autoTheater  CENTCOM makes the force-flow calls rather than offering them.
+//
+// `railPanels` is a whitelist rather than a list of things to hide, because the
+// failure mode of a blacklist here is silent: a section added later joins every
+// level automatically and the trim quietly stops being a trim. It is the ONE
+// home for that decision — nothing else in ui.js may hide a panel by level.
+//
+// Easy's core three are the ones with an order in them that only a president
+// can give: the staff (who argue), strike assets (what is left to fly with) and
+// special operations (the one irreversible call). Of the eight that came off:
+// TONIGHT'S OPTIONS and PERSONNEL RECOVERY moved into dialogs (`popups`),
+// THEATER FORCES is now CENTCOM's problem (`autoTheater`), and OBJECTIVES,
+// SQUADRON and THE WORLD are readouts — the breakout clock is already in the
+// bottom bar's read cell and in the advisors' mouths, and a president who is
+// not writing the tasking order is not costing the gauges out by hand either.
+//
+// DIPLOMATIC ACTIONS and INTELLIGENCE TASKING are the two that stayed against
+// the trim, and deliberately: they are the level's two FREE ACTION SLOTS, and
+// the primer names never spending them as the most common way a new player
+// loses. They come off this list the night the SecDef and NSA brief them as
+// dialogs of their own — which is the same move TONIGHT'S OPTIONS just made —
+// and not before, because a slot with no door is not a simpler game, it is a
+// smaller one.
+//
+// `autoTheater` exists because the theater calls are the one thing a staffed
+// level could not simply drop. Fordow has one key — the GBU-57, which is at
+// Whiteman until the 509th is sent for — so a president who never opens THEATER
+// FORCES cannot finish the program at any skill level (see the note under THE
+// THREE LEVELS ARE THREE DIFFERENT JOBS in CLAUDE.md). Hiding that panel without
+// this flag does not simplify easy, it makes it unwinnable.
 const DIFFICULTY = {
   easy:   { name: 'EASY', casualties: 320, repair: 0.75, coord: 0.85, breakout: 1.25, israel: 0.75, bmd: 1.35, covert: 1.3, retaliation: 0.55, softGate: false,
     coa: 3, coaFill: 'full', freeTargeting: false, recommend: true, pgm: 0,
-    desc: 'You are the President, and CENTCOM staffs the night for you. Three courses of action every evening — pick the one the war needs. No target lists, no magazines: read the board, choose the doctrine, and live with it. The country is patient, Iran rebuilds slowly and Jerusalem is willing to wait.' },
+    railPanels: ['advisors', 'resources', 'specops', 'diplo', 'intel'],
+    popups: ['brief', 'recovery'], autoTheater: true,
+    desc: 'You are the President, and CENTCOM staffs the night for you. Three courses of action every evening — pick the one the war needs. No target lists, no magazines, no force flow to manage: read the board, choose the doctrine, and live with it. The country is patient, Iran rebuilds slowly and Jerusalem is willing to wait.' },
   normal: { name: 'NORMAL', casualties: 250, repair: 1, coord: 1, breakout: 1, israel: 1, bmd: 1, covert: 1, retaliation: 0.75, softGate: false,
     coa: 2, coaFill: 'half', freeTargeting: true, recommend: false, pgm: 0,
+    railPanels: null, popups: [], autoTheater: false,
     desc: 'A staff you can overrule. Two options are briefed each night and neither one fills the tasking order — what is left over you frag yourself, off the map, against whatever you think they have missed. The war as designed.' },
   hard:   { name: 'HARD', casualties: 190, repair: 1.25, coord: 1.15, breakout: 0.85, israel: 1.3, bmd: 0.7, covert: 0.75, retaliation: 1, softGate: true,
     coa: 0, coaFill: 'full', freeTargeting: true, recommend: false, pgm: 440,
+    railPanels: null, popups: [], autoTheater: false,
     desc: 'You are the air component commander and nobody is drafting anything for you. Every package by hand, a finite stock of precision weapons that only the munitions ships replace, less patience at home, faster Iranian repair, a light interceptor magazine and no patience at all in Jerusalem. The staff will fly any plan you sign and hand you the casualty list afterwards.' },
 };
 

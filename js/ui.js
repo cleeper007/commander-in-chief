@@ -111,11 +111,39 @@ const UI = (() => {
   const railGroup = (key) => RAIL_GROUPS.find((g) => g.key === key);
   const groupFor = (panelKey) => RAIL_GROUPS.find((g) => g.panels.includes(panelKey));
 
+  // ============================================================
+  // THE SECTIONS THIS LEVEL HAS — DIFFICULTY.railPanels
+  // ------------------------------------------------------------
+  // A level that staffs the night for the president should not also hand them
+  // the eleven-drawer sidebar the level that staffs nothing needs. The whitelist
+  // lives in data.js, next to the knobs that decide who does the targeting,
+  // because that is the same decision one step further out; this is only the
+  // thing that applies it.
+  //
+  // `mode-off` rather than `hidden`, and that is the whole reason this works.
+  // Four of these panels toggle `hidden` on themselves every render — CSAR when
+  // aircrew are down, TONIGHT'S OPTIONS when the staff has something to brief —
+  // so a trim written in the same class would be undone by the next draw and
+  // re-applied by the next turn, flickering panels the level does not have. Two
+  // classes, two owners: `hidden` stays the renderers', `mode-off` is the
+  // level's, and CSS hides a panel carrying either.
+  //
+  // Run once, at boot, after the difficulty is known. Nothing re-runs it because
+  // nothing changes difficulty mid-war.
+  function applyPanelTrim() {
+    const keep = Game.difficulty().railPanels;
+    for (const p of document.querySelectorAll('#sidebar-scroll .panel[data-panel]')) {
+      p.classList.toggle('mode-off', !!keep && !keep.includes(p.dataset.panel));
+    }
+  }
+
   // A tab is on the rail only while it has something behind it. RECOVERY does
-  // not exist until aircrew are down, and TONIGHT'S OPTIONS does not exist at
-  // all on hard — a tab leading to an empty pane is worse than no tab.
+  // not exist until aircrew are down, TONIGHT'S OPTIONS does not exist at all on
+  // hard, and a panel this level does not have never exists — a tab leading to
+  // an empty pane is worse than no tab.
   const livePanels = (g) =>
-    g.panels.map(panelEl).filter((p) => p && !p.classList.contains('hidden'));
+    g.panels.map(panelEl).filter((p) => p &&
+      !p.classList.contains('hidden') && !p.classList.contains('mode-off'));
   const groupLive = (g) => livePanels(g).length > 0;
 
   // Aircrew on the ground outrank whatever the player had open; otherwise the
@@ -284,6 +312,13 @@ const UI = (() => {
   function openPanel(key, reveal) {
     const panel = document.querySelector(`.panel[data-panel="${key}"]`);
     if (!panel) return;
+    // A section this level does not have cannot be opened, and the refusal is
+    // here rather than at each of the four call sites: openPanel is what a
+    // renderer reaches for when its own content has just become urgent, and
+    // "urgent" is exactly when a trimmed panel would otherwise force itself
+    // back on screen — CSAR the moment aircrew go down, which on a level that
+    // pops the recovery is the one night the drawer must stay shut.
+    if (panel.classList.contains('mode-off')) return;
     // On a phone the section is behind a tab, so it has to bring its tab with
     // it — otherwise this opens a panel inside a group the rail is not showing
     // and the player is told nothing at all. Before setPanelOpen, because
@@ -1596,30 +1631,15 @@ const UI = (() => {
   // decision. The doctrine's own slogan is not gone, it has moved behind the
   // caret to sit at the head of its argument where it reads as a thesis
   // statement rather than as a description of tonight.
-  function renderCoa(G) {
-    const panel = $('coa-panel');
-    const list = Game.coaOptions();
-    // hard briefs nothing at all, and the panel is not there to say so
-    if (!Game.difficulty().coa) { panel.classList.add('hidden'); return; }
-    panel.classList.remove('hidden');
-
+  // The option cards themselves, built once and rendered into either of the two
+  // places the brief can arrive — the sidebar panel, or the dialog on a level
+  // that pops it. Extracted for that reason and no other: two copies of this
+  // markup is two places for a bill row or a `defers` line to go missing from,
+  // and the whole argument for `defers` is that the player sees it every time.
+  function coaRows(G, list) {
     const flown = Game.coaFlown();
     const spent = Game.atoSlots() - G.strikesThisTurn;
-    $('coa-status').textContent = flown.size
-      ? `— ${flown.size} SIGNED`
-      : list.length ? `— ${plural(list.length, 'option')}` : '— NONE TONIGHT';
-
-    if (!list.length) {
-      // An empty brief is a real state — everything reachable is serviced, or
-      // the sky has not released anything the staff would sign its name to —
-      // and it has to say which rather than rendering a blank box.
-      $('coa-buttons').innerHTML = '<div class="coa-empty">The staff has nothing to brief tonight. ' +
-        'Every aimpoint CENTCOM can reach and release is either serviced or waiting on ' +
-        'something the tasking order cannot buy.</div>';
-      return;
-    }
-
-    const rows = list.map((c) => {
+    return list.map((c) => {
       const done = flown.has(c.id);
       const open = actOpen.has(`coa-${c.id}`);
       const main = c.legs.filter(l => l.main), supp = c.legs.filter(l => !l.main);
@@ -1656,12 +1676,96 @@ const UI = (() => {
         `<div class="coa-legs">${legList(main, 'MAIN EFFORT')}${legList(supp, 'AND WITH THE REMAINING CAPACITY')}</div>` +
         `</div></div>`;
     }).join('');
+  }
 
-    $('coa-buttons').innerHTML = rows;
+  // An empty brief is a real state — everything reachable is serviced, or the
+  // sky has not released anything the staff would sign its name to — and it has
+  // to say which rather than rendering a blank box.
+  const COA_EMPTY = '<div class="coa-empty">The staff has nothing to brief tonight. ' +
+    'Every aimpoint CENTCOM can reach and release is either serviced or waiting on ' +
+    'something the tasking order cannot buy.</div>';
+
+  function renderCoa(G) {
+    const panel = $('coa-panel');
+    const list = Game.coaOptions();
+    // hard briefs nothing at all, and the panel is not there to say so
+    if (!Game.difficulty().coa) { panel.classList.add('hidden'); return; }
+    panel.classList.remove('hidden');
+
+    const flown = Game.coaFlown();
+    $('coa-status').textContent = flown.size
+      ? `— ${flown.size} SIGNED`
+      : list.length ? `— ${plural(list.length, 'option')}` : '— NONE TONIGHT';
+
+    $('coa-buttons').innerHTML = list.length ? coaRows(G, list) : COA_EMPTY;
+    if (!list.length) return;
     for (const btn of document.querySelectorAll('#coa-buttons .action-do')) {
       btn.addEventListener('click', () => Game.takeCoa(btn.dataset.coa));
     }
     wireWhy('#coa-buttons');
+  }
+
+  // ============================================================
+  // THE BRIEF, AS A DIALOG — DIFFICULTY.popups
+  // ------------------------------------------------------------
+  // The same three options, in the room instead of in a drawer. What changes is
+  // not the content, it is that the night now ASKS: on a level where signing one
+  // option is the entire decision, a shut panel over the words "3 OPTIONS" is
+  // the one arrangement of this screen where a president can end a turn without
+  // knowing they were asked anything. A dialog cannot be scrolled past.
+  //
+  // It opens itself at the top of every turn and it is dismissible, which means
+  // there has to be a way back to it — see BRIEF ME in the session buttons.
+  // A president who stood the room down at 21:00 and wants the folder again at
+  // 21:05 is not an edge case, it is most nights.
+  //
+  // The theater notes ride in the same dialog rather than in one of their own.
+  // They are the other half of the same brief — what CENTCOM did without asking,
+  // above what CENTCOM is asking — and two dialogs a night, one of which has no
+  // decision in it, is the pop-up count at which pop-ups stop being read.
+  function openBrief(list, notes) {
+    const G = Game.G;
+    if (G.over) return;
+    const options = list || (Game.difficulty().coa ? Game.coaOptions() : []);
+    // Nothing to brief and nothing to report is not an empty dialog, it is no
+    // dialog. The panel path says "NONE TONIGHT" in a status line the player is
+    // already looking at; the dialog path would have to interrupt them to say it.
+    if (!options.length && !(notes && notes.length)) return;
+
+    const flown = Game.coaFlown();
+    $('brief-modal-when').textContent =
+      // Counted through Txt like every other number in a sentence, then cased —
+      // inflecting an already-shouted noun gets you "3 OPTIONs".
+      `NIGHT ${G.turn} — ${flown.size ? `${flown.size} SIGNED` : plural(options.length, 'option').toUpperCase()}`;
+    $('brief-modal-notes').innerHTML = (notes && notes.length)
+      ? `<div class="brief-notes"><div class="brief-notes-head">CENTCOM HAS ALREADY MOVED ON THIS</div>` +
+        notes.map((n) => `<div class="brief-note">${n}</div>`).join('') + `</div>`
+      : '';
+    $('brief-modal-buttons').innerHTML = options.length ? coaRows(G, options) : COA_EMPTY;
+    for (const btn of document.querySelectorAll('#brief-modal-buttons .action-do')) {
+      // Signing closes the room. The option is on tonight's order, the map
+      // animates it, and holding the dialog open over the strike the president
+      // just authorized would hide the one thing they asked to see.
+      btn.addEventListener('click', () => { closeBrief(); Game.takeCoa(btn.dataset.coa); });
+    }
+    wireWhy('#brief-modal-buttons');
+    $('brief-modal').classList.remove('hidden');
+    syncBriefButton();
+  }
+
+  function closeBrief() { $('brief-modal').classList.add('hidden'); }
+
+  // BRIEF ME sits with HOW TO PLAY rather than in the scroll pane, because it is
+  // a session control — it reopens a dialog — and not an order. It exists only
+  // on a level that pops the brief, and only while there is still something in
+  // it to sign: a button that reopens a folder reading "nothing to brief" is a
+  // button that teaches the player to stop pressing it.
+  function syncBriefButton() {
+    const btn = $('btn-brief');
+    if (!btn) return;
+    const on = Game.popup('brief') && !Game.G.over &&
+      Game.difficulty().coa && Game.coaOptions().length > 0;
+    btn.classList.toggle('hidden', !on);
   }
 
   // ============================================================
@@ -2397,6 +2501,7 @@ const UI = (() => {
     renderIntel(G);
     SpecOps.renderPanel(G);
     renderBadges();
+    syncBriefButton();   // the way back into a dismissed brief, while there is one
   }
 
   function renderAll(G) {
@@ -3760,14 +3865,22 @@ const UI = (() => {
   // describes a different difficulty than the one running is worse than no
   // primer, so the cards that differ are chosen off the same two knobs the rest
   // of the feature reads (see DIFFICULTY).
-  function showPrimer(manual) {
-    if (!manual && (Game.G.difficulty || 'normal') === 'hard') return;
+  // `then` is what the room does once the president closes the brief. It runs on
+  // the suppressed path too — hard never sees the primer at boot, and a
+  // continuation that only fired when a dialog happened to be shown would make
+  // the opening of the war depend on whether the player was being tutored.
+  function showPrimer(manual, then) {
+    if (!manual && (Game.G.difficulty || 'normal') === 'hard') { if (then) then(); return; }
     const d = Game.difficulty();
     const panels = [
       d.coa && !d.freeTargeting
         ? { cls: 'friendly', title: 'THE STAFF WRITES THE NIGHT',
-            text: 'CENTCOM briefs you options every evening under TONIGHT\'S OPTIONS. Sign one. You are ' +
-              'not picking aimpoints — you are picking which war tonight is for.' }
+            text: Game.popup('brief')
+              ? 'CENTCOM walks in with options every evening and will not leave until you sign one. You ' +
+                'are not picking aimpoints — you are picking which war tonight is for. BRIEF ME reopens ' +
+                'the folder if you send the room away.'
+              : 'CENTCOM briefs you options every evening under TONIGHT\'S OPTIONS. Sign one. You are ' +
+                'not picking aimpoints — you are picking which war tonight is for.' }
         : d.coa
         ? { cls: 'friendly', title: 'TWO OPTIONS, AND THE REST IS YOURS',
             text: 'CENTCOM briefs you two plans under TONIGHT\'S OPTIONS, and neither fills the order. ' +
@@ -3808,9 +3921,16 @@ const UI = (() => {
       ...(Game.pgmLedger() ? [{ cls: 'iran', title: 'THE DEPOTS ARE FINITE',
         text: 'Precision weapons do not regenerate — only the force flow brings more. STRIKE ASSETS ' +
           'counts them. A bomber cell costs six times what an F-35 pair does.' }] : []),
-      { cls: '', title: 'THE NUCLEAR SITES NEED THE B-2',
-        text: 'Fordow and Natanz are buried, and only the B-2 reaches them. It is still in Missouri, ' +
-          'so call it forward from THEATER FORCES, one turn out.' },
+      // The one card that has to change with `autoTheater` rather than merely
+      // read oddly: on a level where CENTCOM makes the force-flow calls, this
+      // was an instruction to open a panel the level does not have.
+      d.autoTheater
+        ? { cls: '', title: 'THE NUCLEAR SITES NEED THE B-2',
+            text: 'Fordow and Natanz are buried, and only the B-2 reaches them. CENTCOM has already sent ' +
+              'for the 509th — the force flow is theirs to run, and the nightly brief says what moved.' }
+        : { cls: '', title: 'THE NUCLEAR SITES NEED THE B-2',
+            text: 'Fordow and Natanz are buried, and only the B-2 reaches them. It is still in Missouri, ' +
+              'so call it forward from THEATER FORCES, one turn out.' },
       { cls: '', title: 'TWO FREE ACTIONS EVERY TURN',
         text: 'One INTELLIGENCE tasking, one DIPLOMATIC action, both free. Watch the bottom bar: a war ' +
           'being won on the map is routinely lost at home.' },
@@ -3818,7 +3938,7 @@ const UI = (() => {
         text: 'Close the Strait, bleed you with missiles, or sprint for a bomb. Read it off what Tehran ' +
           'actually does, and fight the war in front of you.' },
     ];
-    showReport('HOW TO PLAY: THE WAY THIS WAR IS FOUGHT', panels, null, { prose: true });
+    showReport('HOW TO PLAY: THE WAY THIS WAR IS FOUGHT', panels, then || null, { prose: true });
     // The brief is the reference; the walkthrough is the orientation. Offering
     // it from inside the brief rather than beside it keeps HOW TO PLAY a single
     // door, and keeps the written version as the thing that always works — it is
@@ -3833,5 +3953,6 @@ const UI = (() => {
   }
 
   return { init, renderAll, renderHUD, renderSidebar, setTicker, openStrikeModal, openTargetCard, showReport,
-    showWarPowers, showEndgame, showPrimer, openLeaderCall, closeAllPanels, openPanel, voiceUp, voiceDown };
+    showWarPowers, showEndgame, showPrimer, openLeaderCall, closeAllPanels, openPanel, voiceUp, voiceDown,
+    applyPanelTrim, openBrief, closeBrief };
 })();
