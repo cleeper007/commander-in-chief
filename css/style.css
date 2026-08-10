@@ -862,6 +862,17 @@ button { font-family: var(--mono); }
 .pkg-option.selected { border-color: var(--amber); background: #1a2138; }
 .pkg-name { color: #fff; }
 .pkg-detail { color: var(--dim); font-size: 11px; display: block; margin-top: 2px; }
+/* What the package actually fires, and which magazine it comes out of. Both of
+   these live inside .pkg-detail, where the .estimate-box colour classes below
+   do not reach — so they carry their own rather than borrowing spans that
+   render flat dim here and coloured four lines further down the same modal.
+   The weapon clause is the whole reason six anti-ship rounds are on this board:
+   they fail differently, and a player cannot see that from a probability. */
+.pkg-weapon { display: block; margin-top: 3px; color: var(--dim); opacity: 0.85; font-style: italic; }
+/* amber for a magazine the war is relying on elsewhere (the escort screen's
+   interceptor cells), green for one that costs the theater nothing */
+.pkg-mag { color: var(--amber); }
+.pkg-free { color: var(--green); }
 
 .estimate-box {
   border: 1px solid var(--line); padding: 10px 12px; margin-top: 6px;

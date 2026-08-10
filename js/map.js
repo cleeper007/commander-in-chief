@@ -1603,9 +1603,22 @@ const MapView = (() => {
     // Viper and a 4th-gen package is never a Raptor.
     const fromGroup = (Math.random() < 0.5 && carriersOnStation()) ? 'carrier' : 'land';
     const pool = assetType === 'f35' ? F35_TYPES : FIGHTER_TYPES;
+    // The missile branch names the ROUND, because on a cruise run the shape on
+    // the glass is a missile and the header is the only thing that says which
+    // one. It used to say RGM-109 TLAM for every one of them, which was a lie in
+    // both directions once maritime strike existed — a Block IV land-attack
+    // round cannot hit a moving ship at all, and half the missiles flying off
+    // these decks are not Tomahawks. Packages without a `weapon` keep the old
+    // label, which is still correct for a land-attack salvo onto a fixed site.
+    //
+    // The AIR branches deliberately do not do this: their silhouette is an
+    // aircraft, so their header has to name the aircraft or it breaks the
+    // shape-matches-the-name contract three comments below. The strike modal
+    // already told the player which round is on the pylons.
+    const mw = (pkg && pkg.weapon) ? MARITIME_WEAPONS[pkg.weapon] : null;
     const ft = stealth ? { type: 'B-2', cs: 'SPIRIT' }
       : heavy ? pick(HEAVY_TYPES)
-      : cruise ? { type: 'RGM-109 TLAM', cs: 'ARSENAL' }
+      : cruise ? { type: mw ? mw.scope : 'RGM-109 TLAM', cs: mw ? mw.cs : 'ARSENAL' }
       : pick(pool.filter(f => f.from === fromGroup));
     // TLAMs come off whichever strike group is actually in the water
     const origin = fromRamp ? US_ASSETS.find(a => a.id === STRIKE_ORIGINS[assetType])

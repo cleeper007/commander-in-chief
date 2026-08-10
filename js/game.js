@@ -186,6 +186,15 @@ const Game = (() => {
     // bmdCapacity); `bmdRearm` is turns left on a rearm detachment, and while it
     // is running the deck has no forward station to be ordered to.
     bmdPool: 0, bmdRearm: 0,
+    // ---- and the screen's OFFENSIVE rounds ----
+    // Deck canisters of NSM, which is the third magazine nobody reloads at sea
+    // and the smallest of the three. It is separate from bmdPool because the two
+    // are physically different launchers — canisters bolted amidships against
+    // Mk 41 cells — and because keeping them apart is what lets the SM-6 shot be
+    // the interesting one: firing NSM costs the screen nothing it needs for air
+    // defense, and firing SM-6 costs it exactly that. Both refill alongside the
+    // same ammunition ship (see orderRearm).
+    nsmPool: NSM_LOAD,
     // The fleet. One deck to start; the second has to be sent for. Only mutable
     // state lives here — names come from CARRIER_INFO by id, so a restored save
     // can never carry a stale ship name back into the war.
@@ -581,7 +590,10 @@ const Game = (() => {
     // section reporting that the president was never handed a wrong number for
     // the first half of their war, which is not a smaller record than the real
     // one. It is a different and flattering one, presented as the record.
-    const VERSION = 27;
+    // 28: the escort screen shoots at ships now, so `nsmPool` is new state and a
+    // v27 save restores with an undefined NSM magazine — which reads as zero and
+    // silently refuses a package the war is supposed to offer.
+    const VERSION = 28;
     const FIELDS = [
       'turn', 'softCap', 'approval', 'oil', 'world',
       'hormuz', 'hormuzClosedTurns', 'casualties', 'res', 'caps',
@@ -597,8 +609,8 @@ const Game = (() => {
       'heaviesOrdered', 'heavyEta', 'heaviesArrived', 'forceFlow', 'airPhaseSeen',
       'milestones', 'difficulty', 'iranPosture', 'postureKnown', 'breakout', 'intel',
       'tankers', 'tankerCap', 'basing', 'basingDebt', 'gulf', 'warPowers', 'addresses', 'threat',
-      'timeline', 'adapt', 'adaptSeen', 'turnStartHp', 'tlamPool', 'torpedoes',
-      'bmdPool', 'bmdRearm', 'pgm',
+      'timeline', 'bdaLog', 'adapt', 'adaptSeen', 'turnStartHp', 'tlamPool', 'torpedoes',
+      'bmdPool', 'bmdRearm', 'nsmPool', 'pgm',
       'houthi', 'mandab', 'mandabClosedTurns',
     ];
 
@@ -1991,12 +2003,24 @@ const Game = (() => {
     const before = G.bmdPool || 0;
     G.bmdPool = bmdCapacity();
     const taken = G.bmdPool - before;
+    // The deck canisters go back at the same time, off the same ship, by the
+    // same working party. It is one replenishment and it should read as one —
+    // but the NSM line is only written when rounds actually went back in, or a
+    // player who has never fired one gets told about a magazine they did not
+    // know they had, in the middle of the sentence about the one they care
+    // about.
+    const nsmBack = NSM_LOAD - (G.nsmPool ?? NSM_LOAD);
+    G.nsmPool = NSM_LOAD;
     return {
       cls: 'friendly', title: `${cv ? cvShort(cv) : 'ESCORT SCREEN'} REARMED — CELLS FULL`,
       sum: `Interceptors: ${Txt.signed(taken)} ${Txt.pluralize(taken, 'round')}`,
       text: `The screen has struck down ${Txt.plural(taken, 'round')} and broken away from the ammunition ship. ` +
         `${G.bmdPool} SM-3 and SM-6 ${Txt.pluralize(G.bmdPool, 'interceptor')} in the cells — a full magazine, ` +
-        `and the last one the theater has cued up for a while. She is still in the open Arabian Sea: ` +
+        `and the last one the theater has cued up for a while.` +
+        (nsmBack > 0
+          ? ` ${Txt.plural(nsmBack, 'Naval Strike Missile')} went into the deck canisters with them.`
+          : '') +
+        ` She is still in the open Arabian Sea: ` +
         `the umbrella over the Gulf bases does not come back until she is ordered north and gets there.`,
     };
   }
@@ -2774,7 +2798,32 @@ const Game = (() => {
   // out of the boat's own torpedo room and touches no theater stock at all.
   // It still flies as `cruise` for the strike math: an Mk-48 against a hull is
   // the same arithmetic as a maritime-strike Tomahawk, unseen and unopposed.
-  const pkgStock = (pkg) => pkg.sub ? (G.torpedoes ?? 0) : (G.res[resKey(pkg.asset)] ?? 0);
+  //
+  // The escort screen's rounds are the third case. An escort package IS a
+  // `cruise` package for every purpose the strike math has — it leaves a deck,
+  // nobody is aboard it, and the SAM belt does not touch it — but the round
+  // comes out of a magazine of its own rather than out of the Tomahawk
+  // reservoir, and which magazine is the entire decision:
+  //   sm6 — the Mk 41 cells, which is to say `bmdPool`, which is to say the
+  //         umbrella over Al Udeid and Al Dhafra. One magazine, two missions,
+  //         and the president chooses tonight which one it is for.
+  //   nsm — eight deck canisters and nothing after that until the ammunition
+  //         ship, which is a smaller number than it looks next to a four-shot
+  //         package.
+  // Neither is bounded by `res.cruise`, and that is deliberate rather than an
+  // oversight. `res.cruise` is not "the screen can shoot tonight" — it is what
+  // is CANISTER-LOADED WITH TOMAHAWKS (see the note on tlamPool, and the clamp
+  // in syncFleetCaps that pins it to the reservoir). Reading it here would mean
+  // a war that has fired its last Tomahawk cannot fire an interceptor either,
+  // which is two different magazines wearing one number. The magazine IS the
+  // limiter for these: eight canisters for the whole campaign, and for SM-6 an
+  // umbrella the president is going to want back.
+  const escortPool = (pkg) => pkg.escort === 'sm6' ? (G.bmdPool ?? 0)
+    : pkg.escort === 'nsm' ? (G.nsmPool ?? 0) : Infinity;
+
+  const pkgStock = (pkg) => pkg.sub ? (G.torpedoes ?? 0)
+    : pkg.escort ? escortPool(pkg)
+    : (G.res[resKey(pkg.asset)] ?? 0);
 
   // The smallest package a tier can be tasked in, anywhere on the board.
   // The assets panel counts SORTIES and the strike modal spends PACKAGES, and
@@ -2919,6 +2968,36 @@ const Game = (() => {
     if (!pkg.sub && pkg.asset !== 'cruise') {
       const wall = atoWall();
       if (wall) return wall;
+    }
+    // ---- the escort screen's own shot ----
+    // Everything the screen fires is a short-legged weapon off a deck that has
+    // to be forward to fire it: NSM is a 100 nm round and SM-6 an air-defense
+    // interceptor being used out to about 200. A deck standing off in the Arabian
+    // Sea has the reach for none of it, which is the same forward-presence term
+    // bmdRate already reads — so posture buys the umbrella and the offensive
+    // rounds together, and the rearm order takes both away for the same three
+    // nights. Each refusal names its own cause: an empty magazine waits for the
+    // ammunition ship, a deck standing off waits for an ORDER, and those are
+    // different problems with different answers.
+    if (pkg.escort) {
+      const w = MARITIME_WEAPONS[pkg.weapon] || {};
+      if (bmdRearming()) {
+        return `SCREEN ALONGSIDE THE AMMUNITION SHIP — the escorts are rearming and off station. ` +
+          `${w.name || 'The round'} is a deck-launched weapon and there is no deck on station to launch it from.`;
+      }
+      if (navalForward() <= 0) {
+        return `NO DECK FORWARD — ${w.name || 'this round'} is fired by the escort screen, and the screen ` +
+          'is standing off with the carrier. Order the deck forward from THEATER FORCES; the round has ' +
+          'neither the legs nor the datalink to reach from the Arabian Sea.';
+      }
+      if (escortPool(pkg) < pkg.qty) {
+        return pkg.escort === 'sm6'
+          ? 'INTERCEPTOR CELLS SHORT — an SM-6 surface engagement comes out of the same magazine that ' +
+            'covers Al Udeid and Al Dhafra, and there are not enough rounds left in the cells to build ' +
+            'this shot. Rearming is the only way to put them back.'
+          : 'NSM CANISTERS EMPTY — the screen sailed with eight rounds in the deck launchers and nobody ' +
+            'reloads a canister underway. They come back alongside the ammunition ship and not before.';
+      }
     }
     const need = assetProfile(pkg.asset).needs;
     if (need && !phaseAtLeast(need) && !diff().softGate) {
@@ -3104,6 +3183,14 @@ const Game = (() => {
     // as the ready launchers — every round fired is one the war never gets back.
     if (pkg.sub) {
       G.torpedoes = Math.max(0, (G.torpedoes ?? 0) - pkg.qty);
+    } else if (pkg.escort === 'sm6') {
+      // The interesting one. No Tomahawk left the ship and no ready launcher was
+      // spent — what came out is the umbrella over Al Udeid and Al Dhafra, two
+      // rounds of it, at the shoot-shoot rate the screen engages everything else
+      // at (NAVAL_BMD.perTrack). One magazine, two missions.
+      G.bmdPool = Math.max(0, (G.bmdPool || 0) - pkg.qty);
+    } else if (pkg.escort === 'nsm') {
+      G.nsmPool = Math.max(0, (G.nsmPool || 0) - pkg.qty);
     } else {
       G.res[resKey(pkg.asset)] -= pkg.qty;
       if (pkg.asset === 'cruise') G.tlamPool = Math.max(0, (G.tlamPool || 0) - pkg.qty);
@@ -3178,6 +3265,14 @@ const Game = (() => {
     // back this turn came out of this turn's pool, and a clamp here could only
     // ever destroy sorties the player still owns.
     if (pkg.sub) G.torpedoes = (G.torpedoes ?? 0) + pkg.qty;
+    // ...and the escort's rounds go back in the cells they came out of. These
+    // two ARE clamped, unlike everything else here, because they are the only
+    // magazines on the board that something other than the turn boundary can
+    // fill: the rearm order tops both to capacity, so a scrub after a rearm
+    // could otherwise hand rounds back into a full screen and leave the
+    // umbrella reading over 100%.
+    else if (pkg.escort === 'sm6') G.bmdPool = Math.min(bmdCapacity(), (G.bmdPool || 0) + pkg.qty);
+    else if (pkg.escort === 'nsm') G.nsmPool = Math.min(NSM_LOAD, (G.nsmPool || 0) + pkg.qty);
     else {
       G.res[resKey(pkg.asset)] += pkg.qty;
       if (pkg.asset === 'cruise') G.tlamPool = (G.tlamPool || 0) + pkg.qty;
@@ -3371,7 +3466,15 @@ const Game = (() => {
       // that this package would spend. It self-sharpens as the cells empty,
       // which is the whole behaviour — spend freely while there is depth,
       // husband the last few for the targets nothing else can reach.
-      const pool = pkg.sub ? (G.torpedoes ?? 0) : pkg.asset === 'cruise' ? (G.tlamPool ?? 0) : 0;
+      // An escort shot is a `cruise` package that does not touch the Tomahawk
+      // reservoir, so pricing it against tlamPool husbands the wrong magazine
+      // twice over — it makes an SM-6 look cheap when the Tomahawks are deep,
+      // and it never makes the staff reluctant about the one thing it should be
+      // reluctant about, which is firing the interceptor cells that cover the
+      // Gulf bases at a frigate.
+      const pool = pkg.sub ? (G.torpedoes ?? 0)
+        : pkg.escort ? escortPool(pkg)
+        : pkg.asset === 'cruise' ? (G.tlamPool ?? 0) : 0;
       const finite = pool > 0 ? clamp(1 - 2.2 * pkg.qty / pool, 0.2, 1) : 1;
       const rep = Math.pow(0.72, (flownTonight && flownTonight[pkg.asset]) || 0);
       const val = (c.fullOdds * (c.gradual ? c.damage : 100) * finite - c.lossRisk * 40) * rep;
@@ -3427,7 +3530,7 @@ const Game = (() => {
     const before = G.strikesThisTurn;
     const out = {
       n: legs.length, kill: 0, loss: 0, tanker: 0, world: 0, onKill: 0,
-      cruise: 0, torpedoes: 0, pgm: 0, over: 0, classes: new Map(),
+      cruise: 0, torpedoes: 0, interceptors: 0, nsm: 0, pgm: 0, over: 0, classes: new Map(),
     };
     let safe = 1;
     try {
@@ -3451,6 +3554,14 @@ const Game = (() => {
         out.world += (t.world || 0) + (leg.pkg.extraWorld || 0);
         if (t.worldOnKill) out.onKill += t.worldOnKill;
         if (leg.pkg.sub) out.torpedoes += leg.pkg.qty;
+        // An escort shot is an `asset: 'cruise'` package that fires no Tomahawk,
+        // so counting it here would put "TOMAHAWK — 2 of 20 left" on the bill of
+        // an option that spends no Tomahawks at all, and leave the magazine it
+        // DOES spend — the interceptor cells covering Al Udeid — off the brief
+        // entirely. The president would sign an option that quietly took the
+        // umbrella down and be shown a line about a reservoir it never touched.
+        else if (leg.pkg.escort === 'sm6') out.interceptors += leg.pkg.qty;
+        else if (leg.pkg.escort === 'nsm') out.nsm += leg.pkg.qty;
         else if (leg.pkg.asset === 'cruise') out.cruise += leg.pkg.qty;
         out.pgm += pgmCost(leg.pkg);
         if (leg.pkg.asset !== 'cruise') G.strikesThisTurn++;
@@ -3513,6 +3624,16 @@ const Game = (() => {
     }
     if (e.cruise) bill.push({ k: 'TOMAHAWK', v: `${e.cruise} of ${G.tlamPool} left`, warn: e.cruise * 3 > G.tlamPool });
     if (e.torpedoes) bill.push({ k: 'TORPEDOES', v: `${e.torpedoes} of ${G.torpedoes} aboard`, warn: true });
+    // The escort screen's two magazines. The interceptor line ALWAYS warns —
+    // unlike the Tomahawk line, which warns on depth — because the thing being
+    // spent is not a reservoir the war can run down cheaply, it is the air
+    // defense of Al Udeid and Al Dhafra, and an option that reaches for it
+    // should look like it is reaching for something even when the cells are
+    // full.
+    if (e.interceptors) {
+      bill.push({ k: 'INTERCEPTORS', v: `${e.interceptors} of ${G.bmdPool} in the cells — off the Gulf umbrella`, warn: true });
+    }
+    if (e.nsm) bill.push({ k: 'NSM', v: `${e.nsm} of ${G.nsmPool} in the deck canisters`, warn: true });
     if (pgmLedger() && e.pgm) {
       bill.push({ k: 'MUNITIONS', v: `${Txt.plural(e.pgm, 'weapon')} of ${G.pgm ?? 0}`, warn: e.pgm * 3 > (G.pgm ?? 0) });
     }
@@ -5875,6 +5996,11 @@ const Game = (() => {
     // opening load rather than zero: a war that resumes with empty depots and
     // no way to explain them is worse than one that resumes over-supplied.
     if (typeof G.pgm !== 'number') G.pgm = diff().pgm || 0;
+    // and the same for the screen's deck canisters, for the same reason: VERSION
+    // gates this, so it can only fire on a blob written between the field
+    // landing and the bump. A full rack rather than an empty one — a war that
+    // resumes with a magazine it cannot explain being empty is the worse bug.
+    if (typeof G.nsmPool !== 'number') G.nsmPool = NSM_LOAD;
     // the brief is rebuilt against the board rather than restored with it
     coaCache = { turn: -1, list: null };
     for (const t of TARGETS) {
@@ -6022,6 +6148,11 @@ const Game = (() => {
     // this is read off the table rather than written twice (see NAVAL_BMD)
     G.bmdPool = bmdCapacity();
     G.bmdRearm = 0;
+    // ...and with her deck canisters full. Flat rather than difficulty-scaled,
+    // unlike the cells above it: `DIFFICULTY.bmd` exists to change how long the
+    // screen can keep DEFENDING, and eight offensive rounds is a hull or two
+    // either way on every level.
+    G.nsmPool = NSM_LOAD;
     // what the depots opened the war holding, on the one level that counts it
     G.pgm = diff().pgm || 0;
     // and last night's brief belongs to last night's war

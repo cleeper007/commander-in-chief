@@ -2544,14 +2544,35 @@ const UI = (() => {
       div.setAttribute('role', 'radio');
       div.setAttribute('aria-checked', 'false');
       div.tabIndex = -1;
+      // ---- what this package fires ----
+      // A package used to name its PLATFORM and leave the weapon implied, which
+      // is fine for a runway and wrong for a hull: the difference between an
+      // AGM-84 and an AGM-158C against the same frigate is most of the decision
+      // and none of it was on screen. Packages carrying a `weapon` name the
+      // round; everything else falls back to the tier, which is still the right
+      // sentence for two Strike Eagles and a load of JDAM.
+      const w = pkg.weapon ? MARITIME_WEAPONS[pkg.weapon] : null;
+      const round = w ? w.name : pkg.sub ? SUB_WEAPON_NAME : lcFirst(ASSET_NAMES[pkg.asset]);
+      // ...and which magazine it comes out of, whenever that is not the theater
+      // stock the counter above the list is already showing. The SM-6 line is
+      // amber because it is the one package on the board that spends a magazine
+      // the president is relying on for something else.
+      // The count is already on the row as `available`, so this names the
+      // magazine rather than counting it again — what the player needs to know
+      // is not how many rounds there are but what ELSE those rounds were for.
+      const magazine = pkg.escort === 'sm6'
+        ? ' · <span class="pkg-mag">fired from the escort screen\'s interceptor cells — the umbrella over the Gulf bases</span>'
+        : pkg.escort === 'nsm'
+        ? ' · <span class="pkg-mag">fired from the screen\'s deck canisters — no reload until the ammunition ship</span>'
+        : pkg.sub ? ' · <span class="pkg-free">no theater magazine spent</span>' : '';
       div.innerHTML = `<span class="pkg-name">${pkg.label}</span>` +
-        `<span class="pkg-detail">Requires ${pkg.qty}× ` +
-        `${pkg.sub ? SUB_WEAPON_NAME : lcFirst(ASSET_NAMES[pkg.asset])} ` +
+        `<span class="pkg-detail">Requires ${pkg.qty}× ${round} ` +
         // "1 tanker track of 10 left" reads as "1 out of 10" and means the
         // opposite — the cost is 1 and the plan has 10. Separate the two.
         `(available: ${have}) · ${cost ? `${plural(cost, 'tanker track')} ` +
         `· ${G.tankers} left tonight` : 'no tanker requirement'}` +
-        (pkg.sub ? ' · <span class="est-good">no theater magazine spent</span>' : '') + '</span>';
+        magazine +
+        (w ? `<span class="pkg-weapon">${w.range}</span>` : '') + '</span>';
       choosable.push({ div, pkg });
       div.addEventListener('click', () => choose(div, pkg, true));
       box.appendChild(div);

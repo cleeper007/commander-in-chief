@@ -159,6 +159,12 @@ const TARGETS = [
       { asset: 'f35', qty: 2, base: 0.80, label: 'F-35 strike package — 2 sorties' },
       { asset: 'fighter', qty: 3, base: 0.75, label: 'Air strike — 3 F/A-18E sorties' },
       { asset: 'cruise', qty: 2, base: 0.80, label: 'TLAM salvo — 2 cruise missiles' },
+      // Sixty miles from the shipping lane and well inside the screen's reach —
+      // the shortest-legged round on the board finally has something to shoot
+      // at. NSM emits nothing on the way in, which against a dispersed island
+      // base means the launch crews get no warning order at all.
+      { asset: 'cruise', qty: 2, base: 0.77, escort: 'nsm', weapon: 'nsm',
+        label: 'NSM ENGAGEMENT — 2 rounds off the escort screen' },
     ],
   },
   {
@@ -274,6 +280,13 @@ const TARGETS = [
     packages: [
       { asset: 'f35', qty: 2, base: 0.81, label: 'F-35 strike package — 2 sorties' },
       { asset: 'fighter', qty: 3, base: 0.76, label: 'Air strike — 3 F/A-18E sorties' },
+      // A naval base is piers, cranes and fuel — but it is also whatever is
+      // alongside them, and that is the one thing a coordinate-guided weapon
+      // cannot pick out. SLAM-ER's man in the loop can: this is the package that
+      // puts the warhead into the hull tied up at berth four rather than into
+      // the concrete beside it.
+      { asset: 'fighter', qty: 2, base: 0.79, weapon: 'slamer',
+        label: 'SLAM-ER STRIKE — 2 F/A-18E sorties, AGM-84K onto the berths' },
       { asset: 'cruise', qty: 2, base: 0.82, label: 'TLAM salvo — 2 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.80, label: 'HEAVY BOMBER STRIKE — 2 B-1B sorties, naval mining and JDAM' },
     ],
@@ -286,6 +299,8 @@ const TARGETS = [
     packages: [
       { asset: 'f35', qty: 2, base: 0.81, label: 'F-35 strike package — 2 sorties' },
       { asset: 'fighter', qty: 3, base: 0.76, label: 'Air strike — 3 F/A-18E sorties' },
+      { asset: 'fighter', qty: 2, base: 0.79, weapon: 'slamer',
+        label: 'SLAM-ER STRIKE — 2 F/A-18E sorties, AGM-84K onto the berths' },
       { asset: 'cruise', qty: 2, base: 0.82, label: 'TLAM salvo — 2 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.80, label: 'HEAVY BOMBER STRIKE — 2 B-1B sorties, naval mining and JDAM' },
     ],
@@ -295,17 +310,41 @@ const TARGETS = [
     type: 'ship', x: 703, y: 586, depth: 1,
     desc: 'IRGC-Navy forward base ship outside the Strait, carrying anti-ship missiles and drones — the closest Iranian shooter to the carrier box. A hull at sea: one weapon that finds her ends her, and nothing repairs afterwards.',
     world: -2,
+    // A converted container ship with launchers bolted to the deck: enormous,
+    // slow, no self-defense worth the name, and sitting in blue water where
+    // everything in the inventory can reach her. So this is the target that
+    // shows the player the whole maritime menu at once — every round works, and
+    // the question is only which magazine they want to spend.
     packages: [
-      { asset: 'f35', qty: 2, base: 0.85, label: 'F-35 maritime strike — 2 sorties' },
-      { asset: 'fighter', qty: 2, base: 0.80, label: 'Air strike — 2 F/A-18E sorties' },
-      { asset: 'cruise', qty: 2, base: 0.84, label: 'TLAM salvo — 2 cruise missiles' },
+      { asset: 'f35', qty: 2, base: 0.85, weapon: 'jsm',
+        label: 'F-35C MARITIME STRIKE — 2 sorties, Joint Strike Missile' },
+      { asset: 'fighter', qty: 2, base: 0.84, weapon: 'lrasm',
+        label: 'LRASM SHOOT — 2 F/A-18E sorties, 8 AGM-158C' },
+      { asset: 'fighter', qty: 2, base: 0.76, weapon: 'harpoon',
+        label: 'HARPOON STRIKE — 2 F/A-18E sorties, 8 AGM-84D' },
+      // Twenty-four LRASM off a two-ship of Lancers is the largest anti-ship
+      // salvo the United States can generate from anything, and against one
+      // unescorted hull it is overwhelming to the point of absurdity. Priced
+      // accordingly: it wants air superiority and it costs thirteen weapons a
+      // sortie off the ledger on hard.
+      { asset: 'heavy', qty: 2, base: 0.92, weapon: 'lrasm',
+        label: 'HEAVY BOMBER SHOOT — 2 B-1B sorties, 24 AGM-158C each' },
+      { asset: 'cruise', qty: 2, base: 0.84, weapon: 'mst',
+        label: 'MARITIME STRIKE TOMAHAWK — 2 RGM-109E Block Va' },
+      // The trade this whole class exists for. She is inside the screen's reach
+      // and an SM-6 arrives faster than she can react to it — but the round is
+      // an interceptor, the warhead is built for aircraft, and it comes out of
+      // the cells covering Al Udeid. High odds of a hit, and the bill is the
+      // umbrella.
+      { asset: 'cruise', qty: 2, base: 0.72, escort: 'sm6', weapon: 'sm6',
+        label: 'SM-6 SURFACE ENGAGEMENT — 2 RIM-174 off the escort screen' },
       // The cheapest shot in the game: one weapon out of the boat's own tubes,
       // no aircrew, nothing on anyone's radar, nothing off the theater magazine.
       // She is already trailing the hull, so she shoots tonight like everyone
       // else — the transit turn was a price the player paid for a shot they had
       // no other reason not to take, which made it a tax rather than a tradeoff.
-      { asset: 'cruise', qty: 1, base: 0.88, sub: true,
-        label: 'SUBMARINE ATTACK — 1 Mk-48 ADCAP heavyweight torpedo' },
+      { asset: 'cruise', qty: 1, base: 0.88, sub: true, weapon: 'mk48',
+        label: 'SUBMARINE ATTACK — 1 Mk 48 ADCAP heavyweight torpedo' },
     ],
   },
   {
@@ -317,10 +356,21 @@ const TARGETS = [
     // sea Moscow watches, so it still costs more than any other warship on the
     // list — but it is warships, and warships are what this war is about.
     world: -3,
+    // The one naval target with no maritime-strike menu at all, and the reason
+    // is geography rather than balance. The escort screen's rounds are 100–200
+    // nm weapons fired from a deck in the Gulf of Oman, which is 900 nm and two
+    // countries away; Toledo cannot reach a closed sea at all. What is left is
+    // what can fly there — and the craft are alongside at Anzali, so the round
+    // that works is a LAND-attack weapon aimed at a berth, not a maritime seeker
+    // hunting a hull. This is the one place where "TLAM salvo" was always the
+    // right sentence.
     packages: [
-      { asset: 'f35', qty: 2, base: 0.67, label: 'F-35 maritime strike — 2 sorties (deep, the whole tanker plan)' },
-      { asset: 'fighter', qty: 2, base: 0.62, label: 'Air strike — 2 F-15E sorties (deep, unrefuelled leg)' },
-      { asset: 'cruise', qty: 3, base: 0.76, label: 'TLAM salvo — 3 cruise missiles' },
+      { asset: 'f35', qty: 2, base: 0.67, weapon: 'jsm',
+        label: 'F-35 MARITIME STRIKE — 2 sorties, JSM (deep, the whole tanker plan)' },
+      { asset: 'fighter', qty: 2, base: 0.62,
+        label: 'Air strike — 2 F-15E sorties, JSOW and JDAM onto the berths (deep, unrefuelled leg)' },
+      { asset: 'cruise', qty: 3, base: 0.76,
+        label: 'TLAM SALVO — 3 RGM-109E land-attack (they are alongside, not underway)' },
     ],
   },
   {
@@ -395,6 +445,8 @@ const TARGETS = [
     packages: [
       { asset: 'f35', qty: 2, base: 0.80, label: 'F-35 strike package — 2 sorties' },
       { asset: 'fighter', qty: 2, base: 0.75, label: 'Air strike — 2 F/A-18E sorties' },
+      { asset: 'fighter', qty: 2, base: 0.78, weapon: 'slamer',
+        label: 'SLAM-ER STRIKE — 2 F/A-18E sorties, AGM-84K onto the berths' },
       { asset: 'cruise', qty: 2, base: 0.82, label: 'TLAM salvo — 2 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.79, label: 'HEAVY BOMBER STRIKE — 2 B-1B sorties, naval mining and JDAM' },
     ],
@@ -689,12 +741,27 @@ const TARGETS = [
     type: 'ship', x: 570, y: 520, depth: 1, weight: 0.5,
     desc: 'The only Iranian surface combatant that looks like a warship to a targeteer — anti-ship missiles, a helicopter deck, a practiced crew. A hull at sea: one weapon that finds her ends her, and nothing repairs afterwards.',
     world: -2,
+    // The only target on the board that fights the weapon rather than just
+    // absorbing it. Dena has a search radar, an EW suite and a chaff fit, which
+    // is what separates the rounds here: LRASM does its own discrimination and
+    // does not care what her picture looks like, while a Harpoon's active seeker
+    // is exactly the thing a decoy spread is built to fool. Eight points of
+    // difference between those two lines is the entire argument for buying the
+    // expensive missile, and it is the one place on the board where the player
+    // can see it.
     packages: [
-      { asset: 'f35', qty: 2, base: 0.86, label: 'F-35 maritime strike — 2 sorties' },
-      { asset: 'fighter', qty: 2, base: 0.81, label: 'Air strike — 2 F/A-18E sorties' },
-      { asset: 'cruise', qty: 2, base: 0.83, label: 'TLAM salvo — 2 cruise missiles' },
-      { asset: 'cruise', qty: 1, base: 0.88, sub: true,
-        label: 'SUBMARINE ATTACK — 1 Mk-48 ADCAP heavyweight torpedo' },
+      { asset: 'f35', qty: 2, base: 0.86, weapon: 'jsm',
+        label: 'F-35C MARITIME STRIKE — 2 sorties, Joint Strike Missile' },
+      { asset: 'fighter', qty: 2, base: 0.85, weapon: 'lrasm',
+        label: 'LRASM SHOOT — 2 F/A-18E sorties, 8 AGM-158C' },
+      { asset: 'fighter', qty: 2, base: 0.71, weapon: 'harpoon',
+        label: 'HARPOON STRIKE — 2 F/A-18E sorties, 8 AGM-84D (she has a decoy fit)' },
+      { asset: 'cruise', qty: 2, base: 0.83, weapon: 'mst',
+        label: 'MARITIME STRIKE TOMAHAWK — 2 RGM-109E Block Va' },
+      { asset: 'cruise', qty: 2, base: 0.70, escort: 'sm6', weapon: 'sm6',
+        label: 'SM-6 SURFACE ENGAGEMENT — 2 RIM-174 off the escort screen' },
+      { asset: 'cruise', qty: 1, base: 0.88, sub: true, weapon: 'mk48',
+        label: 'SUBMARINE ATTACK — 1 Mk 48 ADCAP heavyweight torpedo' },
     ],
   },
   {
@@ -706,14 +773,23 @@ const TARGETS = [
     type: 'ship', x: 660, y: 600, depth: 1, weight: 0.5,
     desc: 'A Russian-built diesel boat, quiet on the battery and the one Iranian platform that can reach the carrier unseen. Off the pier she is an ASW problem — and the answer to a submarine is another submarine.',
     world: -2,
+    // THE TARGET WITH NO ANTI-SHIP MISSILE ON IT, and that is the point rather
+    // than an omission. Every round in MARITIME_WEAPONS — Harpoon, NSM, LRASM,
+    // Maritime Strike Tomahawk, SM-6 — is a sea-skimmer with a seeker that looks
+    // at the surface of the water. Against a boat sitting at 200 metres on the
+    // battery they are not poor weapons, they are not weapons at all. What kills
+    // a submarine is a torpedo, put in the water either by another submarine or
+    // by an aircraft that has first solved the much harder problem of finding
+    // her. So the menu here is deliberately the inverse of every other hull on
+    // the list: the aircraft are the bad option and the boat is the good one,
+    // and a player who has kept Toledo unspent has an answer nobody else does.
     packages: [
-      // Deliberately the inverse of every other ship on the list: the aircraft
-      // are the bad option and the boat is the good one. A player who has kept
-      // Toledo unspent has an answer here that nobody else does.
-      { asset: 'cruise', qty: 1, base: 0.86, sub: true,
-        label: 'SUBMARINE ATTACK — 1 Mk-48 ADCAP heavyweight torpedo' },
-      { asset: 'f35', qty: 2, base: 0.44, label: 'ASW sweep — 2 F-35 sorties (she will be deep)' },
-      { asset: 'fighter', qty: 2, base: 0.40, label: 'ASW sweep — 2 F/A-18E sorties (she will be deep)' },
+      { asset: 'cruise', qty: 1, base: 0.86, sub: true, weapon: 'mk48',
+        label: 'SUBMARINE ATTACK — 1 Mk 48 ADCAP heavyweight torpedo' },
+      { asset: 'f35', qty: 2, base: 0.44, weapon: 'mk54',
+        label: 'ASW SWEEP — 2 F-35 sorties, sonobuoys and Mk 54 (she will be deep)' },
+      { asset: 'fighter', qty: 2, base: 0.40, weapon: 'mk54',
+        label: 'ASW SWEEP — 2 F/A-18E sorties, sonobuoys and Mk 54 (she will be deep)' },
     ],
   },
   {
@@ -721,10 +797,30 @@ const TARGETS = [
     type: 'ship', x: 470, y: 455, depth: 1, weight: 0.4,
     desc: 'Fast attack craft out of the island bases, hiding among the shipping. Individually trivial and collectively the reason the Strait is a problem — worked as a squadron or not at all.',
     world: -1,
+    // THE DISCRIMINATION PROBLEM, which is the other half of maritime strike and
+    // the half no other target on this board asks about. A Sina is 275 tons of
+    // fibreglass and aluminium sitting in a traffic separation scheme carrying
+    // four thousand merchant transits a year. Nothing here is hard to KILL; the
+    // entire difficulty is being sure which return is the one you meant, and the
+    // rounds sort themselves by exactly that:
+    //   SLAM-ER — a weapons officer watching the seeker video picks the boat.
+    //   JSM/NSM — passive imaging infrared, which classifies before it commits.
+    //   Harpoon — an active radar seeker in a shipping lane takes the biggest
+    //             return in the basket, and the biggest return is a tanker.
+    // So the cheapest weapon is the worst one here and the most expensive one
+    // (LRASM) is simply not offered — nobody spends a 1,000 lb penetrator and a
+    // scarce round on a fibreglass boat.
     packages: [
-      { asset: 'f35', qty: 2, base: 0.78, label: 'F-35 maritime strike — 2 sorties' },
-      { asset: 'fighter', qty: 2, base: 0.74, label: 'Air strike — 2 F/A-18E sorties' },
-      { asset: 'cruise', qty: 2, base: 0.66, label: 'TLAM salvo — 2 missiles (they scatter and re-form)' },
+      { asset: 'fighter', qty: 2, base: 0.80, weapon: 'slamer',
+        label: 'SLAM-ER STRIKE — 2 F/A-18E sorties, AGM-84K (man in the loop)' },
+      { asset: 'f35', qty: 2, base: 0.78, weapon: 'jsm',
+        label: 'F-35C MARITIME STRIKE — 2 sorties, Joint Strike Missile' },
+      { asset: 'cruise', qty: 2, base: 0.72, escort: 'nsm', weapon: 'nsm',
+        label: 'NSM ENGAGEMENT — 2 rounds off the escort screen' },
+      { asset: 'cruise', qty: 2, base: 0.66, weapon: 'mst',
+        label: 'MARITIME STRIKE TOMAHAWK — 2 RGM-109E (they scatter and re-form)' },
+      { asset: 'fighter', qty: 2, base: 0.58, weapon: 'harpoon',
+        label: 'HARPOON STRIKE — 2 F/A-18E sorties, AGM-84D (a seeker in a shipping lane)' },
     ],
   },
 
@@ -2463,6 +2559,110 @@ const STRIKE_ORIGINS = {
 // tubes, and when the four are gone there is no reloading her mid-war.
 const TORPEDO_LOAD = 4;
 const SUB_WEAPON_NAME = 'Mk-48 ADCAP heavyweight torpedo, out of the boat\'s own tubes';
+
+// ============================================================
+// THE ANTI-SHIP ROUNDS
+// ------------------------------------------------------------
+// Every package in this game used to name its PLATFORM and leave the weapon
+// implied — "TLAM salvo", "air strike, 2 F/A-18E sorties" — which is fine for a
+// runway and wrong for a hull. A Block IV land-attack Tomahawk cannot hit a
+// moving ship at all; it flies to a coordinate. The weapon that does is the
+// Block Va, and the difference between them is the whole reason maritime strike
+// is a separate problem from the rest of the air campaign. So the round has a
+// name now, and the name is the thing the president is actually choosing
+// between.
+//
+// This table is IDENTITY, not tuning. Nothing here is read by the strike math —
+// a package's `base`, `qty` and `asset` still carry all of it, and the argument
+// for each number sits beside that package in TARGETS. What lives here is what
+// the sidebar prints, what the scope header says, and the one clause explaining
+// why a president would pick this round over the one above it.
+//
+// `scope` is the short designation the tactical scope prints in its header, and
+// `cs` the callsign root beside it — but `cs` is only on the rounds the SCREEN
+// fires, because those are the only ones that check in under a callsign of their
+// own. An air-launched round flies on the aircraft's callsign and the scope
+// draws the aircraft's silhouette, so giving Harpoon a root of its own would
+// have put a missile's name over a Super Hornet's shape (and three of the first
+// four collided with real flight and personal callsigns already in the roster —
+// see FIGHTER_TYPES and aircrew.js).
+//
+// `range` is the clause the package detail line hangs off the weapon name. It is
+// prose, and it is there because the whole point of putting six anti-ship
+// weapons on the board is that they fail differently, and the player cannot see
+// that from a probability alone.
+const MARITIME_WEAPONS = {
+  // The old reliable, in service since 1977 and still the round that is actually
+  // in the magazine. Subsonic, sea-skimming, active radar seeker, 488 lb
+  // warhead. Its weakness is the seeker: it goes for the biggest return in the
+  // basket, which in the Gulf is a VLCC with a Liberian flag on it. Cheapest
+  // shot on the board and the one most likely to hit the wrong thing.
+  harpoon: { name: 'AGM-84D Harpoon', scope: 'AGM-84D HARPOON',
+    range: '67 nm, sea-skimming, active radar seeker — old, plentiful, and it will take the biggest return it sees' },
+  // Same airframe, different war. SLAM-ER is the land-attack Harpoon: imaging
+  // infrared seeker with a man in the loop over the datalink, so a weapons
+  // officer in the back of a Super Hornet picks the aimpoint in the last thirty
+  // seconds. That makes it the answer to a hull alongside a pier or a boat
+  // hiding in a traffic separation scheme, and a waste of money in blue water.
+  slamer: { name: 'AGM-84H/K SLAM-ER', scope: 'AGM-84K SLAM-ER',
+    range: '150 nm, man-in-the-loop imaging infrared — the operator picks the hull out of the traffic' },
+  // The premium round, and the one the whole US surface-warfare rebuild is
+  // built around. Low-observable, 1,000 lb penetrating warhead, and — the part
+  // that matters — it does its own target discrimination on the way in, so it
+  // does not need anyone to hand it a picture. Small inventory, and the B-1B is
+  // the only aircraft that carries it in numbers: twenty-four rounds on one jet.
+  lrasm: { name: 'AGM-158C LRASM', scope: 'AGM-158C LRASM',
+    range: '200+ nm, low-observable, autonomous target discrimination — it finds the right ship without being told' },
+  // What "TLAM salvo" should have said against anything that moves. Block Va
+  // puts a maritime seeker and an in-flight retarget datalink on the same
+  // 900-nm airframe, so the round can be launched at where she was and still
+  // arrive where she is. Comes out of the same Mk 41 cells and the same theater
+  // reservoir as every other Tomahawk, which is why it costs tlamPool.
+  mst: { name: 'RGM-109E Block Va Maritime Strike Tomahawk', cs: 'ARSENAL', scope: 'RGM-109E BLOCK Va',
+    range: '900 nm, retargeted in flight — launched at a datum and re-aimed on the way' },
+  // The odd one, and the interesting one. SM-6 is an air-defense interceptor
+  // with an anti-surface mode: Mach 3.5 terminal, so nothing outruns it and
+  // nothing decoys it, but the warhead is a 64 lb blast-frag built to kill
+  // aircraft — it wrecks a ship's topside and rarely sinks her. And it comes out
+  // of the ESCORT SCREEN'S CELLS, which is to say out of the same magazine that
+  // covers Al Udeid. See NAVAL_BMD: this is one magazine and two missions, which
+  // is the real US Navy's real problem and the best trade on this board.
+  sm6: { name: 'RIM-174 Standard Missile 6', cs: 'PICKET', scope: 'RIM-174 SM-6',
+    range: '200 nm at Mach 3.5 — nothing outruns it, and every round is a round not covering the bases' },
+  // Passive imaging infrared, no emissions at all, sea-skimming with a terminal
+  // pop-up, 276 lb warhead. Short-legged compared to everything above it, which
+  // is why it belongs to the screen and to the Gulf rather than to a bomber over
+  // the Caspian. Deck canisters, not VLS cells — eight of them, and nobody
+  // reloads a canister at sea either.
+  nsm: { name: 'Naval Strike Missile', cs: 'BROADSWORD', scope: 'NAVAL STRIKE MISSILE',
+    range: '100 nm, wholly passive — it emits nothing on the way in and gives no warning at all' },
+  // The air-launched NSM, and the only anti-ship weapon that fits inside an
+  // F-35's bay. Same seeker and same warhead on a longer-legged body: this is
+  // how a fifth-generation aircraft shoots at a ship without hanging a missile
+  // off a pylon and becoming a fourth-generation aircraft.
+  jsm: { name: 'Joint Strike Missile (air-launched NSM)', scope: 'JSM',
+    range: '300 nm, carried internally — the only anti-ship round that does not cost the F-35 its signature' },
+  // The heaviest thing anyone can put into a ship. 650 lb of PBXN under the
+  // keel, wire-guided the whole way, and the explosion is not the mechanism —
+  // the gas bubble collapsing under an unsupported hull is, which is why a
+  // heavyweight breaks a frigate's back rather than holing her.
+  mk48: { name: 'Mk 48 ADCAP heavyweight torpedo', cs: 'TOLEDO', scope: 'Mk 48 ADCAP',
+    range: 'under the keel — a heavyweight does not hole a ship, it breaks her in half' },
+  // The air-dropped lightweight, and the only anti-SUBMARINE weapon on the
+  // board. It is here to make the point that the eight rounds above it are not
+  // poor against a submerged boat, they are irrelevant: a sea-skimming missile
+  // with a seeker pointed at the surface has nothing to look at.
+  mk54: { name: 'Mk 54 lightweight torpedo', scope: 'Mk 54',
+    range: 'dropped on a sonobuoy solution — finding her is the hard part and the weapon is the easy one' },
+};
+
+// Deck canisters of NSM in the escort screen, and the second magazine on this
+// board that nobody reloads underway. Deliberately tiny: eight rounds is what a
+// screen actually carries, and it is the reason NSM is a decision rather than a
+// default. It refills off the same ammunition ship as the interceptor cells —
+// see orderRearm — so the rearm order now buys back two magazines and the three
+// nights off station buy a little more than they used to.
+const NSM_LOAD = 8;
 
 const ASSET_NAMES = {
   f35: '5th-gen sorties (F-35/F-22)',
