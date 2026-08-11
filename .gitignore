@@ -2,6 +2,13 @@
 Thumbs.db
 *.log
 node_modules/
+
+# Beta-test harness output. run.js writes results.json relative to the CWD, so
+# running it from the repo root rather than from .claude/betatest/ drops a
+# multi-megabyte blob here — where nothing else ignores it, because the harness
+# itself is covered by the .claude/ rule below. This repo already carries a
+# known git-history bloat problem; it does not need probe output in it too.
+results.json
 .vscode/
 .idea/
 .claude/
