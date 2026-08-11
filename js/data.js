@@ -2465,10 +2465,16 @@ const STATECRAFT = {
 // v1.90 does that for State: `popups: 'diplo'` puts three staffed tracks in the
 // folder (STATECRAFT above, stateOptions in ui.js), so DIPLOMATIC ACTIONS comes
 // off easy's rail and its door is the same one the courses of action already
-// use. INTELLIGENCE TASKING stays, on the same condition, until the NSA briefs
-// it the same way — five orders, all of which buy knowing rather than doing, is
-// a smaller sorting problem than eleven and it is not the one this release is
-// about.
+// use. INTELLIGENCE TASKING went the same way in the same release.
+//
+// v1.91 fixes what that left. Both slots arrived as SECTIONS of the one folder,
+// under three courses of action, and the argument for it was the pop-up count —
+// which was right about the count and wrong about the shape: a section is only
+// read if the reader gets to it, and the slot the folder came in to stop the
+// president missing ended up last in an 86vh scroll. The keys in `popups` are
+// unchanged and still mean "briefed in the room"; what changed is that the room
+// is three rooms walked in order, intelligence then CENTCOM then State, each
+// with the briefing department's seal on it. UI.BRIEF_STAGES owns the order.
 //
 // `autoTheater` exists because the theater calls are the one thing a staffed
 // level could not simply drop. Fordow has one key — the GBU-57, which is at

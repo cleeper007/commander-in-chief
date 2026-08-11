@@ -1706,137 +1706,205 @@ const UI = (() => {
   }
 
   // ============================================================
-  // THE BRIEF, AS A DIALOG — DIFFICULTY.popups
+  // THE EVENING BRIEF, AS THREE ROOMS — DIFFICULTY.popups
   // ------------------------------------------------------------
-  // The same three options, in the room instead of in a drawer. What changes is
-  // not the content, it is that the night now ASKS: on a level where signing one
+  // The same decisions, in the room instead of in a drawer. What the dialog adds
+  // is not content, it is that the night ASKS: on a level where signing one
   // option is the entire decision, a shut panel over the words "3 OPTIONS" is
   // the one arrangement of this screen where a president can end a turn without
   // knowing they were asked anything. A dialog cannot be scrolled past.
   //
-  // It opens itself at the top of every turn and it is dismissible, which means
-  // there has to be a way back to it — see BRIEF ME in the session buttons.
-  // A president who stood the room down at 21:00 and wants the folder again at
-  // 21:05 is not an edge case, it is most nights.
+  // v1.90 put the two free action slots INSIDE that one dialog, as sections
+  // under the courses of action, and the argument for it was the pop-up count:
+  // three dialogs a night is the number at which dialogs stop being read. That
+  // argument was right about the count and wrong about the shape. A section is
+  // only read if the reader gets to it, and what actually shipped was a single
+  // scroll running the collection picture, three courses of action, three
+  // diplomatic tracks and two spent-slot notices down one 86vh box — on a level
+  // whose entire premise is that the president is not asked to sort things. The
+  // slot the folder came in here to stop them missing was the LAST thing in it.
   //
-  // The theater notes ride in the same dialog rather than in one of their own.
-  // They are the other half of the same brief — what CENTCOM did without asking,
-  // above what CENTCOM is asking — and two dialogs a night, one of which has no
-  // decision in it, is the pop-up count at which pop-ups stop being read.
+  // So it is three rooms and one shell, walked in order. Intelligence first
+  // because knowing precedes doing and because the collection picture is what
+  // the other two rooms are argued from; CENTCOM second because signing an
+  // option is the night; State last because a cable is what the president sends
+  // once they know what the war did. One dialog is still open at a time, which
+  // is what the pop-up-count argument was actually protecting: this is one
+  // briefing with three folders in it, not three briefings.
+  //
+  // Everything visible is written from the stage descriptor — the title, the
+  // seal, the preamble, the orders, the footer. Adding a fourth room is one
+  // entry here plus its key in `popups`, the same bargain BRIEF_SLOTS made and
+  // for the same reason: a second copy of this markup is how a decision goes
+  // missing from one of the two homes it is meant to have.
+  //
+  // Two rules carried forward unchanged, both of which were bugs first.
+  // `body` draws its rows with `actionButtons` (or coaRows) and NOTHING else, so
+  // the drawer and the room cannot drift about what a row says — what a room may
+  // vary is which orders it feeds in, which is why intelligence hands over its
+  // whole deck and diplomacy ranks eleven cables down to three. And the orders
+  // land in a container whose id ends in `-buttons`, because order containers
+  // are matched by shape (`.modal [id$="-buttons"]`) and a container named
+  // anything else renders every row as a native white centred button.
+  const BRIEF_STAGES = [
+    {
+      key: 'intel', room: 'INTELLIGENCE', seal: 'icons/seal-nsa.png?v=1.91',
+      live: (G) => !G.intelUsed,
+      count: (G) => (G.intelUsed ? 'SLOT SPENT TONIGHT' : '1 TASKING'),
+      body: intelParts,
+    },
+    {
+      key: 'brief', room: 'STRIKE OPTIONS', seal: 'icons/seal-dod.png?v=1.91',
+      notes: true,
+      // The staff's room is "live" while there is an option left unsigned. A
+      // night where every option has been signed is not a night with nothing in
+      // this room — the cards are still there, greyed, saying so.
+      live: (G, opts) => opts.length > Game.coaFlown().size,
+      count: (G, opts) => {
+        const flown = Game.coaFlown().size;
+        // Counted through Txt like every other number in a sentence, then cased
+        // — inflecting an already-shouted noun gets you "3 OPTIONs". With
+        // nothing staffed it says so rather than reading "0 OPTIONS", which is
+        // what a folder opened for its slots alone would otherwise be titled on
+        // the nights that matter most for the slot.
+        return flown ? `${flown} SIGNED`
+          : opts.length ? plural(opts.length, 'option').toUpperCase()
+          : 'NO OPTIONS TONIGHT';
+      },
+      body: (G, opts) => ({ head: '', rows: opts.length ? coaRows(G, opts) : COA_EMPTY }),
+    },
+    {
+      key: 'diplo', room: 'DIPLOMATIC ACTIONS', seal: 'icons/seal-state.png?v=1.91',
+      live: (G) => !G.diploUsed,
+      count: (G) => (G.diploUsed ? 'ORDER GIVEN' : '1 ORDER'),
+      body: (G) => ({ head: '', rows: diploBody(G) }),
+    },
+  ];
+
+  // Which rooms this level actually holds. A level that pops the brief but not
+  // the slots (there is no such level today, and there is no reason there could
+  // not be) gets a one-room briefing and a footer with no NEXT in it.
+  const briefRooms = () => BRIEF_STAGES.filter((s) => Game.popup(s.key));
+
+  // Whether any free action slot this level briefs still has its order in it.
+  // Read by Game.openBrief to decide whether the folder is worth arming on a
+  // night the staff has nothing to sign — an unspent slot is a decision, so it
+  // is. Kept under its v1.90 name because game.js and the harness both call it,
+  // and because "slot" is still exactly what it means: the strike room is not a
+  // slot and is deliberately not counted here.
+  function briefSlotPending() {
+    const G = Game.G;
+    return !G.over && briefRooms().some((s) => s.key !== 'brief' && s.live(G, []));
+  }
+
+  // Tonight's folder, as the dialog is holding it. `briefAt` is where the chain
+  // RESUMES rather than where it is: a president who gives an order out of the
+  // intelligence room has the room close on them (see the wiring below), and
+  // BRIEF ME should put them in front of CENTCOM rather than back in front of a
+  // slot they just spent. Module-local and reset on the turn roll, like
+  // readLead's damper and stateHeard — no FIELDS entry and no VERSION bump,
+  // because a resumed war has never opened tonight's folder at all.
+  let briefOptions = [], briefNotes = null, briefAt = 0, briefTurn = -1, briefRoom = 0;
+
+  function briefReset() {
+    if (briefTurn === Game.G.turn) return;
+    briefTurn = Game.G.turn; briefAt = 0;
+  }
+
+  // The whole briefing, opened at the first room that still has a decision in
+  // it. `list` and `notes` are what game.js hands over — the options it already
+  // computed, and tonight's theater notes if this is the first reading.
   function openBrief(list, notes) {
     const G = Game.G;
     if (G.over) return;
-    const options = list || (Game.difficulty().coa ? Game.coaOptions() : []);
+    briefReset();
+    briefOptions = list || (Game.difficulty().coa ? Game.coaOptions() : []);
+    briefNotes = notes;
+
+    const rooms = briefRooms();
     // Nothing to brief, nothing to report AND no slot still holding an order is
     // not an empty dialog, it is no dialog. The panel path says "NONE TONIGHT"
     // in a status line the player is already looking at; the dialog path would
-    // have to interrupt them to say it. A live slot counts on its own — it is
-    // the night's other decision, and it is the one this level moved into the
-    // folder to stop the president missing.
-    if (!options.length && !(notes && notes.length) && !briefSlotPending()) {
+    // have to interrupt them to say it.
+    if (!rooms.length ||
+        (!briefOptions.length && !(notes && notes.length) && !briefSlotPending())) {
       syncBriefButton(); return;
     }
 
-    const flown = Game.coaFlown();
-    $('brief-modal-when').textContent =
-      // Counted through Txt like every other number in a sentence, then cased —
-      // inflecting an already-shouted noun gets you "3 OPTIONs".
-      // With nothing staffed the header says so rather than reading "0 OPTIONS",
-      // which is what a folder opened for its slots alone would otherwise be
-      // titled on the nights that matter most for the slot.
-      `NIGHT ${G.turn} — ${flown.size ? `${flown.size} SIGNED`
-        : options.length ? plural(options.length, 'option').toUpperCase()
-        : 'NO OPTIONS TONIGHT'}`;
-    $('brief-modal-notes').innerHTML = (notes && notes.length)
+    let at = rooms.findIndex((s, n) => n >= briefAt && s.live(G, briefOptions));
+    if (at < 0) at = rooms.findIndex((s) => s.live(G, briefOptions));
+    showRoom(at < 0 ? Math.min(briefAt, rooms.length - 1) : at);
+  }
+
+  // Dress the shell as one of the three. Called on open, on NEXT/BACK, and by
+  // the walkthrough, which walks the rooms with the board sealed.
+  function showRoom(n) {
+    const G = Game.G;
+    const rooms = briefRooms();
+    if (!rooms.length) return;
+    briefRoom = Math.max(0, Math.min(n, rooms.length - 1));
+    const st = rooms[briefRoom];
+    const last = briefRoom === rooms.length - 1;
+
+    $('brief-modal-room').textContent = `TURN ${G.turn} — ${st.room}`;
+    $('brief-modal-when').textContent = st.count(G, briefOptions);
+    $('brief-modal-seal').src = st.seal;
+
+    // The theater notes belong to CENTCOM's room and to no other: they are the
+    // other half of what the staff is briefing — what it moved without asking,
+    // over what it is asking — and read above the collection picture they would
+    // be an army report in the NSA's meeting.
+    $('brief-modal-notes').innerHTML = (st.notes && briefNotes && briefNotes.length)
       ? `<div class="brief-notes"><div class="brief-notes-head">CENTCOM HAS ALREADY MOVED ON THIS</div>` +
-        notes.map((n) => `<div class="brief-note">${n}</div>`).join('') + `</div>`
+        briefNotes.map((x) => `<div class="brief-note">${x}</div>`).join('') + `</div>`
       : '';
-    $('brief-modal-buttons').innerHTML = options.length ? coaRows(G, options) : COA_EMPTY;
-    for (const btn of document.querySelectorAll('#brief-modal-buttons .action-do')) {
-      // Signing closes the room. The option is on tonight's order, the map
-      // animates it, and holding the dialog open over the strike the president
-      // just authorized would hide the one thing they asked to see.
-      btn.addEventListener('click', () => { closeBrief(); Game.takeCoa(btn.dataset.coa); });
+
+    const parts = st.body(G, briefOptions);
+    $('brief-modal-head').innerHTML = parts.head;
+    $('brief-modal-buttons').innerHTML = parts.rows;
+
+    // Giving an order closes the room, and that has been the rule since the
+    // slots arrived: what comes back is a product, a cable or a strike on the
+    // map, and holding the folder open over the answer hides the one thing the
+    // president just asked for. What is new is that it leaves the chain where it
+    // stands — the next room is where BRIEF ME comes back to.
+    const done = () => { briefAt = briefRoom + 1; closeBrief(); };
+    if (st.key === 'brief') {
+      for (const btn of document.querySelectorAll('#brief-modal-buttons .action-do')) {
+        btn.addEventListener('click', () => { done(); Game.takeCoa(btn.dataset.coa); });
+      }
+      wireWhy('#brief-modal-buttons');
+    } else {
+      wireActions('#brief-modal-buttons', done);
     }
-    wireWhy('#brief-modal-buttons');
-    // The slots render last and wire themselves, each into its own box, because
-    // an order given from in here has to close the room the way signing does —
-    // what comes back is a product or a cable, and the report is the answer to
-    // the question the section just asked.
-    $('brief-modal-slots').innerHTML = briefSlots(G);
-    for (const s of liveSlots()) wireActions(`#${s.box}`, closeBrief);
+
+    // The footer is the chain. The counter says how much briefing is left,
+    // which is the thing a president reading a dialog most wants to know and the
+    // reason a stack of three is not three interruptions; NEXT names the room it
+    // is walking into, because "NEXT" alone on a folder does not say whether
+    // the meeting is nearly over.
+    $('brief-modal-step').textContent = rooms.length > 1
+      ? `${briefRoom + 1} OF ${rooms.length}` : '';
+    const back = $('btn-brief-back'), next = $('btn-brief-next');
+    back.classList.toggle('hidden', briefRoom === 0);
+    back.onclick = () => showRoom(briefRoom - 1);
+    next.textContent = last ? 'CLOSE THE FOLDER' : `NEXT — ${rooms[briefRoom + 1].room} ▸`;
+    next.onclick = () => (last ? closeBrief() : showRoom(briefRoom + 1));
+
     $('brief-modal').classList.remove('hidden');
     syncBriefButton();
   }
 
+  // Walk to a named room. Only the walkthrough uses it, and it is the reason
+  // showRoom renders a room whether or not that room has anything live in it —
+  // a card explaining the collection deck has to have the collection deck behind
+  // it on a night the slot is already spent.
+  function briefGoto(key) {
+    const n = briefRooms().findIndex((s) => s.key === key);
+    if (n >= 0) showRoom(n);
+  }
+
   function closeBrief() { $('brief-modal').classList.add('hidden'); }
-
-  // ============================================================
-  // THE FREE ACTION SLOTS, IN THE ROOM — DIFFICULTY.popups
-  // ------------------------------------------------------------
-  // INTELLIGENCE TASKING is a section of the brief rather than a dialog of its
-  // own, and that is the whole design decision here. Both of easy's free action
-  // slots are one-per-turn orders that are live on all thirty nights, so a slot
-  // that threw its own dialog would throw it every night of the campaign — and
-  // beside a brief that already opens every night, plus the recovery, that is
-  // the pop-up count the note above openBrief already names as the one at which
-  // pop-ups stop being read. The problem these slots have is not that they lack
-  // a dialog. It is that a drawer a president never opens cannot tell them the
-  // slot is unspent, and never spending it is the most common way a new player
-  // loses (see the primer, and the note on railPanels in data.js). A section of
-  // the folder they are already reading fixes exactly that and costs no new
-  // interruption.
-  //
-  // A LIST rather than a hardcoded section, because DIPLOMATIC ACTIONS is the
-  // other half of the same pair and joins by adding one entry here plus its key
-  // in `popups` — not by growing a second copy of this markup.
-  //
-  // `body` must draw its rows with `actionButtons` and nothing else. That is the
-  // rule coaRows and briefLines/orderRows follow, and the reason is that the
-  // drawer and the dialog going out of step is invisible until a tasking is
-  // missing from one of them.
-  //
-  // What `body` MAY vary is which orders it feeds in, and the two slots already
-  // differ there deliberately — intelligence hands over its whole drawer, while
-  // diplomacy ranks eleven orders down to three staffed tracks (see the note
-  // above `diploBody` for why the shelf is the wrong thing to put in a folder).
-  // This is not a loophole in the rule above: the test is whether the two homes
-  // could ever disagree about what a row SAYS, and one renderer over a chosen
-  // list cannot. Choosing the list is the slot's business. Drawing it is not.
-  //
-  // `box` MUST end in `-buttons`. Order containers are matched by SHAPE — the
-  // rule is `.modal [id$="-buttons"]`, beside the `#sidebar-scroll` one — so a
-  // container named anything else drops its rows through to the browser's
-  // native white centred button, in the middle of the folder, with no error
-  // anywhere. This is the same trap the comment above that CSS rule already
-  // documents, and naming the box `brief-slot-intel` walked straight into it.
-  const BRIEF_SLOTS = [
-    { key: 'diplo', title: 'DIPLOMATIC ACTIONS', box: 'brief-slot-diplo-buttons',
-      spent: (G) => G.diploUsed, body: diploBody },
-    { key: 'intel', title: 'INTELLIGENCE TASKING', box: 'brief-slot-intel-buttons',
-      spent: (G) => G.intelUsed, body: intelBody },
-  ];
-
-  const liveSlots = () => BRIEF_SLOTS.filter((s) => Game.popup(s.key));
-
-  // Whether any slot this level briefs still has its order in it. Read by
-  // Game.openBrief to decide whether the folder is worth arming on a night the
-  // staff has nothing to sign — an unspent slot is a decision, so it is.
-  function briefSlotPending() {
-    const G = Game.G;
-    return !G.over && liveSlots().some((s) => !s.spent(G));
-  }
-
-  // Spent slots are rendered greyed rather than dropped. The president spent it,
-  // and a section that vanished on being used would read as one that was never
-  // there — which is the same failure as the drawer, one fold further in.
-  function briefSlots(G) {
-    return liveSlots().map((s) =>
-      `<div class="brief-slot">` +
-      `<div class="brief-slot-head">${s.title}` +
-      (s.spent(G) ? `<span class="brief-slot-spent">SLOT SPENT TONIGHT</span>` : '') +
-      `</div><div id="${s.box}">${s.body(G)}</div></div>`).join('');
-  }
 
   // The two buttons that stand for the brief when the brief is not on screen,
   // and they are never both live. Before it has been read tonight, READY FOR
@@ -2307,7 +2375,7 @@ const UI = (() => {
   function renderDiplo(G) {
     // On a level that briefs this slot in the room the drawer is trimmed off the
     // rail entirely (DIFFICULTY.railPanels) and openPanel refuses it, so there
-    // is nothing here to draw into — briefSlots owns it instead. Same split as
+    // is nothing here to draw into — the brief's own room owns it instead. Same split as
     // renderIntel and CSAR.renderPanel make.
     if (Game.popup('diplo')) return;
     const used = G.diploUsed;
@@ -2834,18 +2902,28 @@ const UI = (() => {
 
   // The picture over the orders, which is the whole shape of this slot: the
   // state first, then the night's one decision against it. Both homes render
-  // exactly this.
-  function intelBody(G) {
+  // exactly this — and they are handed the two halves separately rather than
+  // one string, because the room lays its orders out in columns and a readout
+  // is not a column. Same split, one renderer: the drawer glues them back
+  // together below.
+  function intelParts(G) {
     const s = intelState(G);
     const live = intelTaskings(G, s);
-    return intelPicture(s) +
-      (live.length ? actionButtons(live, G.intelUsed) : INTEL_EMPTY);
+    return {
+      head: intelPicture(s),
+      rows: live.length ? actionButtons(live, G.intelUsed) : INTEL_EMPTY,
+    };
+  }
+
+  function intelBody(G) {
+    const p = intelParts(G);
+    return p.head + p.rows;
   }
 
   function renderIntel(G) {
     // On a level that briefs this slot in the room the drawer is trimmed off the
     // rail entirely (DIFFICULTY.railPanels) and openPanel refuses it, so there
-    // is nothing here to draw into — briefSlots owns it instead. Same split as
+    // is nothing here to draw into — the brief's own room owns it instead. Same split as
     // CSAR.renderPanel makes for the recovery.
     if (Game.popup('intel')) return;
     $('intel-status').textContent = G.intelUsed ? '— SLOT SPENT THIS TURN' : '';
@@ -4346,10 +4424,13 @@ const UI = (() => {
     // a state change with no render behind it, and the two buttons that stand
     // for the dialog have to follow it in the same tick.
     // briefSlotPending goes with it, and for the same reason it lives here at
-    // all: BRIEF_SLOTS is the ONE registry of which slots are briefed in the
-    // room, so game.js asks it rather than keeping a second list that could
-    // arm the folder for a section the dialog does not render.
-    applyPanelTrim, openBrief, closeBrief, syncBriefButton, briefSlotPending,
+    // all: BRIEF_STAGES is the ONE registry of which rooms a level's briefing
+    // has, so game.js asks it rather than keeping a second list that could arm
+    // the folder for a room the dialog does not render.
+    // briefGoto is the walkthrough's, and only the walkthrough's — a card that
+    // explains the collection deck has to have the collection deck on screen
+    // behind it, whichever room the chain would have opened on.
+    applyPanelTrim, openBrief, closeBrief, syncBriefButton, briefSlotPending, briefGoto,
     // Exported for .claude/betatest/state.js and nothing else in the game calls
     // them from out here. Both are pure functions of G — no DOM, deliberately —
     // so the probe can hold a reference across stub(), which noops every UI

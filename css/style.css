@@ -526,20 +526,98 @@ button { font-family: var(--mono); }
 }
 .brief-note:last-child { margin-bottom: 0; }
 
-/* A free action slot, briefed in the room instead of in a drawer. It reads as a
-   section of the folder rather than as another card, because the cards above it
-   are the night's one signature and these are the other thing the president may
-   spend — a slot dressed as a fourth option would be read as a fourth option.
-   The rule above it is the fold: everything under it is optional. */
-.brief-slot { border-top: 1px solid var(--line); margin-top: 13px; padding-top: 10px; }
-.brief-slot-head {
-  display: flex; align-items: baseline; gap: 8px;
-  color: var(--amber); font-size: 9.5px; letter-spacing: 0.08em; margin-bottom: 7px;
+/* ---- the evening brief, as three rooms (v1.91) ----
+   One shell re-dressed three times, so everything here is written against the
+   shell and never against a room: the seals swap, the columns do not.
+
+   Wider than a strike dialog because the body is a three-column grid and 560px
+   of it is three columns of nothing. It stays a .modal in every other respect,
+   including the mobile sheet treatment further down — which is why .modal.brief
+   joins .modal.wide in that rule rather than getting a phone layout of its own. */
+.modal.brief { width: 940px; }
+
+/* The letterhead. A grid rather than the header's default space-between: with
+   four children and one of them growing, space-between hangs the title off the
+   left seal and drifts it as the room name changes length. Fixed columns keep
+   the title centred over the body it names, which is the whole point of putting
+   two seals either side of it. */
+.brief-head {
+  display: grid; grid-template-columns: auto 1fr auto auto;
+  align-items: center; gap: 12px; padding: 9px 14px;
 }
-/* Spent is stated, not implied by the greyed rows underneath — the president
-   spent it, and a section that only went dim is one they re-read every night
-   wondering whether they had. */
-.brief-slot-spent { color: var(--dim); letter-spacing: 0.06em; }
+/* Sized in em against the header's own type so the seals track the title rather
+   than the viewport — they are letterhead, not art, and a seal that outgrows the
+   line it sits on reads as a splash screen. Auto width with a fixed height
+   because the three agencies are not the same aspect ratio: the Pentagon's mark
+   is a wide oval and the other two are discs. */
+.brief-seal {
+  height: 34px; width: auto; display: block;
+  /* The seals are full-colour marks on a very dark panel, and at 34px the fine
+     ring lettering fights the header rule underneath them. A touch of contrast
+     and a shadow seats them on the panel instead of floating them over it. */
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+}
+/* A landscape phone leaves this dialog about 200px of body under its header, so
+   the letterhead has to pay for the room it takes. Same treatment the strike
+   dialog and the endgame already get at this height. */
+@media (max-height: 540px) {
+  .brief-seal { height: 26px; }
+  .brief-head { padding: 7px 12px; }
+}
+.brief-head .panel-title { text-align: center; }
+/* The count is the room's own status — 3 OPTIONS, SLOT SPENT TONIGHT — and it
+   sits under the room name rather than beside it: beside it, the title's width
+   changes every time the count does and the centred line jitters between rooms. */
+.brief-count {
+  display: block; color: var(--dim); font-size: 9px; letter-spacing: 0.09em;
+  margin-top: 2px;
+}
+.brief-count:empty { display: none; }
+
+/* THE THREE COLUMNS. An id, so it out-specifies the `.modal [id$="-buttons"]`
+   flex-column rule above without that rule having to know this room exists.
+   auto-fit rather than a hard `repeat(3, 1fr)`: three courses of action is the
+   common case and the sketch's shape, but the intelligence room routinely has
+   five or six taskings and the fold has to come somewhere sensible on a narrow
+   landscape phone. minmax(0, …) on the track, because a grid column's default
+   min-width is its content and an option card carrying a long aimpoint name
+   would otherwise push the whole row wider than the dialog. */
+#brief-modal-buttons {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+  align-items: start; gap: 8px;
+}
+/* Each column is a card with a rule down its left edge, which is what the
+   sketch's dividers are. `align-items: start` above keeps a short card short
+   instead of stretching it to the tallest in the row — three cards of wildly
+   different heights is honest, and a stretched one puts its cost line adrift
+   in the middle of an empty box. */
+#brief-modal-buttons > .action {
+  border-left: 1px solid var(--line); padding-left: 8px;
+}
+#brief-modal-buttons > .action:first-child { border-left: 0; padding-left: 0; }
+/* An empty room still says why it is empty, and it says it across the whole
+   width rather than in the first column. */
+#brief-modal-buttons > .coa-empty, #brief-modal-buttons > .dim { grid-column: 1 / -1; }
+
+/* The collection picture, above the columns. Bottom rule is the same fold the
+   free-action slots used to draw: everything under it is a decision. Laid out
+   across the dialog's width rather than down it for the reason the orders are:
+   a landscape phone has ~200px of body here, and four stacked readout lines is
+   most of it spent before the room asks its question. */
+#brief-modal-head:not(:empty) {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 20px;
+  border-bottom: 1px solid var(--line); padding-bottom: 9px; margin-bottom: 11px;
+}
+
+/* The footer is the chain, so the counter takes the left and pushes the three
+   controls right. It is the thing that makes a stack of three rooms read as one
+   briefing rather than as three interruptions. */
+.brief-foot { align-items: center; }
+.brief-step {
+  margin-right: auto; color: var(--dim);
+  font-size: 9.5px; letter-spacing: 0.1em;
+}
 
 /* An action is an order, its live state, and — folded away — what the order
    actually is. The mechanism text is identical every turn for thirty turns;
@@ -2872,10 +2950,20 @@ body.mobile-ui .pkg-option { min-height: 46px; padding: 9px 11px; }
      game has round ones — it is the position that makes it a sheet, not a
      radius borrowed from another app's design language. */
   .overlay { align-items: flex-end; justify-content: stretch; padding: 0; }
-  .modal, .modal.wide {
+  .modal, .modal.wide, .modal.brief {
     width: 100%; max-width: 100%; max-height: 88dvh;
     border-left: 0; border-right: 0; border-bottom: 0;
   }
+  /* A phone gets one column, and the seals come down to the size of the line
+     they sit beside. The grid above already folds on its own at 215px, but the
+     rule down each card's left edge is drawn for columns and reads as a stray
+     vertical when there is only one of them. */
+  #brief-modal-buttons > .action { border-left: 0; padding-left: 0; }
+  .brief-seal { height: 24px; }
+  .brief-head { gap: 8px; padding: 8px 10px; }
+  /* Three controls and a counter do not fit one phone line. The counter goes —
+     it is the least of the four, and NEXT already names the room it opens. */
+  .brief-step { display: none; }
   /* ---- the title card ----
      Not a sheet: it is the only screen with nothing behind it, so it stays
      centred and takes the viewport. It also has to FIT in the viewport, which

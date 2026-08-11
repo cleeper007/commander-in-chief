@@ -236,9 +236,13 @@ const Tour = (() => {
   //     the first card says so rather than telling the player to do the one
   //     thing this level does not let them do — the identical sentence the
   //     primer's first card had to lose at v1.77.
-  //   - The demonstration is the BRIEF, three cards of it, because signing an
-  //     option IS the night at this level. On the map levels those three cards
-  //     are a strike dialog for the same reason.
+  //   - The demonstration is the BRIEF — five cards, one per thing the folder
+  //     asks, walked across its three rooms — because the folder IS the night at
+  //     this level. On the map levels those cards are a strike dialog for the
+  //     same reason. Five and not three since v1.91: the two free actions used
+  //     to be sections of one scroll and are rooms of their own now, and a card
+  //     stack that walked the folder in a different order than the president
+  //     does is a walkthrough of a screen this level does not have.
   //   - THEATER FORCES is gone with no replacement card, because the fact a
   //     player needed it for — the B-2 is in Missouri and somebody has to send
   //     for it — is no longer a decision here. CENTCOM's own line about it lands
@@ -251,41 +255,45 @@ const Tour = (() => {
       text: 'Every marker is an Iranian target, and clicking one opens its folder — what CENTCOM ' +
         'knows about it. You do not frag aimpoints at this level. The staff does, and NEXT brings ' +
         'them in.' },
-    { sel: '#brief-modal-buttons', modal: true,
-      title: 'THE STAFF WRITES THE NIGHT',
-      text: 'CENTCOM walks in with courses of action every evening. Each names the concern it ' +
-        'answers and what it costs — and, the line worth reading, what it leaves undone.' },
-    { sel: notesOrFooter, modal: true,
-      title: () => (notesUp() ? 'WHAT THEY DID NOT ASK ABOUT' : 'SIGNING IS THE NIGHT'),
-      text: () => (notesUp()
-        ? 'CENTCOM runs the force flow itself here, including sending for the B-2 that Fordow ' +
-          'needs. What it moved without asking is at the top of the folder; what it is asking ' +
-          'is below.'
-        : 'Sign one and the packages fly — nothing is spent until you do. Stand the room down ' +
-          'and BRIEF ME brings the folder back; the turn will not end until you have opened it.') },
-    // The diplomatic slot, in the room. It was a panel card until v1.90 and it
-    // cannot be one now — DIPLOMATIC ACTIONS is off easy's rail, so the
-    // railPanels filter in start() drops that card, which would have left the
-    // level's walkthrough silent about the slot the primer names as the most
-    // common way a new player loses. Modal, and placed with the other two modal
-    // cards rather than in the sidebar run: going modal, out, and back in
-    // reopens the demo dialog mid-walkthrough, and the folder shutting and
-    // reappearing reads as a fault in the game rather than a step.
-    // Both free action slots, in the room, for the same reason: each was a panel
-    // card until v1.90 and neither can be one now. INTELLIGENCE TASKING and
-    // DIPLOMATIC ACTIONS are both off easy's rail, so the railPanels filter in
-    // start() drops a card naming either — which would leave this level's
-    // walkthrough silent about BOTH of the free actions the primer names as the
-    // most common way a new player loses. Modal, and grouped with the other
-    // modal cards rather than left in the sidebar run: going modal, out, and
-    // back in reopens the demo dialog mid-walkthrough, and a folder that shuts
-    // and reappears reads as a fault in the game rather than as a step.
-    { sel: '#brief-slot-intel-buttons', modal: true,
+    // THE THREE ROOMS, IN THE ORDER THE BRIEFING WALKS THEM (v1.91). Both free
+    // action slots have to be taught here and neither can be a panel card:
+    // INTELLIGENCE TASKING and DIPLOMATIC ACTIONS are both off easy's rail, so
+    // the railPanels filter in start() drops any card naming one — which would
+    // leave this level's walkthrough silent about BOTH of the free actions the
+    // primer names as the most common way a new player loses. Grouped with the
+    // other modal cards rather than left in the sidebar run: going modal, out,
+    // and back in reopens the demo dialog mid-walkthrough, and a folder that
+    // shuts and reappears reads as a fault in the game rather than as a step.
+    //
+    // `stage` is the room the card is about, and go() walks the demo folder to
+    // it before framing anything. It is not optional on these five: they all
+    // point at the same shell, and a card pointing at #brief-modal-buttons with
+    // the wrong room dressed into it describes State's cables over CENTCOM's
+    // options. The rooms are named in the same order the president walks them,
+    // so the walkthrough never sends the folder backwards.
+    { sel: '#brief-modal-head', stage: 'intel', modal: true,
+      title: 'WHAT YOU KNOW, AND HOW FIRMLY',
+      text: 'The briefing opens with the collection picture — the enrichment clock, the launchers ' +
+        'still loose, what the analysts have not read yet. Green is known. Red is not, and red is ' +
+        'what the night below is for.' },
+    { sel: '#brief-modal-buttons', stage: 'intel', modal: true,
       title: 'ONE INTELLIGENCE TASKING A NIGHT',
       text: 'Hunt the missile launchers, re-look a target you have hit, or work the target folder, ' +
         'which is the only way a hidden site becomes an aimpoint. A night that finds nothing still ' +
         'improves the next one.' },
-    { sel: '#brief-slot-diplo-buttons', modal: true,
+    { sel: '#brief-modal-buttons', stage: 'brief', modal: true,
+      title: 'THE STAFF WRITES THE NIGHT',
+      text: 'CENTCOM is the second room. Each course of action names the concern it answers and ' +
+        'what it costs — and, the line worth reading, what it leaves undone.' },
+    { sel: notesOrFooter, stage: 'brief', modal: true,
+      title: () => (notesUp() ? 'WHAT THEY DID NOT ASK ABOUT' : 'SIGNING IS THE NIGHT'),
+      text: () => (notesUp()
+        ? 'CENTCOM runs the force flow itself here, including sending for the B-2 that Fordow ' +
+          'needs. What it moved without asking is at the top of this room; what it is asking ' +
+          'is below.'
+        : 'Sign one and the packages fly — nothing is spent until you do. Stand the room down ' +
+          'and BRIEF ME brings the folder back; the turn will not end until you have opened it.') },
+    { sel: '#brief-modal-buttons', stage: 'diplo', modal: true,
       title: 'AND STATE ASKS FOR ONE TOO',
       text: 'One diplomatic order a night, free, and never on any option CENTCOM briefs. The ' +
         'staff sorts eleven channels down to the three worth your evening — each with the reason ' +
@@ -567,6 +575,13 @@ const Tour = (() => {
     const st = STEPS[i];
     if (!st.modal && ownsModal && demoOpen()) { demo.close(); ownsModal = false; }
     if (st.pick && demoOpen()) pickDemoPackage();
+    // Five cards point at the same shell, so the shell has to be wearing the
+    // right room before anything is measured. UI.briefGoto renders a room
+    // whether or not it has a live decision in it, which is the case that
+    // matters here: the walkthrough is routinely taken on a night the president
+    // has already spent a slot, and a card teaching the collection deck must not
+    // fall through to whichever room the chain would have resumed on.
+    if (st.stage && demoOpen()) UI.briefGoto(st.stage);
     // openPanel's own `reveal` is deliberately not used. It brings a section's
     // leading 140px in from below, which is right for a panel that opened
     // because the war made it relevant and wrong here: the walkthrough is about
