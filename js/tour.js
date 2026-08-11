@@ -35,20 +35,74 @@
 //     seal everything else.
 //   - No step waits on the player doing something. NEXT is the only thing that
 //     has to be pressed to get through the whole card stack; the first card
-//     opens the strike dialog itself off NEXT rather than standing there until
-//     the map is clicked, which it now has to, because the map cannot be clicked.
+//     opens the demonstration dialog itself off NEXT rather than standing there
+//     until the map is clicked, which it now has to, because the map cannot be
+//     clicked.
 //   - BACK is symmetric with NEXT and never skips a card. Walking back into the
 //     dialog steps reopens the dialog, because the alternative — stepping over
 //     them to the map — was a BACK button that threw the player to step one.
-//   - The loop is a watchdog as much as a positioner: if the strike dialog goes
+//   - The loop is a watchdog as much as a positioner: if that dialog goes
 //     away from under a step that lives inside it, the walkthrough moves on
 //     rather than pointing at a widget that is gone.
+//
+// AND IT WALKS THE ROOM THE PLAYER IS ACTUALLY IN (v1.89). The written brief
+// learned this at v1.77 and the walkthrough did not, which was survivable while
+// easy differed only in who did the targeting and stopped being survivable at
+// v1.87: easy is five sidebar sections, a brief that arrives as a dialog and a
+// force flow CENTCOM runs itself, so a card stack built for eleven drawers spent
+// a step outlining THEATER FORCES — a panel that level does not have, whose
+// visible box is nothing, which leaves the ring collapsed and the card pointing
+// at a name the player will never find — and opened the strike dialog on the one
+// level where the map does not open strike dialogs at all. There are two step
+// lists, chosen off `freeTargeting` like everything else that differs, and the
+// demonstration dialog is per-list: the map level is shown a strike, the staffed
+// level is shown the folder it signs, because that is the whole of its night.
 // ============================================================
 const Tour = (() => {
   const $ = (id) => document.getElementById(id);
 
-  const strikeOpen = () => {
-    const m = $('strike-modal');
+  // THE DEMONSTRATION DIALOG, and which one it is belongs to the step list.
+  // Both are the real dialog on the real board and both spend nothing: the
+  // strike modal is UI state to the last line (see the note at the top) and
+  // UI.openBrief only reads Game.coaOptions(), which renderCoa already calls on
+  // every draw. Neither touches `G`, and the walkthrough closes whichever one it
+  // opened on the way out. Note the brief is opened through UI, never through
+  // Game.showBrief — that one clears `briefPending` and drains the theater
+  // notes, so a walkthrough run before the folder was read would eat the night's
+  // brief and put END TURN back with the president never having seen it.
+  const DEMOS = {
+    strike: {
+      id: 'strike-modal',
+      open() {
+        const t = demoTarget();
+        if (!t || Game.G.over) return false;
+        UI.openStrikeModal(Game.G, t);
+        return true;
+      },
+      close() {
+        const b = document.querySelector('#strike-modal [data-close]');
+        if (b) b.click();
+      },
+    },
+    brief: {
+      id: 'brief-modal',
+      open() {
+        if (Game.G.over) return false;
+        // The notes are PEEKED, not taken, so the folder the president opens for
+        // real after the walkthrough is still the whole folder. Passed in at all
+        // because a demonstration of the brief with CENTCOM's own half missing is
+        // a demonstration of a dialog this level does not have — the force flow
+        // is reported there and nowhere else once THEATER FORCES comes off the rail.
+        UI.openBrief(null, Game.peekTheaterNotes());   // declines if there is nothing to show
+        return true;
+      },
+      close: () => UI.closeBrief(),
+    },
+  };
+  let demo = DEMOS.strike;
+
+  const demoOpen = () => {
+    const m = $(demo.id);
     return !!m && !m.classList.contains('hidden');
   };
 
@@ -66,6 +120,33 @@ const Tour = (() => {
     return document.querySelector('#strike-modal .modal-footer');
   };
 
+  // Same problem one dialog over: CENTCOM's "already moved on this" block is
+  // written fresh every night and is empty on most of them, so the card that
+  // teaches the president what the staff does without asking has to fall back to
+  // something that is always there. An empty div is worse than the wrong anchor
+  // — visibleBox reports a zero-height box, the ring collapses to a line, and
+  // the card settles against nothing.
+  const notesOrFooter = () => {
+    const n = $('brief-modal-notes');
+    if (n && n.firstElementChild) return n;
+    return document.querySelector('#brief-modal .modal-footer');
+  };
+  const notesUp = () => {
+    const n = $('brief-modal-notes');
+    return !!(n && n.firstElementChild);
+  };
+
+  // The primary button is not the same control on every level or in every half
+  // of a turn — on a level that reads the brief as a dialog, READY FOR OPTIONS
+  // stands in END TURN's place until the folder has been opened (syncBriefButton),
+  // and END TURN is behind `held`. Point at whichever one the player is looking
+  // at, or the last card of the walkthrough outlines a button that is not there.
+  const endOrReady = () => {
+    const r = $('btn-brief-ready');
+    if (r && !r.classList.contains('hidden')) return r;
+    return $('btn-end-turn');
+  };
+
   // `panel` names a sidebar section to open first (the data-panel key).
   // `modal` marks the steps that live inside the strike dialog — what the
   // watchdog reads, and what moves the card into the dialog's focus trap.
@@ -73,7 +154,12 @@ const Tour = (() => {
   // before the next card, which lives inside one, can point at anything.
   // `pick` marks the card that needs a package selected behind it, because the
   // box it points at does not exist until one is.
-  const STEPS = [
+  // `text` may be a function for the same reason `sel` may be: a card whose
+  // anchor is chosen at run time cannot always describe it in a string written
+  // at load time.
+  //
+  // MAP_STEPS is the room on a level that frags off the plot — normal and hard.
+  const MAP_STEPS = [
     { sel: '#map-panel', opens: true,
       title: 'THE MAP IS THE ORDER FORM',
       text: 'Every marker is an Iranian target, and clicking one opens the strike dialog. ' +
@@ -138,6 +224,75 @@ const Tour = (() => {
         'the whole war.' },
   ];
 
+  // ------------------------------------------------------------
+  // STAFF_STEPS — the room on a level that staffs the night (easy).
+  //
+  // Same format, same card length, same one-idea-per-card rule as the written
+  // brief: the action first, the reason second, the panel carrying the detail
+  // named in caps. What changes is which room it is a tour of, and every
+  // difference below is a difference the level actually has.
+  //
+  //   - The map is not the order form here. It opens a folder, not a strike, so
+  //     the first card says so rather than telling the player to do the one
+  //     thing this level does not let them do — the identical sentence the
+  //     primer's first card had to lose at v1.77.
+  //   - The demonstration is the BRIEF, three cards of it, because signing an
+  //     option IS the night at this level. On the map levels those three cards
+  //     are a strike dialog for the same reason.
+  //   - THEATER FORCES is gone with no replacement card, because the fact a
+  //     player needed it for — the B-2 is in Missouri and somebody has to send
+  //     for it — is no longer a decision here. CENTCOM's own line about it lands
+  //     in the brief, which is where the card that mentions it points.
+  //   - No card teaches the late frag. The staff sizes an option to the plan;
+  //     surging past it is not a button this president has.
+  const STAFF_STEPS = [
+    { sel: '#map-panel', opens: true,
+      title: 'THE MAP IS THE BOARD, NOT THE ORDER FORM',
+      text: 'Every marker is an Iranian target, and clicking one opens its folder — what CENTCOM ' +
+        'knows about it. You do not frag aimpoints at this level. The staff does, and NEXT brings ' +
+        'them in.' },
+    { sel: '#brief-modal-buttons', modal: true,
+      title: 'THE STAFF WRITES THE NIGHT',
+      text: 'CENTCOM walks in with courses of action every evening. Each names the concern it ' +
+        'answers and what it costs — and, the line worth reading, what it leaves undone.' },
+    { sel: notesOrFooter, modal: true,
+      title: () => (notesUp() ? 'WHAT THEY DID NOT ASK ABOUT' : 'SIGNING IS THE NIGHT'),
+      text: () => (notesUp()
+        ? 'CENTCOM runs the force flow itself here, including sending for the B-2 that Fordow ' +
+          'needs. What it moved without asking is at the top of the folder; what it is asking ' +
+          'is below.'
+        : 'Sign one and the packages fly — nothing is spent until you do. Stand the room down ' +
+          'and BRIEF ME brings the folder back; the turn will not end until you have opened it.') },
+    { sel: '#resources-panel', panel: 'resources',
+      title: 'THREE PACKAGES A NIGHT',
+      text: 'STRIKE ASSETS carries the count, what has been released to you, and the squadron ' +
+        'flying it. Every option the staff writes is sized against that plan.' },
+    { sel: '#intel-panel', panel: 'intel',
+      title: 'INTELLIGENCE TASKING',
+      text: 'Hunt the missile launchers, re-look a target you have hit, or work the target folder, ' +
+        'which is the only way a hidden site becomes an aimpoint. A night that finds nothing still ' +
+        'improves the next one.' },
+    { sel: '#diplo-panel', panel: 'diplo',
+      title: 'DIPLOMATIC ACTIONS',
+      text: 'Steady the home front, work the coalition, or lean on Tehran. This shelf and ALLIES ' +
+        'share one action a turn between them. Neither is on any option the staff briefs.' },
+    { sel: '#status-row',
+      title: 'THE WAR AT HOME',
+      text: 'Approval, oil, world opinion, casualties, and on the right the one thing the staff ' +
+        'says is worst tonight. A war being won on the map is routinely lost along this bar.' },
+    { sel: '#advisors-panel', panel: 'advisors',
+      title: 'YOUR STAFF IS WORTH READING',
+      text: 'Four advisors watching the war from four directions, the pressing ones flagged ' +
+        'URGENT. They argue from the same read the options are ranked against.' },
+    { sel: endOrReady, next: 'DONE',
+      title: 'READ THE FOLDER, THEN END THE TURN',
+      text: 'Sign an option, spend the two free actions, end the turn. Tehran answers overnight ' +
+        'and the assessment lands in the morning. Thirty turns is the whole war.' },
+  ];
+
+  // Chosen in start(), off the same knob the primer reads.
+  let STEPS = MAP_STEPS;
+
   let i = -1;          // current step, -1 when the walkthrough is not running
   let root = null, ring = null, card = null;
   let raf = 0;
@@ -193,7 +348,7 @@ const Tour = (() => {
   // forward again, which is the dead button all over again.
   function onBack() {
     let n = i - 1;
-    if (n >= 0 && STEPS[n].modal && !strikeOpen() && !openDemo()) {
+    if (n >= 0 && STEPS[n].modal && !demoOpen() && !openDemo()) {
       while (n >= 0 && STEPS[n].modal) n--;
     }
     go(Math.max(0, n));
@@ -213,15 +368,16 @@ const Tour = (() => {
   }
 
   // The demonstration dialog, and the walkthrough owns it either way — it
-  // presses ABORT on the way out, which spends nothing. Reports whether there is
-  // one on screen to point at, which is what BACK reads.
+  // presses ABORT (or STAND THE ROOM DOWN) on the way out, which spends nothing.
+  // Reports whether there is one on screen to point at, which is what BACK
+  // reads, and it asks the DOM rather than trusting `open()` to have worked: the
+  // brief declines to open on a night with nothing to sign, and the watchdog
+  // has to hear about that as "no dialog" and walk the cards past it.
   function openDemo() {
-    if (strikeOpen()) { ownsModal = true; return true; }
-    const t = demoTarget();
-    if (!t || Game.G.over) return false;
-    UI.openStrikeModal(Game.G, t);
+    if (demoOpen()) { ownsModal = true; return true; }
+    if (!demo.open()) return false;
     ownsModal = true;
-    return strikeOpen();
+    return demoOpen();
   }
 
   // The estimate box does not exist until a package is chosen, and the player
@@ -260,12 +416,8 @@ const Tour = (() => {
     return live.find(t => t.type === 'airdefense') || live[0] || null;
   }
 
-  const closeStrike = () => {
-    const b = document.querySelector('#strike-modal [data-close]');
-    if (b) b.click();
-  };
-
   const resolve = (st) => (typeof st.sel === 'function' ? st.sel() : document.querySelector(st.sel));
+  const words = (v) => (typeof v === 'function' ? v() : v);
 
   // Moving a subtree drops focus to the body, and the card is routinely holding
   // it — NEXT is focused the moment the walkthrough starts. Hand it back.
@@ -368,13 +520,13 @@ const Tour = (() => {
     const st = STEPS[i];
     // the player closed the dialog out from under a step that lives inside it —
     // Escape, ABORT, or authorising the strike for real. All three are fine.
-    if (st.modal && !strikeOpen()) { ownsModal = false; return go(afterModal()); }
+    if (st.modal && !demoOpen()) { ownsModal = false; return go(afterModal()); }
     // A player who clicks a target on the first card rather than pressing NEXT
     // gets the real dialog up over the map. The card stays anchored to the map —
     // that is still what this step is about — but it has to ride inside the
     // dialog to stay in ui.js's focus trap, or its own NEXT is on screen and
     // unreachable from the keyboard.
-    if (st.opens) reparent(strikeOpen() ? $('strike-modal') : document.body);
+    if (st.opens) reparent(demoOpen() ? $(demo.id) : document.body);
     const el = resolve(st);
     if (!el) return go(i + 1);
     if (pin > 0) { pin--; pinPanel(el); }
@@ -394,8 +546,8 @@ const Tour = (() => {
     if (n >= STEPS.length) return endTour();
     i = n;
     const st = STEPS[i];
-    if (!st.modal && ownsModal && strikeOpen()) { closeStrike(); ownsModal = false; }
-    if (st.pick && strikeOpen()) pickDemoPackage();
+    if (!st.modal && ownsModal && demoOpen()) { demo.close(); ownsModal = false; }
+    if (st.pick && demoOpen()) pickDemoPackage();
     // openPanel's own `reveal` is deliberately not used. It brings a section's
     // leading 140px in from below, which is right for a panel that opened
     // because the war made it relevant and wrong here: the walkthrough is about
@@ -411,7 +563,7 @@ const Tour = (() => {
     // unreachable from the keyboard for these two steps; parented to the overlay
     // its buttons join the trap for free. It is a plain div either way — never
     // an .overlay with a .modal in it — so it never enters the dialog stack.
-    reparent(st.modal || (st.opens && strikeOpen()) ? $('strike-modal') : document.body);
+    reparent(st.modal || (st.opens && demoOpen()) ? $(demo.id) : document.body);
 
     // The seal is announced rather than left to be discovered. A player who
     // presses something on the panel the card is pointing at and gets no
@@ -419,8 +571,8 @@ const Tour = (() => {
     // what the card was teaching; three words on a line that was already there
     // costs nothing and answers it before it is asked.
     $('tour-count').textContent = `STEP ${i + 1} OF ${STEPS.length} · DEMONSTRATION ONLY`;
-    $('tour-title').textContent = st.title;
-    $('tour-text').textContent = st.text;
+    $('tour-title').textContent = words(st.title);
+    $('tour-text').textContent = words(st.text);
     $('tour-back').disabled = i === 0;
     $('tour-next').textContent = st.next || 'NEXT';
     raf = requestAnimationFrame(frame);
@@ -446,6 +598,26 @@ const Tour = (() => {
     // only door into it.
     if (Game.busy && Game.busy()) return;
     if (!root) build();
+
+    // WHICH ROOM THIS IS, decided once per run rather than per card. The knob is
+    // `freeTargeting` — the same one the primer's first card reads — because it
+    // is the difference the walkthrough is a walkthrough OF: a level that opens
+    // strike dialogs off the map has a strike dialog to demonstrate and a level
+    // that does not, does not.
+    //
+    // The panel filter behind it is the belt to that braces. `railPanels` is a
+    // whitelist and panels get added to this game, so a step naming a section
+    // this level does not have is a bug waiting on the next feature rather than
+    // a bug in the two lists as written. UI.openPanel already refuses a
+    // `mode-off` panel; dropping the card is the other half — a refusal leaves
+    // the ring drawn round a collapsed box with a card beside it explaining a
+    // drawer that is not on screen.
+    const d = Game.difficulty();
+    demo = d.freeTargeting ? DEMOS.strike : DEMOS.brief;
+    const rail = d.railPanels;
+    STEPS = (d.freeTargeting ? MAP_STEPS : STAFF_STEPS)
+      .filter((st) => !st.panel || !rail || rail.includes(st.panel));
+
     hadOpen = [...document.querySelectorAll('#sidebar-scroll .panel[data-panel]')]
       .filter(p => !p.classList.contains('collapsed')).map(p => p.dataset.panel);
     ownsModal = false;
@@ -505,7 +677,7 @@ const Tour = (() => {
     if (i < 0) return;
     cancelAnimationFrame(raf); raf = 0;
     i = -1;
-    if (ownsModal && strikeOpen()) closeStrike();
+    if (ownsModal && demoOpen()) demo.close();
     ownsModal = false;
     document.removeEventListener('keydown', keyHandler, true);
     window.removeEventListener('resize', resizeHandler);

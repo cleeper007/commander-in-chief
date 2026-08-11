@@ -6454,6 +6454,12 @@ const Game = (() => {
     // primary slot holds READY FOR OPTIONS instead of END TURN. Read-only —
     // syncBriefButton draws it, showBrief is the only thing that clears it.
     briefPending: () => briefPending, showBrief,
+    // A LOOK at tonight's theater notes that does not take them. showBrief
+    // drains the buffer, which is right for the room reading them once and wrong
+    // for the walkthrough, which opens the same dialog as a demonstration and
+    // must hand the president a folder that is still complete when they open it
+    // for real a minute later. A copy, so nothing outside can empty it either.
+    peekTheaterNotes: () => theaterNotes.slice(),
     // the southern front, for the council panel — `houthiStrength` is what the
     // readout draws and `reachesYemen` is why the aimpoints are greyed out
     houthiStrength, reachesYemen, yemenTargets,

@@ -3962,8 +3962,16 @@ const UI = (() => {
     // right on every viewport in the world.
     const walk = $('btn-report-tour');
     walk.classList.remove('hidden');
+    // Through ACKNOWLEDGE's own handler, not past it. This hid the dialog itself
+    // and dropped `then` on the floor, which was invisible while the continuation
+    // only opened the advisors panel and stopped being invisible at v1.88: on a
+    // level that ARMS the brief, `then` is what arms it, so a player who took the
+    // walkthrough off the primer got a night with no READY FOR OPTIONS in the
+    // primary slot — the one control the whole staged-brief design turns on.
+    // BRIEF ME still stood, so the folder was reachable and nothing said it had
+    // been skipped, which is the worst version of this bug.
     walk.onclick = () => {
-      $('report-modal').classList.add('hidden');
+      $('btn-report-ok').onclick();
       Tour.start();
     };
   }
