@@ -1804,11 +1804,19 @@ const UI = (() => {
   // slot they just spent. Module-local and reset on the turn roll, like
   // readLead's damper and stateHeard — no FIELDS entry and no VERSION bump,
   // because a resumed war has never opened tonight's folder at all.
+  //
+  // `briefResume` is the other half of it. An order given in a free action slot
+  // comes back as a dialog of its own — the intelligence product, the cable, and
+  // sometimes an ally's phone call behind it — so those two rooms cannot simply
+  // re-dress themselves in place the way the strike room can; the folder has to
+  // stand down over the answer and walk back in once it has been read. See
+  // resumeBrief for where that lands.
   let briefOptions = [], briefNotes = null, briefAt = 0, briefTurn = -1, briefRoom = 0;
+  let briefResume = false;
 
   function briefReset() {
     if (briefTurn === Game.G.turn) return;
-    briefTurn = Game.G.turn; briefAt = 0;
+    briefTurn = Game.G.turn; briefAt = 0; briefResume = false;
   }
 
   // The whole briefing, opened at the first room that still has a decision in
@@ -1863,19 +1871,40 @@ const UI = (() => {
     $('brief-modal-head').innerHTML = parts.head;
     $('brief-modal-buttons').innerHTML = parts.rows;
 
-    // Giving an order closes the room, and that has been the rule since the
-    // slots arrived: what comes back is a product, a cable or a strike on the
-    // map, and holding the folder open over the answer hides the one thing the
-    // president just asked for. What is new is that it leaves the chain where it
-    // stands — the next room is where BRIEF ME comes back to.
-    const done = () => { briefAt = briefRoom + 1; closeBrief(); };
+    // Giving an order does not end the briefing, it WALKS THE PRESIDENT INTO THE
+    // NEXT ROOM. Through v1.91 an order closed the folder and left `briefAt`
+    // behind as a bookmark, so a president who signed the first thing they were
+    // shown had the meeting end on them and had to press BRIEF ME twice more to
+    // find out that the other two rooms had decisions in them — which is the
+    // v1.90 fold problem in its third costume: a room is only read if the reader
+    // gets to it, and answering one is the single most likely moment for the
+    // reader to stop. The folder now closes when the briefing is FINISHED, which
+    // is to say when there is no room left in front of the president holding a
+    // decision they have not made.
+    //
+    // The strike room re-dresses itself in place, because signing an option
+    // produces no dialog — the packages go onto tonight's tasking order and fly
+    // at the turn boundary. The two slot rooms cannot: an order there comes back
+    // as a product, a cable, and sometimes an ally's phone call behind it, and
+    // holding the folder open over the answer hides the one thing the president
+    // just asked for. So they stand the folder down and arm `briefResume`, which
+    // walks it back in when the last of those dialogs is gone.
+    const advance = () => {
+      briefAt = briefRoom + 1;
+      const n = nextLive();
+      if (n < 0) closeBrief(); else showRoom(n);
+    };
     if (st.key === 'brief') {
       for (const btn of document.querySelectorAll('#brief-modal-buttons .action-do')) {
-        btn.addEventListener('click', () => { done(); Game.takeCoa(btn.dataset.coa); });
+        // The order first, then the room: `live` on the room being walked into
+        // is read off a G the signature has already moved.
+        btn.addEventListener('click', () => { Game.takeCoa(btn.dataset.coa); advance(); });
       }
       wireWhy('#brief-modal-buttons');
     } else {
-      wireActions('#brief-modal-buttons', done);
+      wireActions('#brief-modal-buttons', () => {
+        briefAt = briefRoom + 1; briefResume = true; closeBrief();
+      });
     }
 
     // The footer is the chain. The counter says how much briefing is left,
@@ -1893,6 +1922,35 @@ const UI = (() => {
 
     $('brief-modal').classList.remove('hidden');
     syncBriefButton();
+  }
+
+  // The next room in front of the president that still holds a decision they
+  // have not made. Strictly FORWARD of `briefAt`: the folder is walked in one
+  // direction, and a chain allowed to fall back would re-offer the slot that was
+  // just spent. -1 means the briefing is finished, which is the one thing that
+  // closes the folder on an order.
+  function nextLive() {
+    const G = Game.G;
+    return briefRooms().findIndex((s, n) => n >= briefAt && s.live(G, briefOptions));
+  }
+
+  // Walk back in once the answer to a slot order has been read. Hung off the
+  // modal stack going empty (see syncStack) rather than off any one dialog's
+  // onClose, because a cable can have an ally's phone call chained behind it and
+  // the folder must not re-open underneath it — the stack is the only thing that
+  // knows the board is actually clear again.
+  function resumeBrief() {
+    if (!briefResume) return;
+    briefResume = false;
+    if (Game.G.over || Game.busy()) return;
+    // Re-read rather than carried: an intelligence product is exactly the kind
+    // of answer that changes what the staff would brief in the next room, and
+    // the whole point of the intelligence room coming first is that the other
+    // two are argued from it.
+    briefOptions = Game.difficulty().coa ? Game.coaOptions() : [];
+    const n = nextLive();
+    if (n < 0) { syncBriefButton(); return; }
+    showRoom(n);
   }
 
   // Walk to a named room. Only the walkthrough uses it, and it is the reason
@@ -4143,6 +4201,14 @@ const UI = (() => {
       const f = focusablesIn(opened);
       (f[0] || opened.querySelector('.modal')).focus();
     }
+    // The board is clear, so a briefing that stood down over the answer to a
+    // slot order can walk back in. This is the one place that knows it: an
+    // intelligence product can have an ally's phone call chained behind it, and
+    // reopening the folder off either dialog's own onClose would put it
+    // underneath the next one. Re-entrant by design and safe — resumeBrief
+    // disarms itself before it opens anything, so the observer firing again on
+    // the class it just changed finds nothing armed.
+    if (!modalStack.length) resumeBrief();
   }
 
   function initModals() {
