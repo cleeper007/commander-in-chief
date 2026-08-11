@@ -1791,10 +1791,18 @@ const UI = (() => {
   // other half of the same pair and joins by adding one entry here plus its key
   // in `popups` — not by growing a second copy of this markup.
   //
-  // `body` is the panel's own renderer in every case. Nothing in this file may
-  // draw a slot a second way; that is the rule coaRows and briefLines/orderRows
-  // follow, and the reason is that the drawer and the dialog going out of step
-  // is invisible until a tasking is missing from one of them.
+  // `body` must draw its rows with `actionButtons` and nothing else. That is the
+  // rule coaRows and briefLines/orderRows follow, and the reason is that the
+  // drawer and the dialog going out of step is invisible until a tasking is
+  // missing from one of them.
+  //
+  // What `body` MAY vary is which orders it feeds in, and the two slots already
+  // differ there deliberately — intelligence hands over its whole drawer, while
+  // diplomacy ranks eleven orders down to three staffed tracks (see the note
+  // above `diploBody` for why the shelf is the wrong thing to put in a folder).
+  // This is not a loophole in the rule above: the test is whether the two homes
+  // could ever disagree about what a row SAYS, and one renderer over a chosen
+  // list cannot. Choosing the list is the slot's business. Drawing it is not.
   //
   // `box` MUST end in `-buttons`. Order containers are matched by SHAPE — the
   // rule is `.modal [id$="-buttons"]`, beside the `#sidebar-scroll` one — so a
