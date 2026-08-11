@@ -1730,7 +1730,7 @@ const UI = (() => {
     // Nothing to brief and nothing to report is not an empty dialog, it is no
     // dialog. The panel path says "NONE TONIGHT" in a status line the player is
     // already looking at; the dialog path would have to interrupt them to say it.
-    if (!options.length && !(notes && notes.length)) return;
+    if (!options.length && !(notes && notes.length)) { syncBriefButton(); return; }
 
     const flown = Game.coaFlown();
     $('brief-modal-when').textContent =
@@ -1755,15 +1755,31 @@ const UI = (() => {
 
   function closeBrief() { $('brief-modal').classList.add('hidden'); }
 
-  // BRIEF ME sits with HOW TO PLAY rather than in the scroll pane, because it is
-  // a session control — it reopens a dialog — and not an order. It exists only
-  // on a level that pops the brief, and only while there is still something in
+  // The two buttons that stand for the brief when the brief is not on screen,
+  // and they are never both live. Before it has been read tonight, READY FOR
+  // OPTIONS holds the primary slot in front of END TURN — see the note above
+  // Game.openBrief for why it is a swap and not a companion. After it has been
+  // read and dismissed, BRIEF ME is the way back in, and it sits with HOW TO
+  // PLAY rather than in the scroll pane because it is a session control — it
+  // reopens a dialog — and not an order. Both exist only on a level that reads
+  // the brief as a dialog, and BRIEF ME only while there is still something in
   // it to sign: a button that reopens a folder reading "nothing to brief" is a
   // button that teaches the player to stop pressing it.
   function syncBriefButton() {
+    const pending = Game.briefPending();
+    const ready = $('btn-brief-ready');
+    if (ready) ready.classList.toggle('hidden', !pending);
+    // `held`, not `hidden`. `hidden` on the end-turn button belongs to
+    // setResolving, which writes it at every turn boundary, so a second owner
+    // using the same class has its work undone by the next resolve and the
+    // button reappears under the gate. Same split as `mode-off` beside `hidden`
+    // on the rail panels, and the same bug if it is ignored.
+    const end = $('btn-end-turn');
+    if (end) end.classList.toggle('held', pending);
+
     const btn = $('btn-brief');
     if (!btn) return;
-    const on = Game.popup('brief') && !Game.G.over &&
+    const on = Game.popup('brief') && !Game.G.over && !pending &&
       Game.difficulty().coa && Game.coaOptions().length > 0;
     btn.classList.toggle('hidden', !on);
   }
@@ -3954,5 +3970,8 @@ const UI = (() => {
 
   return { init, renderAll, renderHUD, renderSidebar, setTicker, openStrikeModal, openTargetCard, showReport,
     showWarPowers, showEndgame, showPrimer, openLeaderCall, closeAllPanels, openPanel, voiceUp, voiceDown,
-    applyPanelTrim, openBrief, closeBrief };
+    // syncBriefButton is exported for game.js's openBrief: arming the brief is
+    // a state change with no render behind it, and the two buttons that stand
+    // for the dialog have to follow it in the same tick.
+    applyPanelTrim, openBrief, closeBrief, syncBriefButton };
 })();

@@ -806,6 +806,20 @@ button { font-family: var(--mono); }
 }
 #btn-skip-turn:hover:not(:disabled) { background: #4d380f; }
 #btn-skip-turn:disabled { opacity: 0.4; cursor: progress; }
+
+/* The same slot, one step earlier in the night: while tonight's brief is unread
+   the primary control is READY FOR OPTIONS, not END TURN. Amber like the skip
+   button because both are "the night is not over yet", where END TURN is.
+   The end-turn button is held out of the way with its OWN class — `hidden` on
+   that button belongs to setResolving, which toggles it at every turn boundary,
+   so a second owner writing the same class has its work undone by the next
+   resolve. Same rule as `mode-off` beside `hidden` on the rail panels. */
+#btn-brief-ready {
+  width: 100%; padding: 14px;
+  background: #3a2a0c; color: var(--amber); border-color: #7a5a1e;
+}
+#btn-brief-ready:hover { background: #4d380f; }
+#btn-end-turn.held { display: none; }
 #app.turn-resolving #sidebar-scroll,
 #app.turn-resolving #session-buttons { pointer-events: none; opacity: 0.45; }
 
@@ -1560,7 +1574,7 @@ button { font-family: var(--mono); }
 /* While the task force is on the objective the war is frozen: the sidebar
    is inert and dimmed, and the only live thing on screen is the feed. */
 #app.raid-running #sidebar { pointer-events: none; opacity: 0.45; }
-#app.raid-running #btn-end-turn { opacity: 0.3; }
+#app.raid-running #btn-end-turn, #app.raid-running #btn-brief-ready { opacity: 0.3; }
 
 /* ---- the stage: the raid owns the middle of the board while it runs ---- */
 /* Everything else flies in the 260px corner scope. This one does not — it is
@@ -2547,7 +2561,7 @@ body.mobile-ui #session-buttons button::after { inset: -4px -2px; }
   #sidebar { flex-basis: 300px; padding: 8px; gap: 8px; }
   #sidebar-scroll { gap: 8px; }
   .panel { padding: 8px 10px; }
-  #btn-end-turn, #btn-skip-turn { padding: 11px; }
+  #btn-end-turn, #btn-skip-turn, #btn-brief-ready { padding: 11px; }
   /* Three buttons share this row since HOW TO PLAY joined it, which on a 300px
      sidebar leaves ~77px each — not enough for "SAVE & QUIT" at the standard
      1px letter-spacing, and it broke across two lines. The tracking and the
@@ -2780,7 +2794,7 @@ body.mobile-ui .pkg-option { min-height: 46px; padding: 9px 11px; }
     padding: 7px 4px; font-size: 9px; letter-spacing: 0.5px; color: var(--dim);
   }
   /* the control the whole layout is arranged around */
-  #btn-end-turn, #btn-skip-turn { padding: 15px; font-size: 12.5px; }
+  #btn-end-turn, #btn-skip-turn, #btn-brief-ready { padding: 15px; font-size: 12.5px; }
   .rail-chip { min-height: 44px; }
   .rail-label { font-size: 9.5px; letter-spacing: 1px; }
   .rail-badge { font-size: 8.5px; }

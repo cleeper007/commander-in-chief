@@ -2021,6 +2021,13 @@ const Game = (() => {
   const takeTheaterNotes = () => { const n = theaterNotes; theaterNotes = []; return n; };
 
   function autoTheater() {
+    // Tonight's notes are tonight's. The brief is now armed rather than opened
+    // (see openBrief below), so a president who never asked for the folder
+    // leaves last night's notes sitting in this buffer — and read back a turn
+    // later, "the 509th is moving tonight" is a lie about a transit that landed
+    // yesterday. Cleared here rather than in takeTheaterNotes because this is
+    // the one function that writes them, and it runs once a turn.
+    theaterNotes = [];
     if (G.over || !diff().autoTheater) return;
 
     // ---- posture, which does not spend the transit plan ----
@@ -2059,12 +2066,47 @@ const Game = (() => {
   // Where tonight's decision arrives. Two shapes of the same brief: a dialog
   // the president has to answer before the room moves on, or the sidebar panel
   // that has always held it. The level decides (see DIFFICULTY.popups), and this
-  // is the only thing that opens either — nextTurn and start both come here so
+  // is the only thing that stages either — nextTurn and start both come here so
   // the first night and the twenty-ninth are staged identically.
+  //
+  // The dialog is ARMED here, not opened. A brief that threw itself across the
+  // board the instant the turn rolled over asked the president to choose between
+  // three courses of action before they had looked at the map those courses are
+  // about — which, on the one level where signing an option is the whole night,
+  // is the wrong order to read a war in. The night now opens on the map and the
+  // brief waits behind READY FOR OPTIONS.
+  //
+  // That button STANDS IN the end-turn button's place rather than sitting beside
+  // it, the same swap SKIP TO RESULTS makes. The reason is the reason the brief
+  // was a dialog in the first place: a president must not be able to end a turn
+  // without knowing they were asked anything. Beside END TURN the prompt is
+  // ignorable and the hole is back; in front of it the cost is one press and the
+  // map time is free. Nothing else about the brief changes — same options, same
+  // notes, same dialog, one press later.
+  let briefPending = false;
+
   function openBrief() {
+    if (popup('brief')) {
+      // Nothing to sign and nothing to report is not a button either — the same
+      // test UI.openBrief makes before it declines to open an empty dialog.
+      briefPending = !G.over && (coaOptions().length > 0 || theaterNotes.length > 0);
+      UI.syncBriefButton();
+      return;
+    }
     const list = diff().coa ? coaOptions() : [];
-    if (popup('brief')) UI.openBrief(list, takeTheaterNotes());
-    else if (list.length) UI.openPanel('coa', true);
+    if (list.length) UI.openPanel('coa', true);
+  }
+
+  // The president asking for the folder: READY FOR OPTIONS while the brief is
+  // armed, BRIEF ME afterwards. One entry point for both, because they open the
+  // identical dialog and differ only in whether tonight's theater notes are
+  // still news — they were news the first time the room read them and are not
+  // news twice, so a reopened brief carries the options alone.
+  function showBrief() {
+    if (G.over || busy()) return;
+    const armed = briefPending;
+    briefPending = false;      // clearing first is what puts END TURN back
+    UI.openBrief(diff().coa ? coaOptions() : [], armed ? takeTheaterNotes() : null);
   }
 
   // ---- end-of-turn fleet movement ----
@@ -6091,8 +6133,14 @@ const Game = (() => {
       // ...unless the staff is briefing, in which case that outranks it: on
       // easy the options ARE turn one, and the advisors argue for the same
       // doctrines one panel down.
-        if (popup('brief') || (diff().coa && coaOptions().length)) openBrief();
-        else UI.openPanel('advisors', true);
+      // ...which on a level that ARMS the brief rather than opening it is both:
+      // openBrief puts READY FOR OPTIONS in the primary slot and nothing on
+      // screen, so the panel that would have been outranked is free to open
+      // after all — and on turn one the advisors are the only thing naming a
+      // first move while the president looks the board over.
+        openBrief();
+        if (!briefPending && diff().coa && coaOptions().length) return;
+        UI.openPanel('advisors', true);
       });
     }
   }
@@ -6345,12 +6393,12 @@ const Game = (() => {
       if (busy()) return;   // never over a resolving turn or an open set piece
       UI.showPrimer(true);
     });
-    // The way back into a dismissed brief. No theater notes: those were tonight's
-    // news the first time the dialog opened and are not news twice.
-    document.getElementById('btn-brief').addEventListener('click', () => {
-      if (busy()) return;
-      UI.openBrief();
-    });
+    // The two doors into the same folder: the gate in front of END TURN while
+    // tonight's brief is unread, and the way back in after it has been read and
+    // dismissed. Both go through showBrief, which decides which of the two this
+    // is — see the note above openBrief.
+    document.getElementById('btn-brief-ready').addEventListener('click', showBrief);
+    document.getElementById('btn-brief').addEventListener('click', showBrief);
   }
 
   document.addEventListener('DOMContentLoaded', init);
@@ -6402,6 +6450,10 @@ const Game = (() => {
     // where a decision arrives on this level — a dialog, or a drawer. ui.js and
     // csar.js both ask; neither is allowed its own answer (see DIFFICULTY.popups)
     popup,
+    // ...and WHEN, for the brief: armed but unread is the one state in which the
+    // primary slot holds READY FOR OPTIONS instead of END TURN. Read-only —
+    // syncBriefButton draws it, showBrief is the only thing that clears it.
+    briefPending: () => briefPending, showBrief,
     // the southern front, for the council panel — `houthiStrength` is what the
     // readout draws and `reachesYemen` is why the aimpoints are greyed out
     houthiStrength, reachesYemen, yemenTargets,

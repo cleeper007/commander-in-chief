@@ -19,9 +19,9 @@
      stays invisible in the tab for as long as that row survives. Renaming the
      URL is the only thing it listens to. Stamp these with the badge on every
      bump, even when only the art changed. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=1.87">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=1.87">
-<link rel="manifest" href="site.webmanifest?v=1.87">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=1.88">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=1.88">
+<link rel="manifest" href="site.webmanifest?v=1.88">
 <meta name="theme-color" content="#0a1626">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -35,7 +35,7 @@
      version-badge) renames every asset URL, which is the only thing that
      reliably forces the fetch.
      Bump the stamps and the badge together. -->
-<link rel="stylesheet" href="css/style.css?v=1.87">
+<link rel="stylesheet" href="css/style.css?v=1.88">
 </head>
 <body>
 
@@ -57,7 +57,7 @@
 
 <!-- ============ TITLE SCREEN ============ -->
 <div id="title-screen" class="overlay">
-  <div class="version-badge">v1.87<span class="beta-tag">BETA</span></div>
+  <div class="version-badge">v1.88<span class="beta-tag">BETA</span></div>
   <div class="title-box">
     <div class="title-eyebrow">EYES ONLY // NATIONAL COMMAND AUTHORITY</div>
     <h1>COMMANDER IN CHIEF</h1>
@@ -410,6 +410,14 @@
       </div>
       </div>
 
+      <!-- READY FOR OPTIONS stands in the end-turn button's place while tonight's
+           brief is still unread, on the levels that read the brief as a dialog.
+           It is a swap and not a second button on purpose: beside END TURN it is
+           ignorable, and the whole reason the brief was a dialog was that a
+           president must not be able to end a turn without knowing they were
+           asked anything. In front of END TURN it costs one press and buys the
+           map time the dialog used to take away. Game.showBrief owns it. -->
+      <button id="btn-brief-ready" class="btn-primary hidden">READY FOR OPTIONS ▸</button>
       <button id="btn-end-turn" class="btn-primary">END TURN — AWAIT DEVELOPMENTS</button>
       <button id="btn-skip-turn" class="btn-primary hidden">SKIP TO RESULTS ▸</button>
       <!-- HOW TO PLAY re-opens the opening brief. It was shown once at boot and
@@ -739,22 +747,22 @@
   </div>
 </div>
 
-<script src="js/text.js?v=1.87"></script>
-<script src="js/geodata.js?v=1.87"></script>
-<script src="js/data.js?v=1.87"></script>
-<script src="js/assess.js?v=1.87"></script>
-<script src="js/map.js?v=1.87"></script>
-<script src="js/ai.js?v=1.87"></script>
-<script src="js/audio.js?v=1.87"></script>
-<script src="js/ui.js?v=1.87"></script>
+<script src="js/text.js?v=1.88"></script>
+<script src="js/geodata.js?v=1.88"></script>
+<script src="js/data.js?v=1.88"></script>
+<script src="js/assess.js?v=1.88"></script>
+<script src="js/map.js?v=1.88"></script>
+<script src="js/ai.js?v=1.88"></script>
+<script src="js/audio.js?v=1.88"></script>
+<script src="js/ui.js?v=1.88"></script>
 <!-- after ui.js: the walkthrough drives the room through UI's exported openPanel
      / openStrikeModal, and ui.js reaches back for Tour.start() at click time -->
-<script src="js/tour.js?v=1.87"></script>
-<script src="js/specops.js?v=1.87"></script>
+<script src="js/tour.js?v=1.88"></script>
+<script src="js/specops.js?v=1.88"></script>
 <!-- before csar.js: the shootdown asks the roster who was in the aircraft, and
      ui.js reaches for Aircrew.renderPanel / endgameHtml at render time -->
-<script src="js/aircrew.js?v=1.87"></script>
-<script src="js/csar.js?v=1.87"></script>
-<script src="js/game.js?v=1.87"></script>
+<script src="js/aircrew.js?v=1.88"></script>
+<script src="js/csar.js?v=1.88"></script>
+<script src="js/game.js?v=1.88"></script>
 </body>
 </html>
