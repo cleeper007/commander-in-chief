@@ -19,9 +19,9 @@
      stays invisible in the tab for as long as that row survives. Renaming the
      URL is the only thing it listens to. Stamp these with the badge on every
      bump, even when only the art changed. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=1.89">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=1.89">
-<link rel="manifest" href="site.webmanifest?v=1.89">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=1.90">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=1.90">
+<link rel="manifest" href="site.webmanifest?v=1.90">
 <meta name="theme-color" content="#0a1626">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -35,7 +35,7 @@
      version-badge) renames every asset URL, which is the only thing that
      reliably forces the fetch.
      Bump the stamps and the badge together. -->
-<link rel="stylesheet" href="css/style.css?v=1.89">
+<link rel="stylesheet" href="css/style.css?v=1.90">
 </head>
 <body>
 
@@ -57,7 +57,7 @@
 
 <!-- ============ TITLE SCREEN ============ -->
 <div id="title-screen" class="overlay">
-  <div class="version-badge">v1.89<span class="beta-tag">BETA</span></div>
+  <div class="version-badge">v1.90<span class="beta-tag">BETA</span></div>
   <div class="title-box">
     <div class="title-eyebrow">EYES ONLY // NATIONAL COMMAND AUTHORITY</div>
     <h1>COMMANDER IN CHIEF</h1>
@@ -548,12 +548,27 @@
 <div id="brief-modal" class="overlay hidden">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="brief-modal-title">
     <div class="modal-header">
-      <span class="panel-title" id="brief-modal-title">CENTCOM BRIEFS THE PRESIDENT — <span id="brief-modal-when"></span></span>
+      <!-- Named for the MEETING and not for CENTCOM, since v1.90. It was
+           "CENTCOM BRIEFS THE PRESIDENT" while the only thing in the box was
+           courses of action; the folder now carries State's three tracks and
+           the NSA's collection deck in sections of their own (BRIEF_SLOTS), and
+           a title naming one of the three parties in the room is a title that
+           tells the president the other two are somebody else's problem —
+           which is the exact habit the free action slots came in here to
+           break. -->
+      <span class="panel-title" id="brief-modal-title">THE EVENING BRIEF — <span id="brief-modal-when"></span></span>
       <button class="modal-close" data-close="brief-modal">✕</button>
     </div>
     <div class="modal-body">
       <div id="brief-modal-notes"></div>
       <div id="brief-modal-buttons"></div>
+      <!-- The free action slots, for the levels that brief them in the room
+           rather than in a drawer (DIFFICULTY.popups). Below the options
+           deliberately: signing a course of action is the night, and the slots
+           are the other thing the president gets to do with it. UI.briefSlots
+           owns this, off one list — see the note above BRIEF_SLOTS for why a
+           slot is a section here and not a dialog of its own. -->
+      <div id="brief-modal-slots"></div>
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" data-close="brief-modal">STAND THE ROOM DOWN</button>
@@ -747,22 +762,22 @@
   </div>
 </div>
 
-<script src="js/text.js?v=1.89"></script>
-<script src="js/geodata.js?v=1.89"></script>
-<script src="js/data.js?v=1.89"></script>
-<script src="js/assess.js?v=1.89"></script>
-<script src="js/map.js?v=1.89"></script>
-<script src="js/ai.js?v=1.89"></script>
-<script src="js/audio.js?v=1.89"></script>
-<script src="js/ui.js?v=1.89"></script>
+<script src="js/text.js?v=1.90"></script>
+<script src="js/geodata.js?v=1.90"></script>
+<script src="js/data.js?v=1.90"></script>
+<script src="js/assess.js?v=1.90"></script>
+<script src="js/map.js?v=1.90"></script>
+<script src="js/ai.js?v=1.90"></script>
+<script src="js/audio.js?v=1.90"></script>
+<script src="js/ui.js?v=1.90"></script>
 <!-- after ui.js: the walkthrough drives the room through UI's exported openPanel
      / openStrikeModal, and ui.js reaches back for Tour.start() at click time -->
-<script src="js/tour.js?v=1.89"></script>
-<script src="js/specops.js?v=1.89"></script>
+<script src="js/tour.js?v=1.90"></script>
+<script src="js/specops.js?v=1.90"></script>
 <!-- before csar.js: the shootdown asks the roster who was in the aircraft, and
      ui.js reaches for Aircrew.renderPanel / endgameHtml at render time -->
-<script src="js/aircrew.js?v=1.89"></script>
-<script src="js/csar.js?v=1.89"></script>
-<script src="js/game.js?v=1.89"></script>
+<script src="js/aircrew.js?v=1.90"></script>
+<script src="js/csar.js?v=1.90"></script>
+<script src="js/game.js?v=1.90"></script>
 </body>
 </html>

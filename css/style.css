@@ -526,6 +526,21 @@ button { font-family: var(--mono); }
 }
 .brief-note:last-child { margin-bottom: 0; }
 
+/* A free action slot, briefed in the room instead of in a drawer. It reads as a
+   section of the folder rather than as another card, because the cards above it
+   are the night's one signature and these are the other thing the president may
+   spend — a slot dressed as a fourth option would be read as a fourth option.
+   The rule above it is the fold: everything under it is optional. */
+.brief-slot { border-top: 1px solid var(--line); margin-top: 13px; padding-top: 10px; }
+.brief-slot-head {
+  display: flex; align-items: baseline; gap: 8px;
+  color: var(--amber); font-size: 9.5px; letter-spacing: 0.08em; margin-bottom: 7px;
+}
+/* Spent is stated, not implied by the greyed rows underneath — the president
+   spent it, and a section that only went dim is one they re-read every night
+   wondering whether they had. */
+.brief-slot-spent { color: var(--dim); letter-spacing: 0.06em; }
+
 /* An action is an order, its live state, and — folded away — what the order
    actually is. The mechanism text is identical every turn for thirty turns;
    holding it open by default was costing 600-840px of panel to say things the
@@ -596,6 +611,30 @@ button { font-family: var(--mono); }
   color: var(--amber, var(--dim)); font-size: 9.5px; line-height: 1.35;
   letter-spacing: 0.02em; text-transform: none;
 }
+/* A STAFFED order — one of State's three tracks (stateOptions in ui.js). It
+   wears the course-of-action row on purpose: the president is comparing pitches
+   that each carry a reason and a cost, and the two halves of one folder must
+   not look like two different kinds of decision. Everything structural is
+   already above — the slot chip, the LEAVES rule — so what is left here is only
+   which line carries which fact.
+   The shelf gives amber to `il-current`, because on an unstaffed row the price
+   IS the news. On a staffed row the news is `il-read`, the board fact that put
+   this order in front of the president, so the amber moves up to it and the
+   price drops to the cost line's dim grey. Clamped for the same reason the COA
+   read is: three of these share a phone's scroll pane, and the full sentence is
+   one caret away regardless. */
+.action.staffed .action-name { font-size: 11.5px; letter-spacing: 0.02em; }
+.action.staffed.off .coa-slot { background: var(--dim); }
+.il-read {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden; margin-top: 3px;
+  color: var(--amber); font-size: 10.5px; line-height: 1.35;
+}
+.action.staffed .il-current {
+  display: block; margin-top: 4px;
+  color: var(--dim); font-size: 10px; letter-spacing: 0.04em;
+}
+.action.off .il-read { opacity: 0.6; }
 /* the doctrine's own thesis, at the head of its argument. It used to be the
    collapsed line; behind the caret it reads as what the option is FOR, which
    is what it always was. */
@@ -783,16 +822,25 @@ button { font-family: var(--mono); }
 /* ---- intelligence tasking ----
    An intel tasking buys knowing rather than doing, and the panel says so: a
    standing line of what the collection picture currently is, above the orders
-   that would sharpen it. */
-#intel-buttons .intel-line {
+   that would sharpen it.
+
+   Scoped to the CLASS and not to #intel-buttons, because this picture has two
+   homes: the drawer, and the brief dialog on a level that reads the slot as a
+   section of the folder (DIFFICULTY.popups). Pinned to the panel's container id
+   these rules simply did not apply in the dialog, and the label and its value —
+   laid out by nothing but this flex row — rendered against each other as
+   "ENRICHMENT15-26T · LOW". Sharing the renderer is only half of one renderer;
+   the styling has to be shared on the same terms or the second home is markup
+   with no layout in it. */
+.intel-line {
   display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
   font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase;
   color: var(--dim); padding: 4px 2px; border-bottom: 1px solid var(--line);
   margin-bottom: 2px;
 }
-#intel-buttons .intel-line .il-value { color: var(--amber); letter-spacing: 0; }
-#intel-buttons .intel-line .il-value.known { color: var(--green); }
-#intel-buttons .intel-line .il-value.unknown { color: var(--red); }
+.intel-line .il-value { color: var(--amber); letter-spacing: 0; }
+.intel-line .il-value.known { color: var(--green); }
+.intel-line .il-value.unknown { color: var(--red); }
 /* the tasking's own live line is styled with the shared .action rules above —
    intelligence was the first panel to separate state from explanation, and is
    now simply one of four doing it */
@@ -2537,6 +2585,11 @@ body.mobile-ui #session-buttons button::after { inset: -4px -2px; }
      down. The full text is one caret away and unchanged on a desktop. */
   .action.coa .il-current { -webkit-line-clamp: 2; font-size: 10px; line-height: 1.34; }
   .action.coa .coa-cost { font-size: 9px; margin-top: 3px; }
+  /* State's three tracks are three more of these rows in the same folder, so
+     they take the same compression — otherwise the military half fits a phone
+     and the diplomatic half, sitting directly under it, does not. */
+  .il-read { -webkit-line-clamp: 2; font-size: 10px; line-height: 1.34; }
+  .action.staffed .il-current { font-size: 9px; margin-top: 3px; }
   .coa-defers {
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1;
     overflow: hidden; margin-top: 3px; font-size: 9px;

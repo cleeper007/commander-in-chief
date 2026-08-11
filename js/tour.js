@@ -263,19 +263,38 @@ const Tour = (() => {
           'is below.'
         : 'Sign one and the packages fly — nothing is spent until you do. Stand the room down ' +
           'and BRIEF ME brings the folder back; the turn will not end until you have opened it.') },
+    // The diplomatic slot, in the room. It was a panel card until v1.90 and it
+    // cannot be one now — DIPLOMATIC ACTIONS is off easy's rail, so the
+    // railPanels filter in start() drops that card, which would have left the
+    // level's walkthrough silent about the slot the primer names as the most
+    // common way a new player loses. Modal, and placed with the other two modal
+    // cards rather than in the sidebar run: going modal, out, and back in
+    // reopens the demo dialog mid-walkthrough, and the folder shutting and
+    // reappearing reads as a fault in the game rather than a step.
+    // Both free action slots, in the room, for the same reason: each was a panel
+    // card until v1.90 and neither can be one now. INTELLIGENCE TASKING and
+    // DIPLOMATIC ACTIONS are both off easy's rail, so the railPanels filter in
+    // start() drops a card naming either — which would leave this level's
+    // walkthrough silent about BOTH of the free actions the primer names as the
+    // most common way a new player loses. Modal, and grouped with the other
+    // modal cards rather than left in the sidebar run: going modal, out, and
+    // back in reopens the demo dialog mid-walkthrough, and a folder that shuts
+    // and reappears reads as a fault in the game rather than as a step.
+    { sel: '#brief-slot-intel-buttons', modal: true,
+      title: 'ONE INTELLIGENCE TASKING A NIGHT',
+      text: 'Hunt the missile launchers, re-look a target you have hit, or work the target folder, ' +
+        'which is the only way a hidden site becomes an aimpoint. A night that finds nothing still ' +
+        'improves the next one.' },
+    { sel: '#brief-slot-diplo-buttons', modal: true,
+      title: 'AND STATE ASKS FOR ONE TOO',
+      text: 'One diplomatic order a night, free, and never on any option CENTCOM briefs. The ' +
+        'staff sorts eleven channels down to the three worth your evening — each with the reason ' +
+        'it is in front of you, what it costs, and what it leaves. Never spending this is the ' +
+        'most common way a new president loses.' },
     { sel: '#resources-panel', panel: 'resources',
       title: 'THREE PACKAGES A NIGHT',
       text: 'STRIKE ASSETS carries the count, what has been released to you, and the squadron ' +
         'flying it. Every option the staff writes is sized against that plan.' },
-    { sel: '#intel-panel', panel: 'intel',
-      title: 'INTELLIGENCE TASKING',
-      text: 'Hunt the missile launchers, re-look a target you have hit, or work the target folder, ' +
-        'which is the only way a hidden site becomes an aimpoint. A night that finds nothing still ' +
-        'improves the next one.' },
-    { sel: '#diplo-panel', panel: 'diplo',
-      title: 'DIPLOMATIC ACTIONS',
-      text: 'Steady the home front, work the coalition, or lean on Tehran. This shelf and ALLIES ' +
-        'share one action a turn between them. Neither is on any option the staff briefs.' },
     { sel: '#status-row',
       title: 'THE WAR AT HOME',
       text: 'Approval, oil, world opinion, casualties, and on the right the one thing the staff ' +

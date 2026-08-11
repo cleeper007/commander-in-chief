@@ -1727,16 +1727,26 @@ const UI = (() => {
     const G = Game.G;
     if (G.over) return;
     const options = list || (Game.difficulty().coa ? Game.coaOptions() : []);
-    // Nothing to brief and nothing to report is not an empty dialog, it is no
-    // dialog. The panel path says "NONE TONIGHT" in a status line the player is
-    // already looking at; the dialog path would have to interrupt them to say it.
-    if (!options.length && !(notes && notes.length)) { syncBriefButton(); return; }
+    // Nothing to brief, nothing to report AND no slot still holding an order is
+    // not an empty dialog, it is no dialog. The panel path says "NONE TONIGHT"
+    // in a status line the player is already looking at; the dialog path would
+    // have to interrupt them to say it. A live slot counts on its own — it is
+    // the night's other decision, and it is the one this level moved into the
+    // folder to stop the president missing.
+    if (!options.length && !(notes && notes.length) && !briefSlotPending()) {
+      syncBriefButton(); return;
+    }
 
     const flown = Game.coaFlown();
     $('brief-modal-when').textContent =
       // Counted through Txt like every other number in a sentence, then cased —
       // inflecting an already-shouted noun gets you "3 OPTIONs".
-      `NIGHT ${G.turn} — ${flown.size ? `${flown.size} SIGNED` : plural(options.length, 'option').toUpperCase()}`;
+      // With nothing staffed the header says so rather than reading "0 OPTIONS",
+      // which is what a folder opened for its slots alone would otherwise be
+      // titled on the nights that matter most for the slot.
+      `NIGHT ${G.turn} — ${flown.size ? `${flown.size} SIGNED`
+        : options.length ? plural(options.length, 'option').toUpperCase()
+        : 'NO OPTIONS TONIGHT'}`;
     $('brief-modal-notes').innerHTML = (notes && notes.length)
       ? `<div class="brief-notes"><div class="brief-notes-head">CENTCOM HAS ALREADY MOVED ON THIS</div>` +
         notes.map((n) => `<div class="brief-note">${n}</div>`).join('') + `</div>`
@@ -1749,11 +1759,76 @@ const UI = (() => {
       btn.addEventListener('click', () => { closeBrief(); Game.takeCoa(btn.dataset.coa); });
     }
     wireWhy('#brief-modal-buttons');
+    // The slots render last and wire themselves, each into its own box, because
+    // an order given from in here has to close the room the way signing does —
+    // what comes back is a product or a cable, and the report is the answer to
+    // the question the section just asked.
+    $('brief-modal-slots').innerHTML = briefSlots(G);
+    for (const s of liveSlots()) wireActions(`#${s.box}`, closeBrief);
     $('brief-modal').classList.remove('hidden');
     syncBriefButton();
   }
 
   function closeBrief() { $('brief-modal').classList.add('hidden'); }
+
+  // ============================================================
+  // THE FREE ACTION SLOTS, IN THE ROOM — DIFFICULTY.popups
+  // ------------------------------------------------------------
+  // INTELLIGENCE TASKING is a section of the brief rather than a dialog of its
+  // own, and that is the whole design decision here. Both of easy's free action
+  // slots are one-per-turn orders that are live on all thirty nights, so a slot
+  // that threw its own dialog would throw it every night of the campaign — and
+  // beside a brief that already opens every night, plus the recovery, that is
+  // the pop-up count the note above openBrief already names as the one at which
+  // pop-ups stop being read. The problem these slots have is not that they lack
+  // a dialog. It is that a drawer a president never opens cannot tell them the
+  // slot is unspent, and never spending it is the most common way a new player
+  // loses (see the primer, and the note on railPanels in data.js). A section of
+  // the folder they are already reading fixes exactly that and costs no new
+  // interruption.
+  //
+  // A LIST rather than a hardcoded section, because DIPLOMATIC ACTIONS is the
+  // other half of the same pair and joins by adding one entry here plus its key
+  // in `popups` — not by growing a second copy of this markup.
+  //
+  // `body` is the panel's own renderer in every case. Nothing in this file may
+  // draw a slot a second way; that is the rule coaRows and briefLines/orderRows
+  // follow, and the reason is that the drawer and the dialog going out of step
+  // is invisible until a tasking is missing from one of them.
+  //
+  // `box` MUST end in `-buttons`. Order containers are matched by SHAPE — the
+  // rule is `.modal [id$="-buttons"]`, beside the `#sidebar-scroll` one — so a
+  // container named anything else drops its rows through to the browser's
+  // native white centred button, in the middle of the folder, with no error
+  // anywhere. This is the same trap the comment above that CSS rule already
+  // documents, and naming the box `brief-slot-intel` walked straight into it.
+  const BRIEF_SLOTS = [
+    { key: 'diplo', title: 'DIPLOMATIC ACTIONS', box: 'brief-slot-diplo-buttons',
+      spent: (G) => G.diploUsed, body: diploBody },
+    { key: 'intel', title: 'INTELLIGENCE TASKING', box: 'brief-slot-intel-buttons',
+      spent: (G) => G.intelUsed, body: intelBody },
+  ];
+
+  const liveSlots = () => BRIEF_SLOTS.filter((s) => Game.popup(s.key));
+
+  // Whether any slot this level briefs still has its order in it. Read by
+  // Game.openBrief to decide whether the folder is worth arming on a night the
+  // staff has nothing to sign — an unspent slot is a decision, so it is.
+  function briefSlotPending() {
+    const G = Game.G;
+    return !G.over && liveSlots().some((s) => !s.spent(G));
+  }
+
+  // Spent slots are rendered greyed rather than dropped. The president spent it,
+  // and a section that vanished on being used would read as one that was never
+  // there — which is the same failure as the drawer, one fold further in.
+  function briefSlots(G) {
+    return liveSlots().map((s) =>
+      `<div class="brief-slot">` +
+      `<div class="brief-slot-head">${s.title}` +
+      (s.spent(G) ? `<span class="brief-slot-spent">SLOT SPENT TONIGHT</span>` : '') +
+      `</div><div id="${s.box}">${s.body(G)}</div></div>`).join('');
+  }
 
   // The two buttons that stand for the brief when the brief is not on screen,
   // and they are never both live. Before it has been read tonight, READY FOR
@@ -1779,8 +1854,14 @@ const UI = (() => {
 
     const btn = $('btn-brief');
     if (!btn) return;
+    // A slot still holding its order is reason enough to keep the door open,
+    // independently of whether the staff has anything left to sign. Gating this
+    // on the options alone would take BRIEF ME away the moment the last course
+    // of action was signed — on the exact nights the unspent slot is the only
+    // decision left in the folder, which is the thing this level moved it in
+    // there to prevent.
     const on = Game.popup('brief') && !Game.G.over && !pending &&
-      Game.difficulty().coa && Game.coaOptions().length > 0;
+      ((Game.difficulty().coa && Game.coaOptions().length > 0) || briefSlotPending());
     btn.classList.toggle('hidden', !on);
   }
 
@@ -2124,18 +2205,21 @@ const UI = (() => {
     ];
   }
 
-  function renderDiplo(G) {
-    const used = G.diploUsed;
-    // The slot, not a count of the shelf. Both of these are what the player is
-    // actually choosing between — one order, out of everything below.
-    $('diplo-status').textContent = used ? '— ORDER GIVEN' : '';
-    setBadge('diplo', used ? 'ORDER GIVEN' : '1 ORDER', used ? 'badge-none' : '');
-
+  // Every diplomatic order the president could give tonight, with its live
+  // state and its price. Extracted from renderDiplo at v1.90 for the same
+  // reason coaRows was extracted from renderCoa: there are now two places the
+  // diplomatic slot is presented — the shelf, and the three staffed tracks in
+  // the folder — and a second copy of eleven orders' worth of availability
+  // logic is a second place for `disabled` to go stale. Nothing in here touches
+  // the DOM, which is also what lets .claude/betatest/state.js hold a reference
+  // to it across stub().
+  //
+  // `current` is what the player needs to choose — the odds, the price, the
+  // countdown. `desc` is what the instrument is. Anything with a number in it
+  // that the player is spending belongs above the fold.
+  function diploActions(G) {
     const negReady = G.negotiationReady();
-    // `current` is what the player needs to choose — the odds, the price, the
-    // countdown. `desc` is what the instrument is. Anything with a number in it
-    // that the player is spending belongs above the fold.
-    const actions = [
+    return [
       {
         id: 'backchannel', name: 'Omani backchannel',
         current: negReady
@@ -2183,17 +2267,65 @@ const UI = (() => {
       ...israelActions(G),
       ...gulfActions(G),
     ];
+  }
 
-    // ...and on easy, the staff says which one. It is a MARK on an order the
-    // president was always able to give, not a fourth kind of button and not a
-    // shortcut that takes it: "diplomacy recommended" is the same bargain the
-    // courses of action make on the military side, and the president still has
-    // to agree. Only on easy — the advisors already argue for all of these at
-    // length, and a star beside one of them on normal would be the room having
-    // the argument twice and then settling it for you.
+  // The diplomatic slot as the folder renders it: THREE staffed tracks, not the
+  // eleven-row shelf. This is the one place the two slots deliberately differ.
+  // Intelligence puts its whole drawer in the room because five orders that all
+  // buy KNOWING are a short menu and the collection picture above them is the
+  // reason to pick one. Diplomacy is eleven orders across four theaters, each
+  // one costing a different currency, and moving all eleven into the folder
+  // would have been the same sorting problem one fold deeper — a president
+  // reading every instrument and costing eleven cables against each other on a
+  // level whose whole premise is that somebody does that first. So the staff
+  // sorts it (stateOptions), and what arrives is the same shape CENTCOM's half
+  // of the folder arrives in: a reason, a price, and what it leaves undone.
+  //
+  // Still actionButtons, and that is the rule this framework states — one
+  // renderer, or the drawer and the dialog drift. A staffed row is not a second
+  // kind of control, it is an order carrying three more fields.
+  function diploBody(G) {
+    const tracks = stateOptions(G);
+    return tracks.length ? actionButtons(tracks, G.diploUsed) : DIPLO_EMPTY;
+  }
+
+  // Eleven orders and none of them live is very nearly impossible — the UN push
+  // and the sanctions package have no precondition at all — but "nearly" is how
+  // the blank box gets shipped, and a section of the folder that renders empty
+  // is the one thing worse than a drawer nobody opens.
+  const DIPLO_EMPTY = '<div class="coa-empty">State has nothing to put in front of you tonight. ' +
+    'Every channel that is open has already been used as far as it goes.</div>';
+
+  function renderDiplo(G) {
+    // On a level that briefs this slot in the room the drawer is trimmed off the
+    // rail entirely (DIFFICULTY.railPanels) and openPanel refuses it, so there
+    // is nothing here to draw into — briefSlots owns it instead. Same split as
+    // renderIntel and CSAR.renderPanel make.
+    if (Game.popup('diplo')) return;
+    const used = G.diploUsed;
+    // The slot, not a count of the shelf. Both of these are what the player is
+    // actually choosing between — one order, out of everything below.
+    $('diplo-status').textContent = used ? '— ORDER GIVEN' : '';
+    setBadge('diplo', used ? 'ORDER GIVEN' : '1 ORDER', used ? 'badge-none' : '');
+
+    const actions = diploActions(G);
+
+    // ...and where the staff sorts this slot, it says which one. It is a MARK
+    // on an order the president was always able to give, not a fourth kind of
+    // button and not a shortcut that takes it: "diplomacy recommended" is the
+    // same bargain the courses of action make on the military side, and the
+    // president still has to agree. Gated on `recommend`, because the advisors
+    // already argue for all of these at length and a star beside one of them on
+    // a level with no staff would be the room having the argument twice and
+    // then settling it for you.
+    //
+    // It reads the SAME ranker the folder's three tracks come out of
+    // (stateOptions), which is the point: a level carrying both surfaces must
+    // not have two opinions about tonight, and the star is simply TRACK ONE
+    // wearing the shelf's clothes.
     if (Game.difficulty().recommend && !used) {
-      const rec = recommendedDiplo(G, actions);
-      const hit = actions.find(a => a.id === rec);
+      const top = stateOptions(G, actions)[0];
+      const hit = top && actions.find(a => a.id === top.id);
       if (hit) hit.mark = 'STAFF RECOMMENDS';
     }
 
@@ -2211,30 +2343,198 @@ const UI = (() => {
     wireActions('#diplo-buttons');
   }
 
-  // Which diplomatic order the room would press for tonight, in priority order.
-  // Deliberately short and deliberately obvious: a recommendation engine that
-  // is cleverer than the player cannot be argued with, and the point of marking
-  // one is to teach what the orders are FOR, not to play the game for them.
+  // ---- STATE'S THREE ----
+  // The diplomatic slot, staffed: the eleven orders above ranked against the
+  // same read of the board the courses of action and the four advisors argue
+  // from, and cut to three. STATECRAFT in data.js holds the mapping and the
+  // arithmetic; this holds the prose rules, which are the same three
+  // `coaOptions` follows and are written out there at length.
   //
-  // Which is why nothing here recommends coordinating with Israel, releasing the
-  // Patriots or buying the corridor. Those three spend a relationship for a
-  // capability and cannot be un-spent; a star beside one is the staff making the
-  // strategic call rather than teaching what the button is. What it will name is
-  // a gauge about to discharge, a floor about to be hit, and the two orders that
-  // are simply free money the first time they are given.
-  function recommendedDiplo(G, actions) {
-    const can = (id) => { const a = actions.find(x => x.id === id); return a && !a.disabled; };
-    if (G.negotiationReady() && can('backchannel')) return 'backchannel';   // the war can end tonight
-    const iEta = Game.israelEta();
-    if (iEta !== null && iEta <= 3 && can('restrain')) return 'restrain';   // a deadline outranks a trend
-    if (G.approval <= 35 && can('address')) return 'address';               // the floor is what wars are lost on
-    const dEta = Game.gulfEta('dove');
-    if (dEta !== null && dEta <= 3 && can('gcc')) return 'gcc';
-    if (G.oil >= 150 && can('spr')) return 'spr';
-    if (G.world <= 45 && can('un')) return 'un';                            // the ramps are downstream of this
-    if (can('coalition')) return 'coalition';
-    if (can('sanctions')) return 'sanctions';
-    return can('un') ? 'un' : null;
+  // WHAT THIS REPLACES, AND WHY THE PRINCIPLE INVERTED. Until v1.90 this
+  // function was a short priority ladder that named ONE order, and it
+  // deliberately refused to name three of them — coordinating with Israel,
+  // the Patriots, the northern corridor — on the grounds that those spend a
+  // relationship for a capability, cannot be un-spent, and a star beside one is
+  // the staff making the strategic call rather than teaching what the button
+  // is. That was right while the star sat on a shelf of eleven visible orders:
+  // everything the staff declined to point at, the president could still see
+  // and still give.
+  //
+  // It is exactly wrong now that the folder is the only door. An order the
+  // ranking never surfaces on easy is an order that does not exist on easy, and
+  // one of those three re-arms the joint deep-strike package — the only
+  // renewable path into the buried halls that does not need a B-2. That is the
+  // `autoTheater` trap in a second costume: taking a panel away without moving
+  // what was behind it does not simplify the level, it makes it unwinnable. So
+  // all eleven are eligible, the irreversible ones included, and what protects
+  // the player from a staff that plays for them is not omission — it is that
+  // every track carries `defers`, the same as a course of action, so the pitch
+  // arrives with its own cost attached.
+  //
+  // AND IT IS DAMPED, on readLead's own constants, which are advise()'s own
+  // constants — deliberately the same numbers a third time, so this stays one
+  // experiment rather than three. Measured in .claude/betatest/state.js over 30
+  // easy campaigns, before the damper: the folder showed 5.0 DISTINCT SETS of
+  // three across a whole campaign, `backchannel`/`spr`/`address` took 85% of
+  // every lead there was, and `un` — the order that buys back the ramps
+  // everything else is gated on — was briefed on 10% of the nights it was
+  // available. Damped, and with the backchannel fix in STATECRAFT beside it:
+  // 14.2 distinct sets, no order leading more than a quarter of nights, and
+  // every one of the eleven briefed on a real share of the nights it is live.
+  //
+  // That is the same failure the HUD read cell and the advisor ladder both had,
+  // for the same reason: severity alone picks the loudest STANDING condition,
+  // and a standing condition never stops being true. The floor at home is not
+  // less true tonight because the president heard about it last night. A folder
+  // that opens on the same three cables for nine nights running is a layout.
+  //
+  // What did NOT come all the way down is the longest single run at TRACK ONE —
+  // 9.0 nights before, 7.3 after, against the 3.0–3.9 the same constants buy the
+  // HUD line. That is a real difference and it is the honest one to report: a
+  // concern severity is on assess.js's shared 0..1 ruler, so damping reorders
+  // the leaders easily, while these eleven orders carry weights a factor of two
+  // apart and the floor at 0.55 cannot always close that gap. It is left alone
+  // because the folder is THREE rows and the set is what the president reads —
+  // 14 distinct sets across a campaign is not wallpaper even when one row of the
+  // three is stable — and because lowering the floor here would make this a
+  // second experiment with the same name as the first.
+  //
+  // All three briefed ids accrue, not just the leader — what repeats here is the
+  // SET, since the president is reading three rows and not one — and the eight
+  // that did not get briefed recover at half rate, which is what rotates the
+  // tail of the shelf back into view.
+  const STATE_STEP = 0.12, STATE_FLOOR = 0.55, STATE_RECOVER = 0.5;
+  const stateHeard = new Map();     // order id -> consecutive turns briefed
+  let stateSaid = [];               // this turn's three, awaiting commit
+  let stateTurn = -1;
+
+  // Same rule as `hold` in ai.js and `readHold` above: exempt what is ITSELF
+  // expiring rather than being restated. An open negotiation window is the war
+  // ending tonight and must never be damped off the folder — it is the one order
+  // in the game that wins; each ask of Jerusalem is worth less and costs more
+  // than the last, so it is a different order every time it is offered; and
+  // coordinating stops existing the moment they go unilateral, which is a
+  // deadline and not a preference. Nothing else is exempt.
+  const stateHold = (a) => {
+    if (a.id === 'backchannel') return Game.G.negotiationReady();
+    if (a.id === 'restrain') return true;
+    if (a.id === 'israel') { const e = Game.israelEta(); return e !== null && e <= 3; }
+    return false;
+  };
+
+  // Committed at the TURN BOUNDARY and never on a render, for the reason
+  // commitHeard and readLead both are: the folder can be opened, shut and
+  // reopened inside one night, and three tracks that reordered themselves
+  // between two readings of the same folder would be worse than three that
+  // repeated. The RANKING is re-read every time (rule 2 in assess.js), so the
+  // tracks still move the moment the board does; what is frozen for the night is
+  // only how tired the room is of making each pitch.
+  //
+  // Module-local, like readLead's damper and for the same reason: no FIELDS
+  // entry and no VERSION bump. A president returning to a saved war should be
+  // offered the truest three, not the three the last session had stopped
+  // reading. A night on which the folder is never opened accrues nothing, which
+  // is also right — the room cannot get tired of a pitch nobody heard.
+  function commitState() {
+    if (stateTurn === Game.G.turn) return;
+    if (Game.G.turn < stateTurn) { stateHeard.clear(); stateSaid = []; }   // new war
+    else if (stateTurn >= 0) {
+      for (const k of [...stateHeard.keys()]) {
+        if (!stateSaid.includes(k)) stateHeard.set(k, Math.max(0, stateHeard.get(k) - STATE_RECOVER));
+      }
+      for (const k of stateSaid) stateHeard.set(k, (stateHeard.get(k) || 0) + 1);
+    }
+    stateTurn = Game.G.turn;
+  }
+
+  // Not cached, for rule 2 in assess.js: this is re-read every time the folder
+  // is opened, and a diplomatic order landing mid-night moves the board.
+  function stateOptions(G, list) {
+    if (G.over) return [];
+    // Orderable rows only. `attrs: ''` marks a status row — something a panel
+    // is telling the player rather than an order they can give — and a shelf
+    // that grows one would otherwise be briefed as a track that does nothing.
+    const actions = (list || diploActions(G))
+      .filter(a => a.attrs === undefined && !a.disabled);
+
+    commitState();
+    const worries = Assess.concerns();
+    const spec = (id) => STATECRAFT.orders[id] || STATECRAFT.fallback;
+
+    const ranked = actions.map(a => {
+      const s = spec(a.id);
+      // The urgency of an order is the severity of the worst thing it answers,
+      // and the concern that supplies it is the one whose words the track will
+      // argue in. Nothing else in here computes a severity of its own — the
+      // scale is shared across categories on purpose (see CONCERNS) and a
+      // second one written here would not be on the same ruler.
+      let lead = null;
+      for (const cid of s.answers) {
+        const c = worries.find(w => w.id === cid);
+        if (c && (!lead || c.sev > lead.sev)) lead = c;
+      }
+      let rank = s.weight * (0.3 + s.scale * (lead ? lead.sev : 0));
+      if (s.ready || s.unready) rank *= (G.negotiationReady() ? (s.ready || 1) : (s.unready || 1));
+      const rep = stateHold(a) ? 0 : (stateHeard.get(a.id) || 0);
+      rank *= Math.max(STATE_FLOOR, 1 - rep * STATE_STEP);
+      return { a, answers: s.answers, lead, rank };
+    }).sort((x, y) => y.rank - x.rank);
+
+    const brief = ranked.slice(0, STATECRAFT.brief);
+    stateSaid = brief.map(o => o.a.id);
+
+    // WHAT THE FOLDER CAN REACH TONIGHT: every concern some order actually on
+    // the shelf answers. This is the eligible set for `defers`, and deriving it
+    // from the table rather than writing a filter is the point — it is exactly
+    // the mirror of the rule coaOptions follows. A course of action is not
+    // charged for failing to fix your approval rating because no course of
+    // action can; a track is not charged for leaving the SAM belt standing,
+    // because "this cable does not suppress air defense" is true of every cable
+    // ever sent. The strait, the belt, the launcher fix and the soft
+    // assessments drop out on their own, because nothing in STATECRAFT.orders
+    // claims them and nothing should.
+    //
+    // Scoped to the AVAILABLE shelf and not to the three briefed. Charging a
+    // track only against its two rivals was the first cut and it left 79% of
+    // tracks with no LEAVES line at all — three orders that happen to answer
+    // overlapping concerns have nothing to charge each other with, which reads
+    // as three free lunches. What the president is actually choosing between is
+    // the whole shelf; three of it are simply the ones worth their evening.
+    const reach = new Set();
+    for (const o of ranked) for (const c of o.answers) reach.add(c);
+
+    return brief.map((o, i) => {
+      // WHAT IT LEAVES — and the eligible set is narrower here than it is for a
+      // course of action, in the opposite direction. A COA is not charged for
+      // failing to fix your approval rating because no COA can. A track is not
+      // charged for leaving the SAM belt standing, because that is what the
+      // president is signing CENTCOM's half of the same folder for. What a
+      // track is charged for is the worst thing ANOTHER TRACK IN FRONT OF THEM
+      // would have done instead — which is the only comparison that makes the
+      // three a decision rather than a queue.
+      const mine = new Set(o.answers);
+      const gap = worries.find(w => reach.has(w.id) && !mine.has(w.id));
+      return {
+        ...o.a,
+        slot: STATECRAFT.slots[i] || `TRACK ${i + 1}`,
+        // Exported rather than recomputed by the caller, so nothing outside
+        // this file has to keep a second copy of stateHold. Only the probe
+        // reads it, and it reads it to answer the one question the run-length
+        // number cannot answer on its own: a track that leads for nine nights
+        // is wallpaper if it is the standing floor at home, and is the war
+        // being winnable if it is an open negotiation window.
+        hold: stateHold(o.a),
+        // The fallback is not decoration. A quiet night for State is a real
+        // state of this game — nothing discharging, the floor a long way off —
+        // and "there is no fire, and this is still worth the cable" is an
+        // honest thing for a staff to say. Same bargain coaOptions makes.
+        read: o.lead ? o.lead.now
+          : 'Nothing on the board is forcing this tonight. It is standing business, and a slot ' +
+            'spent on it is a slot spent while nothing is on fire — which is the only time it is cheap.',
+        defers: gap ? gap.left : null,
+        rank: o.rank,
+      };
+    });
   }
 
   // What each of the seven countries is coloured on the strategic plot. One
@@ -2285,11 +2585,23 @@ const UI = (() => {
       // player rather than an order they can give. Omitting attrs entirely is
       // the diplomacy/intelligence default, where the id IS the order.
       const attrs = a.attrs === undefined ? `data-diplo="${a.id}"` : a.attrs;
-      return `<div class="action${off ? ' off' : ''}${open ? ' open' : ''}" data-action="${a.id}">` +
+      // `slot`, `read` and `defers` are what a STAFFED order carries on top of
+      // an order (stateOptions). They are rendered here rather than by a second
+      // row-builder for the reason coaRows exists: the folder and the shelf must
+      // not be two copies of this markup, or the line naming what a track leaves
+      // undone goes missing from one of them — and that line is the whole reason
+      // three pitches are a decision. An unstaffed row simply has none of them.
+      return `<div class="action${off ? ' off' : ''}${open ? ' open' : ''}${a.slot ? ' staffed' : ''}" data-action="${a.id}">` +
         `<button class="action-do" ${attrs} ${off ? 'disabled' : ''}>` +
-        `<span class="action-name">${a.name}` +
+        `<span class="action-name">` +
+        (a.slot ? `<span class="coa-slot">${a.slot}</span> ` : '') + a.name +
         (a.mark ? `<span class="rec-chip">${a.mark}</span>` : '') + `</span>` +
+        // WHY TONIGHT above WHAT IT COSTS, the same order the courses of action
+        // put them in: the board fact that put this order in front of the
+        // president, then the price of agreeing.
+        (a.read ? `<span class="il-read">${a.read}</span>` : '') +
         (a.current ? `<span class="il-current">${a.current}</span>` : '') +
+        (a.defers ? `<span class="coa-defers">LEAVES — ${a.defers}</span>` : '') +
         // `moves` names the gauge in THE WORLD this order pushes on. It is the
         // connective tissue that went missing when the gauges stopped living on
         // the order rows: without it a president reads eleven unrelated buttons
@@ -2326,9 +2638,16 @@ const UI = (() => {
     }
   }
 
-  function wireActions(sel) {
+  // `before` runs on the way to the order and is how the same rows work inside a
+  // dialog: giving the order closes the room, for the reason signing a course of
+  // action does — what comes back is a report, and holding the brief open over
+  // the answer hides the thing the president just asked for.
+  function wireActions(sel, before) {
     for (const btn of document.querySelectorAll(`${sel} .action-do`)) {
-      btn.addEventListener('click', () => Game.doDiplo(btn.dataset.diplo));
+      btn.addEventListener('click', () => {
+        if (before) before();
+        Game.doDiplo(btn.dataset.diplo);
+      });
     }
     wireWhy(sel);
   }
@@ -2339,29 +2658,49 @@ const UI = (() => {
   // currently known, and how firmly — because every one of these orders is a
   // decision to spend the night's intel slot moving one of those lines. Reading
   // the state out of four paragraphs of button text was the wrong shape for it.
-  function renderIntel(G) {
-    const used = G.intelUsed;
-    $('intel-status').textContent = used ? '— SLOT SPENT THIS TURN' : '';
+  //
+  // Split three ways — the state, the picture, the rows — because on a level
+  // that briefs this slot as a dialog (DIFFICULTY.popups) those same two halves
+  // are rendered into the brief instead of into the drawer. One renderer, two
+  // homes: the rule coaRows and briefLines/orderRows already follow, and for the
+  // same reason, which is that a second copy of this markup is how a tasking
+  // quietly goes missing from one of the two places it is meant to appear.
 
-    const hidden = IranAI.liveTels().filter(t => !t.located).length;
-    const brk = Game.breakoutEstimate();
-    const posture = G.postureKnown ? IranAI.posture() : null;
-    // The folder line reports what the analysts have OBSERVED — leads carried
-    // and boxes up — and never the number of sites still unknown, because that
-    // is a number CENTCOM cannot have. A panel reading "4 gaps" on turn one
-    // would hand the player the answer to the mechanic and delete the mid-game
-    // this exists to create: the discrepancy is supposed to be something they
-    // notice against the capacity meter, not something the HUD announces.
-    // "Nothing outstanding" beside a live covert site is not the game lying —
-    // it is the assessment being wrong, which is the same contract t.hp and
-    // estimate() already run on.
+  // Everything both halves read, derived once and handed to both. The picture's
+  // "3 localized" and the folder tasking's "3 areas localized and still
+  // unresolved" are the same fact twice, and computing them down two paths is
+  // how they come to disagree inside a single dialog.
+  function intelState(G) {
     const gaps = Game.covertGaps();
-    const boxed = gaps.filter(t => t.suspected).length;
-    const leads = gaps.reduce((n, t) => n + (t.suspected ? 0 : (t.leads || 0)), 0);
-    // nights of collection already flown against the box the deck is furthest
-    // into — the one workFolder will task next
-    const worked = gaps.reduce((n, t) => Math.max(n, t.suspected ? (t.worked || 0) : 0), 0);
+    return {
+      hidden: IranAI.liveTels().filter(t => !t.located).length,
+      brk: Game.breakoutEstimate(),
+      posture: G.postureKnown ? IranAI.posture() : null,
+      // A collection deck is only worth flying when there is something soft
+      // enough to be worth looking at. Offered with nothing on the list it
+      // spends the night's intel slot and hands back "nothing worth the sortie"
+      // — so the button says so up front instead, and the count is the argument.
+      stale: Game.staleEstimates(),
+      gaps,
+      boxed: gaps.filter(t => t.suspected).length,
+      leads: gaps.reduce((n, t) => n + (t.suspected ? 0 : (t.leads || 0)), 0),
+      // nights of collection already flown against the box the deck is furthest
+      // into — the one workFolder will task next
+      worked: gaps.reduce((n, t) => Math.max(n, t.suspected ? (t.worked || 0) : 0), 0),
+    };
+  }
 
+  // The folder line reports what the analysts have OBSERVED — leads carried
+  // and boxes up — and never the number of sites still unknown, because that
+  // is a number CENTCOM cannot have. A panel reading "4 gaps" on turn one
+  // would hand the player the answer to the mechanic and delete the mid-game
+  // this exists to create: the discrepancy is supposed to be something they
+  // notice against the capacity meter, not something the HUD announces.
+  // "Nothing outstanding" beside a live covert site is not the game lying —
+  // it is the assessment being wrong, which is the same contract t.hp and
+  // estimate() already run on.
+  function intelPicture(s) {
+    const { hidden, brk, posture, boxed, leads } = s;
     const lines = [
       ['Enrichment', brk.halted ? 'HALTED' : `${brk.lo}–${brk.hi}T · ${brk.conf}`,
         brk.halted || brk.conf === 'high' ? 'known' : brk.conf === 'low' ? 'unknown' : ''],
@@ -2373,15 +2712,15 @@ const UI = (() => {
         : 'nothing outstanding',
         boxed ? '' : leads ? 'unknown' : 'known'],
     ];
-    const picture = lines.map(([label, value, cls]) =>
+    return lines.map(([label, value, cls]) =>
       `<div class="intel-line"><span>${label}</span>` +
       `<span class="il-value ${cls}">${value}</span></div>`).join('');
+  }
 
-    // A collection deck is only worth flying when there is something soft
-    // enough to be worth looking at. Offered with nothing on the list it spends
-    // the night's intel slot and hands back "nothing worth the sortie" — so the
-    // button says so up front instead, and the count is the argument for it.
-    const stale = Game.staleEstimates();
+  // Every tasking that can actually be given tonight, in the order the slot
+  // lists them.
+  function intelTaskings(G, s) {
+    const { hidden, brk, posture, stale, gaps, boxed, leads, worked } = s;
 
     const intel = [
       {
@@ -2478,14 +2817,31 @@ const UI = (() => {
     // player cannot do. `used` is deliberately NOT a filter — the slot comes
     // back next turn, so those stay visible and greyed rather than emptying the
     // panel for half of every turn.
-    const live = intel.filter(a => !a.disabled);
+    return intel.filter(a => !a.disabled);
+  }
 
-    const empty = '<div class="dim" style="font-size:11px;margin-top:6px">' +
-      'No tasking worth the sortie. The collection picture is as good as ' +
-      'assets can make it — strike something and let a night pass.</div>';
+  const INTEL_EMPTY = '<div class="dim" style="font-size:11px;margin-top:6px">' +
+    'No tasking worth the sortie. The collection picture is as good as ' +
+    'assets can make it — strike something and let a night pass.</div>';
 
-    $('intel-buttons').innerHTML =
-      picture + (live.length ? actionButtons(live, used) : empty);
+  // The picture over the orders, which is the whole shape of this slot: the
+  // state first, then the night's one decision against it. Both homes render
+  // exactly this.
+  function intelBody(G) {
+    const s = intelState(G);
+    const live = intelTaskings(G, s);
+    return intelPicture(s) +
+      (live.length ? actionButtons(live, G.intelUsed) : INTEL_EMPTY);
+  }
+
+  function renderIntel(G) {
+    // On a level that briefs this slot in the room the drawer is trimmed off the
+    // rail entirely (DIFFICULTY.railPanels) and openPanel refuses it, so there
+    // is nothing here to draw into — briefSlots owns it instead. Same split as
+    // CSAR.renderPanel makes for the recovery.
+    if (Game.popup('intel')) return;
+    $('intel-status').textContent = G.intelUsed ? '— SLOT SPENT THIS TURN' : '';
+    $('intel-buttons').innerHTML = intelBody(G);
     wireActions('#intel-buttons');
   }
 
@@ -3981,5 +4337,18 @@ const UI = (() => {
     // syncBriefButton is exported for game.js's openBrief: arming the brief is
     // a state change with no render behind it, and the two buttons that stand
     // for the dialog have to follow it in the same tick.
-    applyPanelTrim, openBrief, closeBrief, syncBriefButton };
+    // briefSlotPending goes with it, and for the same reason it lives here at
+    // all: BRIEF_SLOTS is the ONE registry of which slots are briefed in the
+    // room, so game.js asks it rather than keeping a second list that could
+    // arm the folder for a section the dialog does not render.
+    applyPanelTrim, openBrief, closeBrief, syncBriefButton, briefSlotPending,
+    // Exported for .claude/betatest/state.js and nothing else in the game calls
+    // them from out here. Both are pure functions of G — no DOM, deliberately —
+    // so the probe can hold a reference across stub(), which noops every UI
+    // method not on its keep list. That is the only way either surface gets
+    // measured at all: the scripted personas call Game.doDiplo with an id they
+    // picked themselves, so without this the ranker could throw on every night
+    // of every campaign and no probe would notice. Same blind spot brief.js was
+    // written for.
+    stateOptions, diploActions };
 })();

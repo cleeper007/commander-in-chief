@@ -2089,7 +2089,13 @@ const Game = (() => {
     if (popup('brief')) {
       // Nothing to sign and nothing to report is not a button either — the same
       // test UI.openBrief makes before it declines to open an empty dialog.
-      briefPending = !G.over && (coaOptions().length > 0 || theaterNotes.length > 0);
+      // A free action slot still holding its order counts as something to sign:
+      // on this level the folder is the only place that slot appears, so a night
+      // where the staff has nothing to brief is exactly the night the president
+      // most needs the door to it. UI owns the list (see BRIEF_SLOTS) so the two
+      // tests cannot drift into arming a button over an empty dialog.
+      briefPending = !G.over && (coaOptions().length > 0 || theaterNotes.length > 0 ||
+        UI.briefSlotPending());
       UI.syncBriefButton();
       return;
     }

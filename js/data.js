@@ -2247,6 +2247,117 @@ const COA = {
 };
 
 // ============================================================
+// STATECRAFT — the diplomatic slot, staffed (v1.90)
+// ------------------------------------------------------------
+// COA above is the same idea for the tasking order, and this is deliberately
+// the same shape: an urgency, a weight, and a scale, ranked against ONE read of
+// the board (assess.js) so the folder cannot argue with itself. What it ranks
+// is not a new set of orders — it is the eleven that have always been in
+// DIPLOMATIC ACTIONS, unchanged, scored and cut to three.
+//
+// The reason it exists is the note under DIFFICULTY below, written at v1.87 and
+// left as a promissory: DIPLOMATIC ACTIONS and INTELLIGENCE TASKING stayed on
+// easy's rail because "a slot with no door is not a simpler game, it is a
+// smaller one", and they come off it "the night the SecDef and NSA brief them
+// as dialogs of their own". This is that night for State. The eleven-row shelf
+// was the last thing on easy that asked a president to do a staff officer's
+// sorting — read every instrument, cost eleven orders against each other, spend
+// one — on a level whose whole premise is that somebody else does that first.
+//
+// THE MAPPING IS THE MECHANIC, and it is why this is a table rather than the
+// priority ladder it replaces (`recommendedDiplo` in ui.js, which was a
+// hand-written if/else and could only ever name ONE order). `answers` is the
+// concern ids from assess.js that this order is a real answer to, and the
+// urgency of an order IS the severity of the worst thing it answers. That gets
+// three things for free: the ranking moves with the war rather than with a
+// fixed list of thresholds, the `read` line on a track is the same clause the
+// advisors and the courses of action are already using for that concern, and an
+// order that answers nothing live tonight sinks on its own without anybody
+// writing a rule about it.
+//
+// TWO RULES.
+//
+// An order missing from `orders` is NOT invisible — it falls to `fallback` and
+// can still be briefed on a quiet night. The opposite arrangement is the silent
+// failure this game keeps re-learning (see `railPanels`): a twelfth diplomatic
+// order added in a year would simply never appear on easy, and nothing on
+// screen would say so. `.claude/betatest/state.js` asserts every id the panel
+// can produce has a row here, which is where that is supposed to be caught.
+//
+// And `answers` is what the order FIXES, never what it touches. Patriots
+// forward buys hawk resolve, so it answers `basing` — it does not answer
+// `salvo`, even though it is unambiguously about incoming missiles, because it
+// pays for those interceptors out of the same magazine `salvo` is worried
+// about. An order that makes a concern worse must not be ranked by it, or the
+// gauge that is emptying becomes the reason to empty it faster.
+const STATECRAFT = {
+  slots: ['TRACK ONE', 'TRACK TWO', 'TRACK THREE'],
+  brief: 3,
+
+  // Same arithmetic as a course of action: rank = weight × (0.3 + scale × urgency).
+  // `weight` is how much the order is worth when it lands; `scale` is how much
+  // of its case is made by tonight rather than by standing merit. A high scale
+  // is an order that is either urgent or pointless (ask Jerusalem to hold); a
+  // low one is an order that is always mildly worth giving (sanctions).
+  orders: {
+    // The only order in the game that can END the war tonight, which is why it
+    // carries multipliers and nothing else does. `ready` applies when
+    // negotiationReady() is true — the window being open is not a factor in the
+    // ranking, it is the whole board — and that much is carried over verbatim
+    // from the ladder this replaces.
+    //
+    // `unready` is the other half, and it was measured rather than reasoned:
+    // without it, backchannel led TRACK ONE on 44% of all nights while the
+    // window was open on 11% of them. Everything it answers — the stalled war,
+    // the vote, the floor at home — it answers only BY ending the war, and it
+    // cannot end a war Tehran is still willing to fight. So the staff was
+    // leading, on two nights in five, with an order whose own row reads "Tehran
+    // will not talk while it can still fight" and which costs two points of
+    // approval to have tried. A recommendation that is refused by the game's own
+    // prose is worse than no recommendation: it teaches the player that the
+    // folder is not worth reading. It stays BRIEFABLE while shut — sanctions
+    // build the leverage it eventually spends, and a president who wants to
+    // probe should be able to — it simply stops leading.
+    backchannel: { answers: ['stall', 'vote', 'home'], weight: 1.0, scale: 1.0, ready: 2.6, unready: 0.3 },
+
+    // Standing abroad is the master variable and both basing tiers hang off it,
+    // so the order that buys it back is priced against the ramps folding.
+    un:          { answers: ['basing'], weight: 0.95, scale: 1.3 },
+    sanctions:   { answers: ['stall'], weight: 0.6, scale: 0.8 },
+
+    // `home` and NOT `strait`, though a reserve draw is obviously about oil.
+    // There is no "the barrel is high" concern — the closest is `strait`, whose
+    // clauses are written from the military side because its doctrine is
+    // maritime, and borrowing them put "Release the Strategic Reserve" under a
+    // read about coastal batteries and charged Jerusalem's own orders with
+    // LEAVING THE ANTI-SHIP THREAT UNTOUCHED. No cable ever sent touches the
+    // anti-ship threat. What an SPR draw actually moves in this game is the
+    // barrel and two points of approval, and both of those are the home front.
+    spr:         { answers: ['home'], weight: 0.8, scale: 1.1 },
+
+    // The floor is what wars are lost on, and the count is read out at the vote.
+    address:     { answers: ['home', 'vote'], weight: 1.0, scale: 1.4 },
+    coalition:   { answers: ['basing', 'stall'], weight: 0.7, scale: 0.7 },
+
+    // Coordinating answers Jerusalem's clock by inverting it, and it answers the
+    // breakout clock because the joint deep-strike package is the only renewable
+    // path into the buried halls that does not need a B-2. That second mapping
+    // is the safety valve on this whole feature: it is what guarantees the one
+    // diplomatic order a nuclear endgame can require gets briefed when the
+    // centrifuges are the loudest thing on the board.
+    israel:      { answers: ['israel', 'breakout'], weight: 1.0, scale: 1.2 },
+    restrain:    { answers: ['israel'], weight: 0.95, scale: 1.5 },
+
+    gcc:         { answers: ['basing'], weight: 0.9, scale: 1.2 },
+    patriots:    { answers: ['basing'], weight: 0.6, scale: 0.8 },
+    corridor:    { answers: ['basing'], weight: 0.85, scale: 1.0 },
+  },
+
+  // An order nobody has scored yet. Low, but never zero — see the first rule.
+  fallback: { answers: [], weight: 0.4, scale: 0.5 },
+};
+
+// ============================================================
 // DIFFICULTY
 // ------------------------------------------------------------
 // Three numbers do almost all the work: what the country will absorb in dead,
@@ -2291,7 +2402,12 @@ const COA = {
 //   coa            courses of action the staff briefs each night. 0 = none.
 //   coaFill        how much of tonight's plan one option spends (see COA.fill)
 //   freeTargeting  whether the map will open a strike dialog at all
-//   recommend      whether the staff marks its preferred diplomatic move
+//   recommend      whether the staff SORTS the diplomatic slot for the
+//                  president (STATECRAFT above). Where the result arrives is a
+//                  separate question and `popups` answers it — the same split
+//                  `coa` and `popups: 'brief'` already make on the military
+//                  side. On a level with the panel it is a mark on one order;
+//                  on a level with the dialog it is the three staffed tracks.
 //   pgm            campaign precision-munitions reservoir. 0 = no ledger kept
 //
 // EASY is the war as a president experiences it: three staffed options, one
@@ -2331,20 +2447,28 @@ const COA = {
 //
 // Easy's core three are the ones with an order in them that only a president
 // can give: the staff (who argue), strike assets (what is left to fly with) and
-// special operations (the one irreversible call). Of the eight that came off:
-// TONIGHT'S OPTIONS and PERSONNEL RECOVERY moved into dialogs (`popups`),
-// THEATER FORCES is now CENTCOM's problem (`autoTheater`), and OBJECTIVES,
-// SQUADRON and THE WORLD are readouts — the breakout clock is already in the
+// special operations (the one irreversible call). Of the nine that came off:
+// TONIGHT'S OPTIONS, PERSONNEL RECOVERY and now DIPLOMATIC ACTIONS moved into
+// dialogs (`popups`), THEATER FORCES is now CENTCOM's problem (`autoTheater`),
+// and OBJECTIVES, SQUADRON and THE WORLD are readouts — the breakout clock is already in the
 // bottom bar's read cell and in the advisors' mouths, and a president who is
 // not writing the tasking order is not costing the gauges out by hand either.
 //
-// DIPLOMATIC ACTIONS and INTELLIGENCE TASKING are the two that stayed against
-// the trim, and deliberately: they are the level's two FREE ACTION SLOTS, and
-// the primer names never spending them as the most common way a new player
-// loses. They come off this list the night the SecDef and NSA brief them as
-// dialogs of their own — which is the same move TONIGHT'S OPTIONS just made —
-// and not before, because a slot with no door is not a simpler game, it is a
+// DIPLOMATIC ACTIONS and INTELLIGENCE TASKING were the two that stayed against
+// the trim at v1.87, and deliberately: they are the level's two FREE ACTION
+// SLOTS, and the primer names never spending them as the most common way a new
+// player loses. The condition written here for letting them go was that they be
+// briefed as dialogs of their own — the same move TONIGHT'S OPTIONS made — and
+// not before, because a slot with no door is not a simpler game, it is a
 // smaller one.
+//
+// v1.90 does that for State: `popups: 'diplo'` puts three staffed tracks in the
+// folder (STATECRAFT above, stateOptions in ui.js), so DIPLOMATIC ACTIONS comes
+// off easy's rail and its door is the same one the courses of action already
+// use. INTELLIGENCE TASKING stays, on the same condition, until the NSA briefs
+// it the same way — five orders, all of which buy knowing rather than doing, is
+// a smaller sorting problem than eleven and it is not the one this release is
+// about.
 //
 // `autoTheater` exists because the theater calls are the one thing a staffed
 // level could not simply drop. Fordow has one key — the GBU-57, which is at
@@ -2355,8 +2479,8 @@ const COA = {
 const DIFFICULTY = {
   easy:   { name: 'EASY', casualties: 320, repair: 0.75, coord: 0.85, breakout: 1.25, israel: 0.75, bmd: 1.35, covert: 1.3, retaliation: 0.55, softGate: false,
     coa: 3, coaFill: 'full', freeTargeting: false, recommend: true, pgm: 0,
-    railPanels: ['advisors', 'resources', 'specops', 'diplo', 'intel'],
-    popups: ['brief', 'recovery'], autoTheater: true,
+    railPanels: ['advisors', 'resources', 'specops'],
+    popups: ['brief', 'recovery', 'diplo', 'intel'], autoTheater: true,
     desc: 'You are the President, and CENTCOM staffs the night for you. Three courses of action every evening — pick the one the war needs. No target lists, no magazines, no force flow to manage: read the board, choose the doctrine, and live with it. The country is patient, Iran rebuilds slowly and Jerusalem is willing to wait.' },
   normal: { name: 'NORMAL', casualties: 250, repair: 1, coord: 1, breakout: 1, israel: 1, bmd: 1, covert: 1, retaliation: 0.75, softGate: false,
     coa: 2, coaFill: 'half', freeTargeting: true, recommend: false, pgm: 0,
