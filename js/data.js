@@ -2157,7 +2157,7 @@ const COA = {
   intents: [
     {
       id: 'rollback', name: 'ROLLBACK',
-      line: 'Take the sky. Everything else is waiting on it.',
+      line: 'Gain air superiority. Everything else is waiting on it.',
       types: ['airdefense', 'airbase'], weight: 0.58, scale: 1.05, min: 1,
       why: 'The belt is the reason every package tonight is small, expensive and flown by ' +
         'the only two airframes that survive it. Break it and the fourth-generation force ' +
@@ -2358,6 +2358,66 @@ const STATECRAFT = {
 };
 
 // ============================================================
+// THE COLLECTION DECK, SORTED — DIFFICULTY.intelSlate
+// ------------------------------------------------------------
+// What STATECRAFT above does for the diplomatic slot, this does for the
+// intelligence one, and the argument is one step further along. State's problem
+// was eleven orders across four theaters, each spending a different currency, so
+// the staff cuts them to three. Intelligence has five or six and they all buy
+// the same thing — knowing — which is why v1.90 put the WHOLE deck in the room
+// and said so out loud.
+//
+// The complaint that changes it is not about sorting, it is about what a room
+// of six identical-looking taskings does to a player who is being asked to
+// choose one: read six, price six, and the honest answer most nights is that
+// three of them are collecting against something nothing on the board is
+// currently asking about. So the room puts up THREE, and one of them is the one
+// tonight's board actually wants.
+//
+// TWO RULES, AND THE SECOND IS THE FEATURE.
+//
+// The ranking is the same arithmetic a course of action and a diplomatic track
+// already use — weight × (0.3 + scale × urgency) against the one read of the
+// board in assess.js — so `answers` here means what a tasking RESOLVES, never
+// what it is vaguely about. `hunt` answers the launcher fix and the salvo
+// because finding a TEL is the only thing that makes one targetable. `folder`
+// answers `blind` and `stall` because a war that has run out of aimpoints is
+// the war that needs the ones it has not found yet. Nothing answers `home` or
+// `basing`: no collection deck ever flown has moved an approval rating.
+//
+// AND THE OTHER TWO ARE DRAWN AT RANDOM, deliberately, rather than being ranks
+// two and three. A slate of the top three is a ladder, and a ladder read three
+// nights running teaches the player to take the top row without reading it —
+// which is the failure the advisor damper, the HUD read cell and STATE'S THREE
+// have each been fixed for once already. A slate of one good answer and two
+// live alternates cannot be skimmed: the president has to read all three,
+// because the position of the good one carries no information. It is not a trick
+// — every tasking on the slate is a real order that does a real thing tonight,
+// and a president who reads the collection picture above them can tell which is
+// which. That is the skill the room is teaching.
+const INTEL_SLATE = {
+  // Fixed at three: it is the width of the room's grid and the same number
+  // State's tracks come in at, so the two slot rooms read as the same shape.
+  brief: 3,
+  orders: {
+    // A stale estimate is a package spent on a site that did not need it.
+    bda:              { answers: ['blind'], weight: 0.8, scale: 1.1 },
+    // The only tasking that makes a target targetable rather than better known.
+    hunt:             { answers: ['telfix', 'salvo'], weight: 1.0, scale: 1.4 },
+    // The clock the entire campaign is paced against.
+    'assess-nuclear': { answers: ['breakout'], weight: 0.9, scale: 1.3 },
+    // Aimpoints that are not on the list yet, which is what a stalled war needs.
+    folder:           { answers: ['blind', 'stall'], weight: 0.85, scale: 1.0 },
+    // Permanent answer, and it decides which arm is worth the campaign.
+    'assess-intent':  { answers: ['blind'], weight: 0.7, scale: 0.9 },
+    // Standing merit and no urgency at all: nothing on the board ever asks for
+    // pattern-of-life, and the raid it feeds is a decision taken somewhere else.
+    'isr-prep':       { answers: [], weight: 0.55, scale: 0.4 },
+  },
+  fallback: { answers: [], weight: 0.4, scale: 0.5 },
+};
+
+// ============================================================
 // DIFFICULTY
 // ------------------------------------------------------------
 // Three numbers do almost all the work: what the country will absorb in dead,
@@ -2482,18 +2542,85 @@ const STATECRAFT = {
 // FORCES cannot finish the program at any skill level (see the note under THE
 // THREE LEVELS ARE THREE DIFFERENT JOBS in CLAUDE.md). Hiding that panel without
 // this flag does not simplify easy, it makes it unwinnable.
+//
+// v1.93 — ONE SIGNATURE, AND IT IS WORTH SIGNING.
+// Four more knobs, and the first two are one decision read from both ends.
+//
+//   coaSigns    courses of action that may be signed in ONE night. 0 = no cap.
+//   strike      what a package does on this level, and how that grows.
+//   plainAssets STRIKE ASSETS reports readiness rather than arithmetic.
+//   intelSlate  intelligence taskings the room puts up. 0 = the whole deck.
+//
+// `coaSigns` closes a hole that was there from v1.77 and got worse when the
+// folder learned to walk itself (v1.92): an option on easy is sized to the WHOLE
+// tasking order (`coaFill: 'full'`), so signing a second one is not a bigger
+// night, it is a second complete plan flown as late frags — every package
+// degraded, the aircrew roll multiplied, and four nights of crew-rest debt
+// booked against a president who has no ATO gauge and was never told any of that
+// happened. The brief still shows three; exactly one of them can be signed.
+// What grows over a campaign is the SIZE of that one option, which is the honest
+// place for the buildup to be felt on a level that cannot see the tasking order.
+//
+// `strike` is that growth, and it is the other half of the same complaint. A
+// package on easy was a package on hard, so the one decision the level asks —
+// which doctrine tonight is for — was worth a third of a night to a president
+// who could sign three options and is worth a whole one to a president who
+// cannot. A single signature has to carry the night: `base` multiplies what a
+// package takes off a site that wears down, `perFlow` is what each landed
+// FORCE_FLOW wave adds to it, and `edge` is a flat lift on the success band.
+// It touches those two numbers and NOTHING else — not repair, not world, not
+// approval, not the aircrew roll — so what comes out is the same war fought with
+// heavier packages rather than a different war. Deliberately absent from normal
+// and hard: those levels feel the buildup in the tasking order, which they can
+// see, and they can fly a fourth package when tonight needs one.
+//
+// WHAT THIS COSTS, MEASURED, BECAUSE IT IS NOT FREE AND THE NUMBER IS NOT
+// OBVIOUS. `.claude/betatest/coa.js` at n=120, easy, the two bots that only ever
+// pick off the menu — coaTop takes the staff's leading recommendation, coaBlind
+// picks uniformly at random. That gap is the whole bar for whether this level's
+// one decision is a decision:
+//
+//   v1.92 baseline           coaTop 76%   coaBlind 53%   — 23 points
+//   coaSigns: 1 alone        coaTop 75%   coaBlind 57%   — 18 points
+//   + strike (this build)    coaTop 82%   coaBlind 79%   —  3 points
+//
+// So the signature cap is nearly free and the FIREPOWER is what flattens it, and
+// it flattens hard: at base 1.15 — a boost small enough that a player would
+// struggle to feel it — the gap is already down to 7 points. That is not a
+// tuning accident, it is what the level is made of. Easy's decision is an
+// efficiency decision under scarcity: with three packages a night against a
+// twenty-four aimpoint list, spending one on the wrong doctrine is a night you
+// cannot get back, and the ranking is the president's protection from that.
+// Relieve the scarcity and every doctrine arrives in time, so the order stops
+// mattering. There is no setting of this knob that buys weight without buying
+// that, and pretending otherwise is how it gets quietly re-tuned in six months.
+//
+// It ships anyway, at 1.30, and the argument is that the trade is the right one
+// FOR THIS LEVEL: easy is the default and it is labelled RECOMMENDED FOR
+// FIRST-TIME PLAYERS, so a first war that is survivable however it is played is
+// the product, and the doctrines are still ranked, still argued, and still the
+// difference between winning on turn 24 and winning on turn 29. The number to
+// watch if this is ever revisited is coaBlind's win rate, not coaTop's — the
+// day a random pick and the staff's pick are the same campaign, the folder is
+// furniture. Do not raise this knob to fix a complaint about pacing; raise
+// ATO.perFlow, which buys weight out of the buildup the player can see.
 const DIFFICULTY = {
   easy:   { name: 'EASY', casualties: 320, repair: 0.75, coord: 0.85, breakout: 1.25, israel: 0.75, bmd: 1.35, covert: 1.3, retaliation: 0.55, softGate: false,
     coa: 3, coaFill: 'full', freeTargeting: false, recommend: true, pgm: 0,
+    coaSigns: 1, strike: { base: 1.30, perFlow: 0.08, edge: 0.03 },
+    plainAssets: true, intelSlate: 3,
     railPanels: ['advisors', 'resources', 'specops'],
     popups: ['brief', 'recovery', 'diplo', 'intel'], autoTheater: true,
-    desc: 'You are the President, and CENTCOM staffs the night for you. Three courses of action every evening — pick the one the war needs. No target lists, no magazines, no force flow to manage: read the board, choose the doctrine, and live with it. The country is patient, Iran rebuilds slowly and Jerusalem is willing to wait.' },
+    tag: 'RECOMMENDED FOR FIRST-TIME PLAYERS',
+    desc: 'You are the President. Choose-your-own-adventure: CENTCOM walks in every evening with the night already staffed, you pick one course of action, and you live with what it does. No target lists, no magazines, no fleet to move. The country is patient, Iran rebuilds slowly and Jerusalem is willing to wait.' },
   normal: { name: 'NORMAL', casualties: 250, repair: 1, coord: 1, breakout: 1, israel: 1, bmd: 1, covert: 1, retaliation: 0.75, softGate: false,
     coa: 2, coaFill: 'half', freeTargeting: true, recommend: false, pgm: 0,
+    coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0,
     railPanels: null, popups: [], autoTheater: false,
     desc: 'A staff you can overrule. Two options are briefed each night and neither one fills the tasking order — what is left over you frag yourself, off the map, against whatever you think they have missed. The war as designed.' },
   hard:   { name: 'HARD', casualties: 190, repair: 1.25, coord: 1.15, breakout: 0.85, israel: 1.3, bmd: 0.7, covert: 0.75, retaliation: 1, softGate: true,
     coa: 0, coaFill: 'full', freeTargeting: true, recommend: false, pgm: 440,
+    coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0,
     railPanels: null, popups: [], autoTheater: false,
     desc: 'You are the air component commander and nobody is drafting anything for you. Every package by hand, a finite stock of precision weapons that only the munitions ships replace, less patience at home, faster Iranian repair, a light interceptor magazine and no patience at all in Jerusalem. The staff will fly any plan you sign and hand you the casualty list afterwards.' },
 };
@@ -2502,6 +2629,14 @@ const DIFFICULTY = {
 // written under those names still restores at the level it was played at
 // rather than silently dropping to normal.
 const DIFFICULTY_ALIAS = { advisor: 'easy', general: 'normal', president: 'hard' };
+
+// Which level a player who has never chosen one is handed, and it is not a
+// neutral default dressed up as one. Being handed twenty-four aimpoints and a
+// magazine on night one is a planning exercise, and a first war that opens on a
+// planning exercise is a first war that ends on the title screen. `tag` above is
+// the same argument said out loud on the radio button. Restoring a save reads
+// the level it was played at and never comes here.
+const DIFFICULTY_DEFAULT = 'easy';
 
 // ============================================================
 // THE TOTAL WAR GRADE

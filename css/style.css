@@ -128,13 +128,27 @@ body {
    A sticky pseudo-element rather than a mask on the scroller: a mask dims the
    text it is trying to advertise, and sticky keeps the fade pinned to the
    bottom edge of the window without needing a wrapper element in every modal.
-   The negative margins pull it back over the body's own padding so the
-   gradient reaches the true bottom of the box. `at-end` is set from JS once
-   the content is scrolled out — see initModalScrollEdge in ui.js. */
+   The negative TOP margin cancels its own height so it costs the flow nothing,
+   and `bottom: -16px` is what reaches the gradient down over the body's own
+   padding to the true bottom of the box. `at-end` is set from JS once the
+   content is scrolled out — see initModalScrollEdge in ui.js.
+
+   THE BOTTOM MARGIN USED TO BE -16px AND IT MANUFACTURED THE SCROLLBAR IT WAS
+   ADVERTISING. A negative bottom margin on the last box in a flow shortens the
+   PARENT by that much, so every modal body was handed 16px less height than its
+   content needed while `scrollHeight` went on reporting the full amount — the
+   overflow test in initModalScrollEdge is scrollHeight against clientHeight, so
+   the fade was permanently on, on every dialog, at every size. Measured on the
+   evening brief at 812x375: body content 166px, clientHeight 150px, and a modal
+   274px tall against a cap of 345px it was nowhere near. Nothing was ever
+   clipped; the dialogs simply all had a scroll gutter and a "more below" wash
+   over content that ended exactly at the fold. The dialogs that genuinely
+   overflow — the endgame, the primer on a landscape phone — are unaffected:
+   their content is longer than the box either way. */
 .modal-body { position: relative; }
 .modal-body::after {
   content: ''; display: block; position: sticky; bottom: -16px;
-  height: 34px; margin: -34px -16px -16px;
+  height: 34px; margin: -34px -16px 0;
   background: linear-gradient(to top, var(--bg-panel), transparent);
   pointer-events: none; opacity: 1; transition: opacity .18s ease;
 }
@@ -565,6 +579,35 @@ button { font-family: var(--mono); }
   .brief-head { padding: 7px 12px; }
 }
 .brief-head .panel-title { text-align: center; }
+
+/* WHO WALKED IN. The seal and the name are one column of the letterhead grid —
+   the name is the seal's caption, so they must not be able to drift apart when
+   the room title changes length. Centred under the mark, and the block is given
+   a floor wide enough for the longest of the three billets so the centred title
+   beside it does not shift by six pixels every time the room changes. */
+.brief-who {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 118px;
+}
+.brief-who-name { display: block; text-align: center; line-height: 1.2; }
+.brief-who-name:empty { display: none; }
+.brief-who-name b {
+  display: block; color: var(--text); font-size: 9.5px; letter-spacing: .06em;
+  font-weight: normal;
+}
+/* The billet is the smallest type in the header on purpose: the NAME is what a
+   player has learned to recognise from the advisors panel, and the office is
+   only there for the first campaign, when they have not yet. */
+.brief-who-name span {
+  display: block; color: var(--dim); font-size: 8px; letter-spacing: .05em;
+  margin-top: 1px;
+}
+/* A landscape phone spends its header budget on the seals; the billet is the
+   first thing that can go and the name is the last. */
+@media (max-height: 540px) {
+  .brief-who { min-width: 0; }
+  .brief-who-name span { display: none; }
+}
 /* The count is the room's own status — 3 OPTIONS, SLOT SPENT TONIGHT — and it
    sits under the room name rather than beside it: beside it, the title's width
    changes every time the count does and the centred line jitters between rooms. */
@@ -1921,6 +1964,17 @@ button { font-family: var(--mono); }
 .diff-option:hover { border-color: var(--blue); background: rgba(90,150,220,.06); }
 .diff-option input { margin-right: 7px; accent-color: var(--blue); }
 .diff-name { font-size: 11.5px; letter-spacing: .8px; color: var(--text); }
+/* The recommendation, beside the name and not inside the paragraph: it is a
+   claim about WHO should pick this rather than about the war it produces, and a
+   player scanning three headings has to be able to take it without reading one.
+   Blue rather than amber — amber on this screen is the war, and this is the
+   interface talking. It wraps below the name on a phone, where the descriptions
+   are collapsed and the heading is most of the row (see the portrait rule). */
+.diff-tag {
+  margin-left: 8px; padding: 1px 5px; font-size: 8.5px; letter-spacing: 1px;
+  color: var(--blue); border: 1px solid var(--blue); vertical-align: 1px;
+  white-space: nowrap;
+}
 .diff-desc { display: block; font-size: 10.5px; color: var(--dim); margin: 3px 0 0 20px; }
 .diff-option:has(input:checked) { border-color: var(--blue); background: rgba(90,150,220,.1); }
 
@@ -2036,6 +2090,19 @@ button { font-family: var(--mono); }
 }
 .a-val.off { color: var(--dim); }
 .a-val.crit { color: var(--red); }
+/* READINESS RATHER THAN ARITHMETIC (DIFFICULTY.plainAssets). The value slot
+   carries a word instead of a fraction on the level that does not spend these,
+   and a word is a different typographic problem from a number: BELOW A PACKAGE
+   is fifteen characters against "4 / 8"'s five, so `white-space: nowrap` above
+   would push the aircraft name off the left of a 300px column. It wraps, right-
+   aligned, at the tracking the res-legend headings already use — this is a
+   status label and it should read as one rather than as a second value.
+   `align-items: baseline` on .asset keeps the first line of it on the name's
+   baseline, so a two-line word hangs below the row instead of shifting it. */
+.a-val.word {
+  white-space: normal; text-align: right; max-width: 108px;
+  font-size: 9.5px; letter-spacing: 1px; line-height: 1.25;
+}
 .a-mag {
   grid-column: 1 / 3; height: 3px; margin-top: 5px; background: rgba(255,255,255,.08);
 }
@@ -2434,6 +2501,16 @@ body.mobile-ui #panel-rail::-webkit-scrollbar { display: none; }
 .rail-label {
   font-size: 8.5px; letter-spacing: 0.9px; line-height: 1; white-space: nowrap;
 }
+/* Four tabs or fewer — a trimmed level, or a full one with RECOVERY and TONIGHT
+   both dark. The chips have the width, so they take it: bigger label, a taller
+   box, and a real touch target rather than the 40px minimum six tabs can afford.
+   Set from syncRail off the LIVE count, so a rail that grows a fifth tab
+   mid-campaign steps back down to the tight type on its own. */
+body.mobile-ui #panel-rail.rail-few .rail-chip {
+  min-height: 52px; padding: 8px 4px; gap: 3px;
+}
+body.mobile-ui #panel-rail.rail-few .rail-label { font-size: 11px; letter-spacing: 1.4px; }
+body.mobile-ui #panel-rail.rail-few .rail-badge { font-size: 9.5px; letter-spacing: 0.4px; }
 /* The badge is the reason a player can leave a section shut: it is what is
    still LIVE in there tonight. Empty for the read-only sections, which then
    collapse to a single line rather than sitting there with a hole in them.
@@ -2674,6 +2751,21 @@ body.mobile-ui #session-buttons button::after { inset: -4px -2px; }
   }
   .coa-chip { font-size: 8.5px; padding: 1px 4px; }
 
+  /* ...but NOT in the room. Everything above is written against the 189px the
+     sidebar's scroll pane gives TONIGHT'S OPTIONS, where three rows stacked
+     vertically genuinely do not fit unclamped — that argument is intact and it
+     is why the compression is here and not in shorter sentences. The evening
+     brief is a different box: three columns across a dialog, not three rows down
+     a drawer, so the budget is horizontal and there is room to finish the
+     sentence. A clamped read is the worst of both — the president is being asked
+     to choose between three arguments and shown two thirds of each, with the
+     rest behind a caret they have to open three times. */
+  #brief-modal-buttons .il-current,
+  #brief-modal-buttons .il-read,
+  #brief-modal-buttons .coa-defers {
+    -webkit-line-clamp: unset; display: block; overflow: visible;
+  }
+
   /* On a short screen the scope stops being a width problem and becomes a
      height one: the radar is square, so the card's WIDTH is what decides how
      much of the chart it swallows vertically. 34vh lands the square at ~37% of
@@ -2828,6 +2920,23 @@ body.mobile-ui #session-buttons button::after { inset: -4px -2px; }
   .title-brief p { margin-bottom: 8px; }
   #difficulty-select { margin: 12px 0 10px; }
   .modal { max-height: 92vh; }
+  /* THE FOLDER PAYS ITS OWN WAY DOWN HERE. Three rooms walked in order, three
+     to six orders laid out in columns, and — since the clamp came off inside
+     the room — the whole of each argument rather than two thirds of it. On a
+     812x375 landscape phone that is 24px more than a 92vh box holds, and the
+     answer is not to truncate the arguments again: it is that a dialog carrying
+     one decision does not need 67px of footer and 55px of letterhead. The
+     controls stay finger-sized; what goes is the air around them. */
+  .modal.brief { max-height: 96vh; }
+  .modal.brief .modal-body { padding: 10px 12px; }
+  .modal.brief .modal-footer { padding: 7px 12px; gap: 7px; }
+  .modal.brief .modal-footer button { padding: 7px 10px; }
+  .brief-notes { padding-left: 8px; margin-bottom: 8px; }
+  .brief-notes-head { margin-bottom: 3px; }
+  .brief-note { font-size: 10px; line-height: 1.35; }
+  /* the fade's reach is the body's own padding — see the note on
+     .modal-body::after, which is written against the 16px default */
+  .modal.brief .modal-body::after { bottom: -10px; }
 }
 
 /* ---- the chart's controls, once the pane stops holding seven of them ----

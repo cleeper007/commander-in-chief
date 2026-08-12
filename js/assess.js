@@ -438,7 +438,14 @@ const Assess = (() => {
     { id: 'race', name: 'RACING THE CENTRIFUGES',
       when: b => !b.brk.halted && b.brk.hi <= 6 && b.deg < 100,
       line: 'The breakout estimate is now inside the time it takes to do anything else on the list.' },
-    { id: 'opening', name: 'TAKING THE SKY',
+    // Named for the doctrine rather than for the image. "TAKING THE SKY" is what
+    // this phase is, and it is also a phrase a player has to translate before it
+    // means anything — the ladder in STRIKE ASSETS, the gate on every fourth-gen
+    // package and the reason ROLLBACK leads the brief are all called AIR
+    // SUPERIORITY, in those words, everywhere else in the game. One name.
+    // 23 characters, one over HOLDING THE PRESIDENCY, which is what the read
+    // cell's label slot is already sized against.
+    { id: 'opening', name: 'GAINING AIR SUPERIORITY',
       when: b => b.phase === 'contested',
       line: 'Nothing else on the list gets cheaper until the belt is down.' },
     { id: 'closing', name: 'CLOSING THE GATES',

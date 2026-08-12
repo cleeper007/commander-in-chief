@@ -236,17 +236,29 @@ const UI = (() => {
   function syncRail() {
     const rail = $('panel-rail');
     if (!rail || !rail.children.length) return;
+    let shown = 0;
     for (const g of RAIL_GROUPS) {
       const chip = rail.querySelector(`[data-rail="${g.key}"]`);
       if (!chip) continue;
       const live = groupLive(g);
       chip.classList.toggle('hidden', !live);
       if (!live) continue;
+      shown++;
       const b = railBadge(g);
       chip.querySelector('.rail-badge').textContent = b.text;
       chip.classList.toggle('rail-quiet', !!b.quiet);
       chip.classList.toggle('rail-urgent', !!(g.urgent || b.urgent));
     }
+    // THE RAIL IS SIZED AGAINST WHAT IS ACTUALLY ON IT. The 8.5px label and the
+    // 44px floor in the CSS are written for six tabs standing across a 268px
+    // sidebar — that is the worst case and it is genuinely tight. A level that
+    // has been trimmed to three sections (DIFFICULTY.railPanels) does not have
+    // that problem and should not pay that price: three chips at six-chip type
+    // is a nav bar apologising for space it is not using, on the level whose
+    // whole argument is that there is less to read. Set off the live count
+    // rather than off the difficulty, because RECOVERY comes and goes mid-war
+    // and the rail has to re-fit when it does.
+    rail.classList.toggle('rail-few', shown > 0 && shown <= 4);
     // The tab under the player can stop existing — the recovery closes, the
     // last aircrew comes home — so re-home rather than leaving the pane
     // pointing at nothing.
@@ -823,6 +835,34 @@ const UI = (() => {
   // will. `tick` is the coloured rule down the left of the row; `low` is the
   // magazine itself being the problem, which is a different fact from the
   // ladder holding the tier back and gets a different colour on the bar.
+  // ---- READINESS, NOT ARITHMETIC — DIFFICULTY.plainAssets ----
+  // What this panel is FOR changes with who is writing the tasking order. On a
+  // level where the president frags packages by hand, "4 / 8" is the working
+  // number: it is the difference between a night with two Weasel sweeps in it
+  // and a night with one, and the bar beside it is how close the magazine is to
+  // refusing the next click. On a level where CENTCOM sizes the option and the
+  // map opens no strike dialog at all, that same figure is arithmetic against a
+  // decision the president does not make — eleven fractions on a panel whose
+  // only real question is "what can fly tonight".
+  //
+  // So on easy every row answers that question in a word. Nothing is removed:
+  // the same rows in the same groups under the same headings, with the same
+  // coloured tick and the same second line naming the aircraft. What goes is the
+  // count and the bar, which are the two things that only mean something to
+  // somebody spending them.
+  //
+  // The word is derived from what the row already knows rather than from a
+  // second table, so a row that goes critical says so in both modes and cannot
+  // say one thing on easy and another on normal.
+  const READY_WORD = (r) => {
+    if (r.val) return r.val;                       // NOT DEPLOYED / EN ROUTE — already a word
+    if (r.group === 'held') return 'NOT RELEASED';
+    if (r.word) return r.word;                     // a state that outranks the magazine
+    if (r.have <= 0) return r.dry || 'NONE LEFT';
+    if (r.low) return r.lowWord || 'BELOW A PACKAGE';
+    return r.ready || 'READY';
+  };
+
   function assetRows(G) {
     const softGate = Game.difficulty().softGate;
     const rows = [];
@@ -877,6 +917,12 @@ const UI = (() => {
     const bmdFrac = Game.bmdFrac();
     const bmdRate = Math.round(Game.bmdRate() * 100);
     const bmdTick = bmdFrac <= NAVAL_BMD.crit ? 'crit' : bmdFrac <= NAVAL_BMD.warn ? 'warn' : '';
+    // ACTIVE or not is the whole of what a president who is not spending these
+    // needs: they are fired by Tehran's tempo, and the only order attached to
+    // them is one CENTCOM gives itself on this level. A screen that is alongside
+    // the ammunition ship or has no deck forward is not shooting at anything,
+    // which is a different fact from a light magazine and reads as one.
+    const bmdOff = Game.bmdRearming() || Game.navalForward() <= 0;
     add({ name: 'Aegis interceptors',
       sub: Game.bmdRearming()
         ? `Rearming — ${turns(G.bmdRearm)} alongside`
@@ -884,12 +930,15 @@ const UI = (() => {
           ? 'SM-3 / SM-6 · no deck on station'
           : `SM-3 / SM-6 · stops ${bmdRate}% of a Gulf salvo`,
       tick: bmdTick, low: bmdFrac <= NAVAL_BMD.crit, group: 'shield',
+      word: bmdOff ? 'NOT COVERING' : null, ready: 'ACTIVE',
+      lowWord: 'RUNNING DRY', dry: 'CELLS DRY',
       have: bmdLeft, cap: bmdCap });
 
     // The boat's own load — not a theater magazine, and it never refills.
     const torps = G.torpedoes ?? 0;
     add({ name: 'Mk-48 torpedoes', sub: torps === 0 ? 'Tubes dry' : 'Toledo · never refills',
-      tick: torps === 0 ? 'crit' : '', low: torps === 0, have: torps, cap: TORPEDO_LOAD });
+      tick: torps === 0 ? 'crit' : '', low: torps === 0, dry: 'TUBES DRY',
+      have: torps, cap: TORPEDO_LOAD });
 
     if (G.bombersArrived) {
       const b2 = short('stealth');
@@ -928,6 +977,16 @@ const UI = (() => {
 
   function assetHtml(r) {
     const off = r.group !== 'go';
+    // The readiness word is a word in the value slot and gets the value slot's
+    // narrow type, so a row that says BELOW A PACKAGE wraps to two lines instead
+    // of pushing the aircraft name off the left of a 300px column.
+    if (Game.difficulty().plainAssets) {
+      const word = READY_WORD(r);
+      const wCls = r.low || r.group === 'held' ? ' crit' : off || r.val ? ' off' : '';
+      return `<div class="asset${r.tick ? ' ' + r.tick : ''}">` +
+        `<span class="a-name">${r.name}<span class="a-sub${r.tick ? ' ' + r.tick : ''}">${r.sub}</span></span>` +
+        `<span class="a-val word${wCls}">${word}</span></div>`;
+    }
     const val = r.val ?? `${r.have} / ${r.cap}`;
     const vCls = r.val ? ' off' : r.low ? ' crit' : off ? ' off' : '';
     return `<div class="asset${r.tick ? ' ' + r.tick : ''}">` +
@@ -935,6 +994,44 @@ const UI = (() => {
       `<span class="a-val${vCls}">${val}</span>` +
       (r.val ? '' : magBar(r.have, r.cap, off ? 'off' : r.low ? 'crit' : '')) +
       `</div>`;
+  }
+
+  // ---- WHERE THE DECKS ARE, ON A LEVEL WITH NO FLEET PANEL ----
+  // THEATER FORCES came off easy's rail at v1.87 and CENTCOM took over the
+  // orders behind it (DIFFICULTY.autoTheater), which is right — the force flow
+  // is not a decision that level asks. But a carrier's STATION is not an order,
+  // it is a fact about tonight that half this panel is downstream of: whether
+  // the Aegis row is covering anything, whether the strait has weight on it,
+  // whether there is a lid on the barrel, and how many sorties the wing is
+  // generating. Removing the panel removed the only place that fact was
+  // written. So the decks are reported here, where what they do is counted, and
+  // only on the level that has nowhere else to read them.
+  // Drawn through `carrierLine`, which is THEATER FORCES' own renderer, for the
+  // reason coaRows and intelParts are shared: the two homes must not be able to
+  // disagree about where a ship is. What this one drops is the note — the
+  // paragraph under the label there is about what changing her station would
+  // buy, and on this level nobody is changing it.
+  function stationRows(G) {
+    if (!Game.difficulty().autoTheater) return '';
+    const rows = G.carriers.map((cv) => {
+      const info = CARRIER_INFO[cv.id] || {};
+      const line = carrierLine(cv, G);
+      const label = line ? line.label
+        : G.secondCarrierEta ? `EN ROUTE — ${turns(G.secondCarrierEta).toUpperCase()}`
+        : 'NOT DEPLOYED';
+      // The tick follows carrierLine's own class so the colour and the words
+      // come from one decision: a withdrawal and a rearm are the two states this
+      // panel is downstream of, and both read as something being off.
+      const cls = !line ? 'off'
+        : line.cls === 'cv-lost' ? 'crit'
+        : line.cls === 'cv-forward' ? '' : 'off';
+      return `<div class="asset"><span class="a-name">${info.name || cv.id}` +
+        `<span class="a-sub">${line && line.cls === 'cv-forward'
+          ? 'Full sortie generation, Aegis over the Gulf ramps'
+          : 'Air wing flying · no forward presence'}</span></span>` +
+        `<span class="a-val word ${cls}">${label}</span></div>`;
+    }).join('');
+    return `<div class="res-group"><div class="res-legend">CARRIER STRIKE GROUPS</div>${rows}</div>`;
   }
 
   function renderResources(G) {
@@ -949,16 +1046,29 @@ const UI = (() => {
     const left = Math.max(0, slots - flown);
     const closed = flown >= slots + ATO.ceiling;
     const tk = G.tankers, cap = G.tankerCap || Game.tankerCapacity();
+    // THE TASKING ORDER IS NOT THIS LEVEL'S PROBLEM. The gauge, the fraction and
+    // every late-frag alert under them exist to price a decision the president
+    // makes package by package on the map — and easy has no map targeting, no
+    // strike dialog, and exactly one signature a night sized by the staff to the
+    // plan. Nothing a player can do there puts a package past it, so a gauge
+    // showing four solid boxes and four dashed ones is a mechanic being taught to
+    // somebody who will never touch it, on the panel where they are supposed to
+    // be reading what can fly. The plan is still what sizes the option — it is
+    // simply CENTCOM's arithmetic on this level, and it is felt as a heavier
+    // option rather than read as a fraction (see DIFFICULTY.strike).
+    const showAto = !Game.difficulty().plainAssets;
 
     // Live state stays on the face of the box. Only the things that are true
     // tonight and would change how the player spends the next order — never the
     // standing rules, which are what the disclosure is for.
     const alerts = [];
-    if (closed) alerts.push(['crit', 'The order is closed — nothing else flies tonight.']);
-    else if (over > 0) alerts.push(['crit', `${plural(over, 'late frag')} outside the plan — ` +
-      'degraded, costing aircrew, one package off tomorrow each.']);
-    else if (left === 0) alerts.push(['warn', 'The plan is spent. More can still be flown as late frags.']);
-    if (G.fatigue) alerts.push(['warn', `${plural(G.fatigue, 'package')} held back for crew rest.`]);
+    if (showAto) {
+      if (closed) alerts.push(['crit', 'The order is closed — nothing else flies tonight.']);
+      else if (over > 0) alerts.push(['crit', `${plural(over, 'late frag')} outside the plan — ` +
+        'degraded, costing aircrew, one package off tomorrow each.']);
+      else if (left === 0) alerts.push(['warn', 'The plan is spent. More can still be flown as late frags.']);
+      if (G.fatigue) alerts.push(['warn', `${plural(G.fatigue, 'package')} held back for crew rest.`]);
+    }
     if (!G.basing.gulf) alerts.push(['crit', 'Gulf ramps closed — nothing deep is reachable.']);
     else if (!G.basing.nato) alerts.push(['warn', 'NATO and Saudi tanker tracks withdrawn.']);
     // The depots, where anyone is counting them. Phrased in NIGHTS rather than
@@ -976,11 +1086,15 @@ const UI = (() => {
 
     const whyText =
       `<p>${airPhaseNote(G)}</p>` +
-      `<p>Tonight's order holds ${plural(slots, 'package')}. Past it a package still flies as a ` +
-      `late frag — worse effects, a heavier aircrew roll, and one package charged against ` +
-      `tomorrow's plan — until the order closes after the ${Txt.ordinal(slots + ATO.ceiling)}. ` +
-      `The boat is not on the ` +
-      `order: a torpedo attack is planned aboard the submarine.</p>` +
+      (showAto
+        ? `<p>Tonight's order holds ${plural(slots, 'package')}. Past it a package still flies as a ` +
+          `late frag — worse effects, a heavier aircrew roll, and one package charged against ` +
+          `tomorrow's plan — until the order closes after the ${Txt.ordinal(slots + ATO.ceiling)}. ` +
+          `The boat is not on the ` +
+          `order: a torpedo attack is planned aboard the submarine.</p>`
+        : `<p>CENTCOM writes tonight's tasking order and sizes the course of action to it — the ` +
+          `packages in the option you sign are the packages the theater can actually fly tonight. ` +
+          `It grows as the force flow lands.</p>`) +
       `<p>Tanker charges — fighters: littoral unrefuelled · interior 1 · deep 2. Bombers tank at ` +
       `every depth: B-1/B-52 littoral 2 · interior 3 · deep 4 · B-2 mission 4. Tomahawks fly ` +
       `unrefuelled.</p>`;
@@ -989,9 +1103,11 @@ const UI = (() => {
     const tkCls = tk <= 1 ? ' crit' : tk <= 3 ? ' warn' : '';
     let html = `<div class="res-tonight${resWhyOpen ? ' open' : ''}">` +
       airPhaseBar(G) +
-      `<div class="ton-row"><span>PACKAGES</span>` +
-      `<span class="ton-val${atoCls}">${flown} / ${slots}</span></div>` +
-      slotGauge(flown, slots, ATO.ceiling) +
+      (showAto
+        ? `<div class="ton-row"><span>PACKAGES</span>` +
+          `<span class="ton-val${atoCls}">${flown} / ${slots}</span></div>` +
+          slotGauge(flown, slots, ATO.ceiling)
+        : '') +
       `<div class="ton-row"><span>TANKER TRACKS</span>` +
       `<span class="ton-val${tkCls}">${tk} / ${cap}</span></div>` +
       trackGauge(tk, cap) +
@@ -1012,6 +1128,11 @@ const UI = (() => {
       html += `<div class="res-group"><div class="res-legend ${cls}">${legend}</div>` +
         inGroup.map(assetHtml).join('') + `</div>`;
     }
+
+    // ...and where the decks are, on the level with no THEATER FORCES to read it
+    // off. Below the magazines rather than above them: the panel's first question
+    // is still what can fly tonight, and a station is context for the answer.
+    html += stationRows(G);
 
     // ---- what is already out ----
     // Split by whether the package can still be struck off tonight's order.
@@ -1066,11 +1187,21 @@ const UI = (() => {
     // role; leaving the badge on them was the panel still reporting the old war.
     // Spelled out: PKG is ramp shorthand, and this badge is one of five words a
     // player sees before they have opened anything at all.
-    setBadge('resources',
-      closed ? 'ORDER CLOSED'
-        : left === 0 ? 'PLAN SPENT'
-        : `${left} PACKAGE${left === 1 ? '' : 'S'}`,
-      left === 0 ? '' : 'badge-none');
+    // ...and on a level with no tasking order in the panel, the badge cannot
+    // quote one. A shut panel reading "3 PACKAGES" over a body that never
+    // mentions packages is the drawer describing a different level's game, which
+    // is the same failure the primer is gated against — so it reports the one
+    // thing this panel is now for, which is whether anything on it is a problem.
+    if (showAto) {
+      setBadge('resources',
+        closed ? 'ORDER CLOSED'
+          : left === 0 ? 'PLAN SPENT'
+          : `${left} PACKAGE${left === 1 ? '' : 'S'}`,
+        left === 0 ? '' : 'badge-none');
+    } else {
+      const bad = rows.filter(r => r.low || r.group === 'held').length;
+      setBadge('resources', bad ? `${bad} SHORT` : 'ALL READY', bad ? '' : 'badge-none');
+    }
     // The ladder itself, on the shut panel. The tonight box draws the full bar
     // with both release thresholds marked on it, but that lives inside the body
     // — and the phase is what decides whether the fourth-gen squadrons and the
@@ -1395,14 +1526,6 @@ const UI = (() => {
   let advOpen = new Set();
   let advTurn = 0;
 
-  // When more than one advisor is urgent, only the top of this order opens
-  // itself — the rest are marked and left shut. The order is the one the
-  // branch comments in advise() already argue for: Americans on the ground and
-  // the enrichment clock live on NSA and outrank everything; a perishable fix
-  // on launchers is SecDef's; the staff's sequencing problem is CJCS; State's
-  // windows are real but measured in turns rather than tonight.
-  const ADV_PRIORITY = ['NSA Reyes', 'SecDef Whitfield', 'Gen. Halvorsen, CJCS', 'SecState Okafor'];
-
   // ---- the four faces in the room ----
   // Shoulder-up busts in the same vocabulary the map's SIL table already
   // speaks: one solid closed path each, no strokes, no gradients, nothing
@@ -1410,8 +1533,8 @@ const UI = (() => {
   // text that read as one block; the point of these is that the player can
   // tell who is talking before reading a word.
   //
-  // Keyed by NAME rather than by cls for the same reason ADV_PRIORITY above
-  // is: NSA Reyes has an empty cls, so cls is not a unique key. And the table
+  // Keyed by NAME rather than by cls, because NSA Reyes has an empty cls and so
+  // cls is not a unique key across the four of them. And the table
   // lives here rather than in ai.js because ai.js owns what an advisor says —
   // how one is drawn is presentation.
   //
@@ -1496,12 +1619,23 @@ const UI = (() => {
 
     if (advTurn !== G.turn) { advOpen = new Set(); advTurn = G.turn; }
 
-    // the single advisor whose paragraph opens without being asked
-    const lead = ADV_PRIORITY
-      .map(n => advice.find(a => a.name === n))
-      .find(a => a && a.urgent);
-    if (lead) advOpen.add(lead.name);
-
+    // NOTHING OPENS ITSELF HERE. Through v1.92 the highest-priority urgent
+    // advisor had their paragraph pushed open on every render, on the argument
+    // that an urgent condition should not be behind a caret. Two things are
+    // wrong with it. An advisor's paragraph runs four to six sentences, so one
+    // auto-opened bust turns a four-line panel into most of a landscape phone's
+    // scroll pane and pushes the other three names under the fold — the panel
+    // stops being a room and becomes one person talking. And it fought the
+    // player: `advOpen` is cleared at the turn roll but re-seeded on every draw,
+    // so a president who shut the paragraph had it reopen the next time anything
+    // on the board moved, which on a resolving turn is several times a second.
+    //
+    // The urgency is not lost, and this is why it can go: `a.line` is the
+    // advisor's one-line position and it is ON the collapsed head, the URGENT
+    // flag is beside their name, the count is in the panel's meta row, and the
+    // rail chip carries it when the panel is shut. Four places say it. The
+    // paragraph is the ARGUMENT, and an argument is something a president asks
+    // for.
     $('advisors-list').innerHTML = advice.map(a => {
       const open = advOpen.has(a.name);
       return `<div class="advisor ${a.cls}${a.urgent ? ' urgent' : ''}${open ? ' open' : ''}" data-adv="${a.name}">` +
@@ -1639,8 +1773,15 @@ const UI = (() => {
   function coaRows(G, list) {
     const flown = Game.coaFlown();
     const spent = Game.atoSlots() - G.strikesThisTurn;
+    // Whether the president has any signature left tonight. On a level with a
+    // budget (DIFFICULTY.coaSigns) the options that were not taken do not vanish
+    // when one is signed — they stay on the card stack, greyed, saying what the
+    // night went to instead. Removing them would answer the one question a
+    // president asks after signing, which is what they gave up.
+    const spare = Game.coaSignsLeft();
     return list.map((c) => {
       const done = flown.has(c.id);
+      const shut = !done && spare <= 0;
       const open = actOpen.has(`coa-${c.id}`);
       const main = c.legs.filter(l => l.main), supp = c.legs.filter(l => !l.main);
       const nameOf = (l) => {
@@ -1653,19 +1794,20 @@ const UI = (() => {
         : '';
       const bill = (c.bill || []).map(x =>
         `<span class="coa-chip${x.warn ? ' warn' : ''}"><b>${x.k}</b> ${x.v}</span>`).join('');
-      return `<div class="action coa${done ? ' off' : ''}${open ? ' open' : ''}" data-action="coa-${c.id}">` +
-        `<button class="action-do" data-coa="${c.id}" ${done ? 'disabled' : ''}>` +
+      return `<div class="action coa${done || shut ? ' off' : ''}${open ? ' open' : ''}" data-action="coa-${c.id}">` +
+        `<button class="action-do" data-coa="${c.id}" ${done || shut ? 'disabled' : ''}>` +
         `<span class="action-name"><span class="coa-slot">${c.slot}</span> ${c.name}</span>` +
         `<span class="il-current">${c.read || c.line}</span>` +
-        `<span class="coa-cost">${done ? 'SIGNED — ON TONIGHT\'S ORDER' :
-          `${plural(c.legs.length, 'package')}${c.shape ? ` · ${c.shape}` : ''}${spent > 0 && c.legs.length > spent
+        `<span class="coa-cost">${done ? 'SIGNED — ON TONIGHT\'S ORDER'
+          : shut ? 'NOT TONIGHT — THE NIGHT IS SIGNED'
+          : `${plural(c.legs.length, 'package')}${c.shape ? ` · ${c.shape}` : ''}${spent > 0 && c.legs.length > spent
             ? ` · ${c.legs.length - spent} past the plan` : ''}`}</span>` +
         // The tradeoff, and it is deliberately on the face of the button rather
         // than behind the caret: an option that only shows what it buys is a
         // pitch, and three pitches is not a decision. Absent — not blank — when
         // there is genuinely nothing else on the board, which is a real and
         // rare state and reads as one.
-        (c.defers && !done ? `<span class="coa-defers">LEAVES — ${c.defers}</span>` : '') +
+        (c.defers && !done && !shut ? `<span class="coa-defers">LEAVES — ${c.defers}</span>` : '') +
         `</button>` +
         `<button type="button" class="action-why" aria-expanded="${open}" ` +
         `aria-label="What this option flies, and why"><span class="why-caret">▾</span></button>` +
@@ -1746,20 +1888,33 @@ const UI = (() => {
   // land in a container whose id ends in `-buttons`, because order containers
   // are matched by shape (`.modal [id$="-buttons"]`) and a container named
   // anything else renders every row as a native white centred button.
+  // `who` is the fourth thing off the descriptor and the newest. The seal says
+  // which DEPARTMENT walked in, which a player reads as heraldry the first time
+  // and stops reading by turn three — and the four faces in the sidebar are the
+  // people this game has spent five versions making the president recognise. A
+  // room with the NSA's seal over it and nobody's name in it is a folder; a room
+  // that says Reyes is briefing it is a meeting. Same names, spelled the same
+  // way, as ADV_ICON and advise() use, because they are the same people.
   const BRIEF_STAGES = [
     {
       key: 'intel', room: 'INTELLIGENCE', seal: 'icons/seal-nsa.png?v=1.91',
+      who: 'NSA Reyes', role: 'National Security Advisor',
       live: (G) => !G.intelUsed,
       count: (G) => (G.intelUsed ? 'SLOT SPENT TONIGHT' : '1 TASKING'),
       body: intelParts,
     },
     {
       key: 'brief', room: 'STRIKE OPTIONS', seal: 'icons/seal-dod.png?v=1.91',
+      who: 'Gen. Halvorsen', role: 'Chairman of the Joint Chiefs',
       notes: true,
-      // The staff's room is "live" while there is an option left unsigned. A
-      // night where every option has been signed is not a night with nothing in
-      // this room — the cards are still there, greyed, saying so.
-      live: (G, opts) => opts.length > Game.coaFlown().size,
+      // The staff's room is "live" while there is an option left unsigned AND
+      // the president still has a signature to spend on it. The second half is
+      // v1.93's: with a budget of one (DIFFICULTY.coaSigns), two unsigned cards
+      // sitting behind a spent signature is not a decision, and a folder that
+      // walked back into this room to show them would be re-asking a question it
+      // has already refused to accept a second answer to. The cards themselves
+      // do stay, greyed — see coaRows — for anyone who walks BACK.
+      live: (G, opts) => Game.coaSignsLeft() > 0 && opts.length > Game.coaFlown().size,
       count: (G, opts) => {
         const flown = Game.coaFlown().size;
         // Counted through Txt like every other number in a sentence, then cased
@@ -1767,14 +1922,21 @@ const UI = (() => {
         // nothing staffed it says so rather than reading "0 OPTIONS", which is
         // what a folder opened for its slots alone would otherwise be titled on
         // the nights that matter most for the slot.
-        return flown ? `${flown} SIGNED`
-          : opts.length ? plural(opts.length, 'option').toUpperCase()
-          : 'NO OPTIONS TONIGHT';
+        if (flown) return `${flown} SIGNED`;
+        if (!opts.length) return 'NO OPTIONS TONIGHT';
+        // The budget belongs in the count, because it is the rule that decides
+        // how the president should read the three cards under it — three things
+        // to choose between, not three things to take.
+        const cap = Game.coaSignsLeft();
+        return isFinite(cap) && cap === 1 && opts.length > 1
+          ? `${plural(opts.length, 'option').toUpperCase()} — SIGN ONE`
+          : plural(opts.length, 'option').toUpperCase();
       },
       body: (G, opts) => ({ head: '', rows: opts.length ? coaRows(G, opts) : COA_EMPTY }),
     },
     {
       key: 'diplo', room: 'DIPLOMATIC ACTIONS', seal: 'icons/seal-state.png?v=1.91',
+      who: 'SecState Okafor', role: 'Secretary of State',
       live: (G) => !G.diploUsed,
       count: (G) => (G.diploUsed ? 'ORDER GIVEN' : '1 ORDER'),
       body: (G) => ({ head: '', rows: diploBody(G) }),
@@ -1857,6 +2019,12 @@ const UI = (() => {
     $('brief-modal-room').textContent = `TURN ${G.turn} — ${st.room}`;
     $('brief-modal-when').textContent = st.count(G, briefOptions);
     $('brief-modal-seal').src = st.seal;
+    // Who is standing there. Under the seal rather than beside the title,
+    // because the seal is what the eye lands on and the name is the caption for
+    // it — and because the title line is already carrying the room and the count
+    // and is centred between two marks whose widths it cannot control.
+    $('brief-modal-who').innerHTML = st.who
+      ? `<b>${st.who}</b><span>${st.role}</span>` : '';
 
     // The theater notes belong to CENTCOM's room and to no other: they are the
     // other half of what the staff is briefing — what it moved without asking,
@@ -2954,6 +3122,61 @@ const UI = (() => {
     return intel.filter(a => !a.disabled);
   }
 
+  // ---- THE SLATE: ONE GOOD ANSWER AND TWO REAL ALTERNATIVES ----
+  // See INTEL_SLATE in data.js for why the room puts up three rather than the
+  // whole deck, and why exactly one of the three is chosen for merit. This is
+  // the part that has to be got right: the good one must be UNMARKED and
+  // UNPLACED. It carries no chip, it is not first, and it is not last — the
+  // slate is sorted back into the deck's own order before it is drawn, so its
+  // position in the room is a fact about the deck and not about the ranking.
+  //
+  // Deterministic per turn, off a local generator seeded with the turn number
+  // and never off Math.random. Two reasons, and both were bugs elsewhere in this
+  // file first: the folder can be opened, shut and reopened inside one night and
+  // three taskings that reshuffled between two readings are worse than three
+  // that repeated (the same rule commitState and readLead follow), and a
+  // renderer that draws from the campaign's RNG stream makes the simulation
+  // depend on how many times the player looked at a dialog.
+  function intelSlate(G, live) {
+    const cap = Game.difficulty().intelSlate || 0;
+    if (!cap || live.length <= cap) return live;
+
+    const worries = Assess.concerns();
+    const spec = (id) => INTEL_SLATE.orders[id] || INTEL_SLATE.fallback;
+    // Same arithmetic as a course of action and a diplomatic track, against the
+    // same one read of the board: the urgency of a tasking is the severity of
+    // the worst thing it answers. Undamped, unlike State's three — this slate is
+    // two thirds random already, which is a stronger rotation than any damper,
+    // and stacking one on top would start moving the good answer off the slate.
+    let best = null;
+    for (const a of live) {
+      const s = spec(a.id);
+      let sev = 0;
+      for (const cid of s.answers) {
+        const c = worries.find(w => w.id === cid);
+        if (c && c.sev > sev) sev = c.sev;
+      }
+      const rank = s.weight * (0.3 + s.scale * sev);
+      if (!best || rank > best.rank) best = { a, rank };
+    }
+
+    // xorshift on the turn, so the same night always deals the same alternates
+    let seed = (G.turn * 2654435761) >>> 0 || 1;
+    const next = () => {
+      seed ^= seed << 13; seed >>>= 0;
+      seed ^= seed >> 17;
+      seed ^= seed << 5;  seed >>>= 0;
+      return seed / 4294967296;
+    };
+    const rest = live.filter(a => a !== best.a);
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(next() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    const picked = new Set([best.a, ...rest.slice(0, cap - 1)]);
+    return live.filter(a => picked.has(a));
+  }
+
   const INTEL_EMPTY = '<div class="dim" style="font-size:11px;margin-top:6px">' +
     'No tasking worth the sortie. The collection picture is as good as ' +
     'assets can make it — strike something and let a night pass.</div>';
@@ -2966,7 +3189,7 @@ const UI = (() => {
   // together below.
   function intelParts(G) {
     const s = intelState(G);
-    const live = intelTaskings(G, s);
+    const live = intelSlate(G, intelTaskings(G, s));
     return {
       head: intelPicture(s),
       rows: live.length ? actionButtons(live, G.intelUsed) : INTEL_EMPTY,
@@ -4409,15 +4632,15 @@ const UI = (() => {
         ? { cls: 'friendly', title: 'TWO OPTIONS, AND THE REST IS YOURS',
             text: 'CENTCOM briefs you two plans under TONIGHT\'S OPTIONS, and neither fills the order. ' +
               'Sign one, then click targets on the map to spend what is left.' }
-        : { cls: 'friendly', title: 'FIRST, TAKE THE SKY',
+        : { cls: 'friendly', title: 'FIRST, GAIN AIR SUPERIORITY',
             text: 'Click any target to plan a strike. Most of your force is grounded until the SAM belt ' +
               'comes down, so hit air defenses first. STRIKE ASSETS shows what has been released.' },
       // The ladder still has to be taught on easy — the options are ranked
       // against it, and a president who never understands why ROLLBACK keeps
       // coming up first is picking off a menu rather than reading a war.
-      ...(d.freeTargeting ? [] : [{ cls: '', title: 'THE SKY COMES FIRST',
+      ...(d.freeTargeting ? [] : [{ cls: '', title: 'GAIN AIR SUPERIORITY FIRST',
         text: 'Most of the force is grounded until the SAM belt is down, which is why ROLLBACK keeps ' +
-          'coming up. Take the sky and the heavier options open.' }]),
+          'coming up. Gain air superiority and the heavier options open.' }]),
       // The board opens SHORT as of v1.69, and a player who reads night one as
       // the whole war mis-plans everything downstream of it — Arak arrives on
       // the ramp, so the nuclear objective is not even fully visible yet.
@@ -4445,19 +4668,34 @@ const UI = (() => {
       ...(Game.pgmLedger() ? [{ cls: 'iran', title: 'THE DEPOTS ARE FINITE',
         text: 'Precision weapons do not regenerate — only the force flow brings more. STRIKE ASSETS ' +
           'counts them. A bomber cell costs six times what an F-35 pair does.' }] : []),
-      // The one card that has to change with `autoTheater` rather than merely
-      // read oddly: on a level where CENTCOM makes the force-flow calls, this
-      // was an instruction to open a panel the level does not have.
-      d.autoTheater
-        ? { cls: '', title: 'THE NUCLEAR SITES NEED THE B-2',
-            text: 'Fordow and Natanz are buried, and only the B-2 reaches them. CENTCOM has already sent ' +
-              'for the 509th — the force flow is theirs to run, and the nightly brief says what moved.' }
-        : { cls: '', title: 'THE NUCLEAR SITES NEED THE B-2',
-            text: 'Fordow and Natanz are buried, and only the B-2 reaches them. It is still in Missouri, ' +
-              'so call it forward from THEATER FORCES, one turn out.' },
-      { cls: '', title: 'TWO FREE ACTIONS EVERY TURN',
-        text: 'One INTELLIGENCE tasking, one DIPLOMATIC action, both free. Watch the bottom bar: a war ' +
-          'being won on the map is routinely lost at home.' },
+      // TWO CARDS THAT COME OFF THE LEVEL THAT DOES NOT NEED THEM (v1.93).
+      // Both taught a decision, and on `autoTheater` neither one is a decision
+      // the president makes any more — which makes them worse than redundant.
+      // The B-2 card said "call the 509th forward" and then, once CENTCOM took
+      // the force flow, said "CENTCOM already did" — a card whose entire content
+      // is that there is nothing to do, on the first screen of a first war,
+      // where every card the player reads is a card they are looking for an
+      // instruction in. The free-action card named two SIDEBAR PANELS that level
+      // does not have: both slots arrive as rooms of the evening folder now
+      // (DIFFICULTY.popups), the folder walks the president into them and will
+      // not close while either still holds its order, so the failure this card
+      // existed to prevent cannot happen there. Same rule the primer has
+      // followed since v1.77 — a card describing a different game than the one
+      // running is worse than no card.
+      ...(d.autoTheater ? [] : [{ cls: '', title: 'THE NUCLEAR SITES NEED THE B-2',
+        text: 'Fordow and Natanz are buried, and only the B-2 reaches them. It is still in Missouri, ' +
+          'so call it forward from THEATER FORCES, one turn out.' }]),
+      // What does NOT come off with it is the home front. The slots were only
+      // ever half of that card and the warning was the other half — this game is
+      // lost at home more often than it is lost over Iran, on every level — so
+      // the lesson stays and loses the two panel names it can no longer point at.
+      Game.popup('diplo')
+        ? { cls: '', title: 'THE WAR IS LOST AT HOME', text: 'Watch the bottom bar. A campaign ' +
+            'going well over Iran is routinely finished by the approval rating underneath it, and ' +
+            'the folder puts a cable in front of you every night for exactly that reason.' }
+        : { cls: '', title: 'TWO FREE ACTIONS EVERY TURN',
+            text: 'One INTELLIGENCE tasking, one DIPLOMATIC action, both free. Watch the bottom bar: a war ' +
+              'being won on the map is routinely lost at home.' },
       { cls: 'iran', title: 'IRAN HAS A PLAN YOU CANNOT SEE',
         text: 'Close the Strait, bleed you with missiles, or sprint for a bomb. Read it off what Tehran ' +
           'actually does, and fight the war in front of you.' },
@@ -4505,5 +4743,20 @@ const UI = (() => {
     // picked themselves, so without this the ranker could throw on every night
     // of every campaign and no probe would notice. Same blind spot brief.js was
     // written for.
-    stateOptions, diploActions };
+    //
+    // `intelParts` joins them for exactly the same reason and on the same terms:
+    // it returns two HTML strings off G and touches no live node, so
+    // .claude/betatest/easystaff.js can hold it across stub() and read what the
+    // intelligence room actually puts up. Without it the slate (see intelSlate,
+    // and DIFFICULTY.intelSlate) is unreachable from the harness — the bots call
+    // Game.doDiplo with an id they chose, so a ranker that threw every night
+    // would look exactly like a ranker that worked.
+    //
+    // `coaRows` is here on the same ticket. It is the ONE renderer for an option
+    // card in both of that card's homes, so it is also the one place a rule
+    // about what may be signed becomes something the president can see — and
+    // DIFFICULTY.coaSigns is enforced in takeCoa, which means the two can drift.
+    // A card that offers what the model refuses reads as a bug rather than as a
+    // rule, so the probe checks them against each other.
+    stateOptions, diploActions, intelParts, coaRows };
 })();

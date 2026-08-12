@@ -2031,14 +2031,34 @@ const Game = (() => {
     if (G.over || !diff().autoTheater) return;
 
     // ---- posture, which does not spend the transit plan ----
+    // Three states, in priority order, and the middle one is the whole reason
+    // the anti-ship warning exists. A workup is announced at the end of the
+    // previous turn and rolled at the end of this one (see raiseThreat), which
+    // gives exactly one night to act on it — and pulling her south is one of the
+    // three answers the warning's own text names. A staff that read the warning
+    // and left the deck standing in the envelope is not staffing the level, it
+    // is watching. The umbrella and the oil lid come off for a night, which is
+    // the price, and it is the price the warning already quotes.
+    //
+    // She is held back only while the solution is live: G.threat is cleared the
+    // moment it resolves, so the branch below walks her forward again the next
+    // night without anyone deciding to.
     const cv = G.carriers.find(c => c.arrived && !c.lost && !cvFixed(c));
     if (cv && !bmdRearming()) {
+      const held = G.threat && G.threat.cvId === cv.id;
       if (bmdFrac() < AUTO_REARM_AT && IranAI.missileStrength() > 0) {
         orderRearm();
         theaterNotes.push(`The escort screen is down to ${Math.round(bmdFrac() * 100)}% of its ` +
           `interceptors. ${cvShort(cv)} is detaching to the ammunition ship to reload — no umbrella ` +
           `over the Gulf bases for ${Txt.turns(NAVAL_BMD.rearmTurns)}.`);
-      } else if (cv.posture !== 'forward' && !cv.moving) {
+      } else if (held && carrierExposure(cv) > 0 && cv.moving !== 'back') {
+        const src = TARGETS.find(t => t.id === G.threat.srcId);
+        toggleCarrierPosture(cv.id);
+        theaterNotes.push(`An anti-ship brigade${src ? ` at ${src.name.split(' — ')[0]}` : ''} is ` +
+          `holding a firing solution on ${cvName(cv)}. Fifth Fleet has taken her south and out of the ` +
+          `envelope for the night — a day of reduced sorties, no Aegis over the Gulf bases, and the ` +
+          `lid off the barrel. She goes back up when the shooter is dead or the solution is stale.`);
+      } else if (!held && cv.posture !== 'forward' && !cv.moving) {
         toggleCarrierPosture(cv.id);
         theaterNotes.push(`${cvShort(cv)} is moving back up into the Gulf of Oman — Aegis over the ` +
           `Gulf bases, weight on the strait, and a lid on the barrel.`);
@@ -3203,6 +3223,31 @@ const Game = (() => {
   // together twice over. Individual packages still override with `dmg`.
   const pkgDamage = (pkg) => pkg.dmg || assetProfile(pkg.asset).weight || PKG_DAMAGE;
 
+  // ---- WHAT A PACKAGE IS WORTH ON THIS LEVEL — DIFFICULTY.strike ----
+  // Only easy sets it, and the argument for it is written out at length beside
+  // the table in data.js. The short version is that this is the level where one
+  // signature IS the night: a president who signs one course of action and can
+  // sign no second one has to get a night's work out of it, and through v1.92
+  // they got exactly what a hard player got out of a package they could freely
+  // fly a fourth of. It scales with the force flow because that is the one place
+  // the buildup can be FELT on a level with no tasking-order gauge to read it
+  // off — six waves take a package from 1.45× to a little under 2×, which is the
+  // same shape ATO.perFlow gives every other level and paid in weight rather
+  // than in slots.
+  //
+  // Two rules. It multiplies `damage` and lifts the success band and touches
+  // nothing else, so a heavier package is still flown into the same SAM belt at
+  // the same risk to the same aircrew and costs the same abroad — what changed
+  // is what it does to the building. And it never reads `G.turn`: a war that
+  // lost the ramps and stalled the force flow does not get the heavier packages
+  // either, which keeps world opinion the thing paying for the buildup.
+  function strikeScale() {
+    const s = diff().strike;
+    if (!s) return { dmg: 1, edge: 0 };
+    const flown = G.forceFlow.landed.length;
+    return { dmg: s.base + flown * (s.perFlow || 0), edge: s.edge || 0 };
+  }
+
   // Why a shot at a hull comes up dry. A ship is a small thing on a big ocean
   // that does not stay where you last saw it — the misses are about the target
   // moving, not about the weapon failing.
@@ -3250,7 +3295,11 @@ const Game = (() => {
     // Nothing is learned from a submarine attack: decoys and dispersal are an
     // answer to weapons somebody saw coming, and nobody has ever seen this one.
     const adaptPenalty = pkg.sub ? 0 : IranAI.adaptPenalty(pkg.asset);
-    const success = clamp(pkg.base - adPenalty - adaptPenalty - surge + dmgBonus, 0.05, 0.95);
+    // what a package is worth on this level (see strikeScale). `edge` goes in
+    // beside dmgBonus rather than onto pkg.base, so it is still bounded by the
+    // same clamp and a package flown raw into a live belt does not get it back.
+    const lvl = strikeScale();
+    const success = clamp(pkg.base - adPenalty - adaptPenalty - surge + dmgBonus + lvl.edge, 0.05, 0.95);
     // A packed bomber cell over a live SAM belt is not a risk, it is a funeral —
     // hence the higher cap when the tier is being flown outside its phase.
     //
@@ -3281,7 +3330,11 @@ const Game = (() => {
       success, adPenalty, adaptPenalty, lossRisk, gradual, oneShot, raw,
       over, surge, surgeLoss, slots: atoSlots(),
       fullOdds: success * (oneShot ? 1 : gradual ? 0.5 : 0.6),
-      damage: gradual ? pkgDamage(pkg) : 50,
+      // Scaled only for sites that wear down. A buried hall moves in whole steps
+      // and a hull is on the bottom or she is not, so there is no such thing as
+      // a heavier package against either — multiplying `50` there would be a
+      // number nothing reads pretending to be firepower.
+      damage: gradual ? pkgDamage(pkg) * lvl.dmg : 50,
       tanker: tankerCost(target, pkg),
     };
   }
@@ -3958,6 +4011,29 @@ const Game = (() => {
     return s;
   }
 
+  // How many of tonight's options the president may actually sign. 0 means no
+  // cap, which is normal and hard: there an option is deliberately short of the
+  // plan and the leftover is the whole reason the map is still live.
+  //
+  // On easy it is one, and the reason is arithmetic rather than taste. An option
+  // there is sized to the WHOLE tasking order, so a second signature is not a
+  // heavier night — it is a second complete plan flown as late frags: every
+  // package at degraded effects, the aircrew roll multiplied, and up to four
+  // packages of crew-rest debt charged against tomorrow. On the one level with
+  // no ATO gauge, no strike dialog and no late-frag warning anywhere on screen,
+  // that is a cliff a president can walk off by pressing BRIEF ME again and
+  // signing the option they liked second best. Kept as a number rather than a
+  // boolean because the shape of the rule is a budget, and because a level that
+  // briefed half-plan options would want two.
+  //
+  // Read off the missions like coaFlown, so scrubbing the packages of the option
+  // that was signed hands the signature back with them.
+  const coaSigns = () => diff().coaSigns || 0;
+  function coaSignsLeft() {
+    const cap = coaSigns();
+    return cap ? Math.max(0, cap - coaFlown().size) : Infinity;
+  }
+
   // Sign one. Each leg is authorized exactly as the dialog would authorize it,
   // and a leg that can no longer fly — the magazine went on something else, the
   // site died to an earlier package tonight — is simply skipped. The staff does
@@ -3966,6 +4042,10 @@ const Game = (() => {
     if (G.over || busy()) return 0;
     const coa = coaOptions().find(c => c.id === id);
     if (!coa || coaFlown().has(id)) return 0;
+    // Enforced here and not only greyed in the two places the cards are drawn:
+    // the panel and the dialog render the same rows through coaRows, and the
+    // walkthrough opens the real folder on the real board.
+    if (coaSignsLeft() <= 0) return 0;
     let flown = 0;
     for (const leg of coa.legs) {
       const t = TARGETS.find(x => x.id === leg.targetId);
@@ -6214,7 +6294,7 @@ const Game = (() => {
   // shown to the player; all of it is discoverable.
   // ============================================================
   function newWar(difficulty) {
-    G.difficulty = DIFFICULTY[difficulty] ? difficulty : 'normal';
+    G.difficulty = DIFFICULTY[difficulty] ? difficulty : DIFFICULTY_DEFAULT;
 
     // launcher groups start off the board entirely. TARGETS is a module-level
     // constant that outlives a war, so every per-war field on it is cleared
@@ -6347,6 +6427,10 @@ const Game = (() => {
   // written out again in index.html. The descriptions used to live in both
   // places and had already drifted apart — the title screen was offering a
   // shorter NORMAL and a differently-worded HARD than the table it selects.
+  // `tag` sits beside the name rather than at the head of the description,
+  // because it is a recommendation about WHO should pick this and not a fact
+  // about the war it produces — a player scanning three headings should be able
+  // to take it without reading a paragraph, which is the whole point of it.
   function buildDifficultyOptions() {
     const box = document.getElementById('difficulty-select');
     if (!box) return;
@@ -6355,8 +6439,10 @@ const Game = (() => {
       const label = document.createElement('label');
       label.className = 'diff-option';
       label.innerHTML =
-        `<input type="radio" name="difficulty" value="${key}"${key === 'normal' ? ' checked' : ''}>` +
-        `<span class="diff-name">${d.name}</span>` +
+        `<input type="radio" name="difficulty" value="${key}"` +
+        `${key === DIFFICULTY_DEFAULT ? ' checked' : ''}>` +
+        `<span class="diff-name">${d.name}` +
+        (d.tag ? `<span class="diff-tag">${d.tag}</span>` : '') + `</span>` +
         `<span class="diff-desc">${d.desc}</span>`;
       box.appendChild(label);
     }
@@ -6372,7 +6458,7 @@ const Game = (() => {
 
     document.getElementById('btn-start').addEventListener('click', () => {
       const sel = document.querySelector('input[name="difficulty"]:checked');
-      newWar(sel ? sel.value : 'normal');
+      newWar(sel ? sel.value : DIFFICULTY_DEFAULT);
       start(false);
     });
     document.getElementById('btn-end-turn').addEventListener('click', endTurn);
@@ -6444,7 +6530,7 @@ const Game = (() => {
     // the staff's own work: what it briefed tonight, what has already gone out,
     // and whether the president is writing orders on the map at all. takeCoa is
     // the only way in — every leg still goes through executeStrike.
-    coaOptions, coaFlown, takeCoa, freeTargeting,
+    coaOptions, coaFlown, takeCoa, coaSignsLeft, freeTargeting,
     // the precision-munitions stock. pgmBlock is the one sentence for "we
     // cannot build this package up", the same contract pkgBlock has.
     pgmLedger, pgmBlock, pgmCost, pgmNights,
