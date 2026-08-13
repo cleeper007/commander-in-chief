@@ -6459,6 +6459,9 @@ const Game = (() => {
     document.getElementById('btn-start').addEventListener('click', () => {
       const sel = document.querySelector('input[name="difficulty"]:checked');
       newWar(sel ? sel.value : DIFFICULTY_DEFAULT);
+      // The board coming up. Fired here rather than inside start() because a
+      // resumed war is not an opening — it is the same night continuing.
+      AudioSys.play('gameStart');
       start(false);
     });
     document.getElementById('btn-end-turn').addEventListener('click', endTurn);

@@ -14,6 +14,9 @@ const AudioSys = (() => {
     klaxon: 'klaxon.wav',           // Hormuz closes / casualties cross 100
     cable: 'cable.wav',             // diplomatic cable
     sonarPing: 'sonar-ping.wav',    // Mk-48 seeker going active on the sonar scope
+    // The title screen handing off to the situation room: one cinematic sting
+    // under the board coming up, played once as the war opens.
+    gameStart: 'game-start.mp3',
     victory: 'victory.wav',
     defeat: 'defeat.wav',
     // Voice traffic — watch-floor calls on the moments that change the board.
