@@ -258,7 +258,11 @@ const UI = (() => {
     // whole argument is that there is less to read. Set off the live count
     // rather than off the difficulty, because RECOVERY comes and goes mid-war
     // and the rail has to re-fit when it does.
+    // Two steps rather than one, and the second is the level's normal state:
+    // easy's whitelist is three sections, so three chips is not an unusually
+    // empty rail there, it is the rail. See the rail-three block in the CSS.
     rail.classList.toggle('rail-few', shown > 0 && shown <= 4);
+    rail.classList.toggle('rail-three', shown > 0 && shown <= 3);
     // The tab under the player can stop existing — the recovery closes, the
     // last aircrew comes home — so re-home rather than leaving the pane
     // pointing at nothing.

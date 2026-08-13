@@ -2511,6 +2511,37 @@ body.mobile-ui #panel-rail.rail-few .rail-chip {
 }
 body.mobile-ui #panel-rail.rail-few .rail-label { font-size: 11px; letter-spacing: 1.4px; }
 body.mobile-ui #panel-rail.rail-few .rail-badge { font-size: 9.5px; letter-spacing: 0.4px; }
+/* Three tabs — which in practice means EASY, whose whitelist is three sections
+   (DIFFICULTY.railPanels) and whose rail therefore never grows a fourth unless
+   a rescue is running. Three chips across a 268px sidebar is ~84px each, which
+   is nearly twice the six-tab floor the type above is written against, so the
+   rail stops being a strip of small print and becomes the piece of furniture
+   the whole level is navigated from: a 68px box, a 14px label, and a badge that
+   can be read without looking for it.
+   The cost is paid by the scroll pane under it — ~16px off ~189px on a
+   landscape phone — which is the trade this level can afford and the six-tab
+   one cannot: three sections, one open at a time, and the pane is a page of
+   advisor prose rather than eleven drawers. It steps back down on its own if a
+   downed aircrew puts RESCUE on the rail, because syncRail sets it off the LIVE
+   count and not off the difficulty. */
+body.mobile-ui #panel-rail.rail-three { gap: 5px; }
+body.mobile-ui #panel-rail.rail-three .rail-chip {
+  min-height: 68px; padding: 11px 6px; gap: 5px;
+}
+body.mobile-ui #panel-rail.rail-three .rail-label { font-size: 14px; letter-spacing: 2px; }
+body.mobile-ui #panel-rail.rail-three .rail-badge { font-size: 11px; letter-spacing: 0.5px; }
+/* The shortest phones only — an SE on its side is ~320px tall and its scroll
+   pane is ~95px, against ~190px on a 390px-tall handset, so there the extra
+   16px is a sixth of the pane off a page of prose that is already short. Half
+   the step, keeping the touch target and most of the type. The threshold is
+   360 and not the 430 the ticker comes off at: 390 is a current phone in
+   landscape and it has the room, so measuring it into the small type would
+   undo this for most of the phones it was written for. */
+@media (max-height: 360px) {
+  body.mobile-ui #panel-rail.rail-three .rail-chip { min-height: 58px; padding: 8px 5px; gap: 4px; }
+  body.mobile-ui #panel-rail.rail-three .rail-label { font-size: 12.5px; letter-spacing: 1.6px; }
+  body.mobile-ui #panel-rail.rail-three .rail-badge { font-size: 10px; }
+}
 /* The badge is the reason a player can leave a section shut: it is what is
    still LIVE in there tonight. Empty for the read-only sections, which then
    collapse to a single line rather than sitting there with a hole in them.
