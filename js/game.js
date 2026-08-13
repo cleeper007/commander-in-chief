@@ -1842,7 +1842,7 @@ const Game = (() => {
     G.bombersOrdered = true;
     G.bomberEta = B2_TRANSIT_TURNS;
     G.deployTurn = G.turn;
-    AudioSys.play('cable');
+    cable();
     UI.renderAll(G);
     Save.write();
   }
@@ -1885,7 +1885,7 @@ const Game = (() => {
     G.heaviesOrdered = true;
     G.heavyEta = HEAVY_TRANSIT_TURNS;
     G.deployTurn = G.turn;
-    AudioSys.play('cable');
+    cable();
     UI.renderAll(G);
     Save.write();
   }
@@ -1898,7 +1898,7 @@ const Game = (() => {
     G.heaviesArrived = true;
     G.caps.heavy = HEAVY_CAP;
     G.res.heavy = HEAVY_READY;
-    AudioSys.play('cable');
+    cable();
     return {
       cls: 'friendly', title: 'HEAVY BOMBER FORCE IN THEATER — RAF FAIRFORD',
       text: 'B-1Bs out of Dyess and B-52s out of Barksdale are on the ramp at RAF Fairford, and the munitions ' +
@@ -1921,7 +1921,7 @@ const Game = (() => {
     G.secondCarrierEta = FORD_TRANSIT_TURNS;
     G.deployTurn = G.turn;
     syncCarrierMap();
-    AudioSys.play('cable');
+    cable();
     UI.renderAll(G);
     Save.write();
   }
@@ -1943,7 +1943,7 @@ const Game = (() => {
     cv.moving = cv.posture === 'forward' ? 'back' : 'forward';
     syncFleetCaps();
     MapView.setCarrierPosture(cv);
-    AudioSys.play('cable');
+    cable();
     UI.renderAll(G);
     Save.write();
   }
@@ -1965,7 +1965,7 @@ const Game = (() => {
     G.bmdRearm = NAVAL_BMD.rearmTurns;
     syncFleetCaps();
     MapView.setCarrierPosture(cv);
-    AudioSys.play('cable');
+    cable();
     UI.renderAll(G);
     Save.write();
   }
@@ -2019,6 +2019,14 @@ const Game = (() => {
   // FIELDS. Read and cleared by UI.openBrief.
   let theaterNotes = [];
   const takeTheaterNotes = () => { const n = theaterNotes; theaterNotes = []; return n; };
+
+  // The opening is ONE sound. autoTheater's orders each chirp a cable, and on
+  // night one that run happens inside start() — so the war opened on the sting
+  // and then a beep on top of it, which reads as two openings rather than one.
+  // Held down for that run only: every other night the cable is the only thing
+  // that says CENTCOM moved something, and it stays.
+  let quietOrders = false;
+  const cable = () => { if (!quietOrders) AudioSys.play('cable'); };
 
   function autoTheater() {
     // Tonight's notes are tonight's. The brief is now armed rather than opened
@@ -6192,7 +6200,10 @@ const Game = (() => {
     if (!resume) {
       // The theater calls run before either dialog: night one is the night the
       // 509th moves, and the brief is where the president is told so.
+      // ...quietly: the sting is the opening sound and it is the only one.
+      quietOrders = true;
       autoTheater();
+      quietOrders = false;
       // Chained rather than stacked. Both of these are dialogs, and opening the
       // night's decision on top of the how-to-play screen puts the one thing
       // the player must answer behind the one thing they are still reading.
