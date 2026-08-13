@@ -2748,7 +2748,12 @@ const US_ASSETS = [
   // her rather than where she is. She takes her Tomahawks out of the same
   // theater magazine everything else does — a submarine shot is not a free shot,
   // it is the same missile fired from somewhere nobody is looking.
-  { id: 'ssn-toledo', name: 'USS Toledo — Gulf of Oman', short: 'TOLEDO (SSN)', x: 655, y: 545, kind: 'submarine',
+  //
+  // `nomap` for the same reason Fairford has it, one step further: a boat whose
+  // whole point is that nobody knows where she is should not be an icon sitting
+  // on the plot. The entry stays because STRIKE_ORIGINS.sub reads it for the
+  // name and the bearing the sonar scope is drawn from — origin only, no icon.
+  { id: 'ssn-toledo', name: 'USS Toledo — Gulf of Oman', short: 'TOLEDO (SSN)', x: 655, y: 545, kind: 'submarine', nomap: true,
     desc: 'Los Angeles-class attack submarine in the Gulf of Oman, four tubes of Mk-48. Against a hull at sea she is the cheapest weapon in the theater — no aircrew, no warning, nothing off the magazine — and the slowest, because she must close submerged first.' },
 
   // -- forward basing layer (projected from real coordinates; toggle in map header) --
