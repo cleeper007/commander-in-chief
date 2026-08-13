@@ -2125,6 +2125,16 @@ const MapView = (() => {
   // ship clips are a sensor holding a moving hull with sea all the way to the
   // edge of frame. Before this, every air-to-ship strike fell through to the
   // generic clip, which is an inland aimpoint — the Dena went down in a desert.
+  // Launcher footage, shared by `tel` and `missile` below. Four clips of a
+  // wheeled erector taking one weapon in open ground — a raised rail with the
+  // round still on it, a mast-up launcher beside its control shelter, a
+  // reload/erector on a track, and one caught in scrub off a road.
+  const LAUNCHER_POOL = [
+    'video/tel-hit-a.mp4',
+    'video/tel-hit-b.mp4',
+    'video/tel-hit-c.mp4',
+    'video/tel-hit-d.mp4',
+  ];
   const POOLS = {
     airbase: [
       'video/f14-hit.mp4',
@@ -2146,6 +2156,18 @@ const MapView = (() => {
       'video/ship-hit-c.mp4',
       'video/ship-hit-d.mp4',
     ],
+    // One pool for BOTH launcher types, which is the opposite call to the
+    // naval/ship split above and for the same reason: there, a hull in open
+    // water and a quayside are two pictures; here they are one. A dispersed TEL
+    // and a missile base's aimpoint are the same vehicle-scale erector held by
+    // the same sensor — the base has a fence round it, and the fence is not in
+    // frame at that magnification. Sharing is also what makes these four clips
+    // worth having: the missile force is one of the three arms the war is
+    // SCORED on, and until now its seven targets showed the generic inland
+    // aimpoint every time bar Shiraz, which owns a clip of a parked ramp.
+    // Per-target footage still merges in on the draw, so msl-shiraz keeps it.
+    tel: LAUNCHER_POOL,
+    missile: LAUNCHER_POOL,
   };
 
   function hitClip(target, pkg, killed) {
