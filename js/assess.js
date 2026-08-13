@@ -169,6 +169,13 @@ const Assess = (() => {
       bmd: Game.bmdFrac(), bmdRate: Game.bmdRate(), bmdRearming: Game.bmdRearming(),
       forward: Game.navalForward(),
       risk,
+      // The STANDING anti-ship picture, as against `risk` above, which is
+      // tonight's telegraphed shot and is null on most nights. These are two
+      // different questions and the difference is the whole of v1.99: a deck
+      // held south by a live coast never gets a workup raised against her at
+      // all, so `risk` reads 0 on exactly the nights the coast is the reason
+      // the barrel has no lid on it.
+      antiShip: Game.antiShipRisk(),
       threat: th && thCv && thSrc
         ? { cv: thCv, src: thSrc, p: th.p, name: CARRIER_INFO[thCv.id].short } : null,
 
@@ -269,6 +276,15 @@ const Assess = (() => {
   // `left` is the clause used when tonight went somewhere else. Same fact,
   // stated from the two sides, which is what stops the brief being a sales
   // pitch — see the note at the top of this file.
+  // A deck standing off BECAUSE OF THE COAST, which is not the same as a deck
+  // standing off. She is also south alongside the ammunition ship, and a rearm
+  // is a three-night bill the president already agreed to — a staff that briefed
+  // "no deck forward" at a magazine reload would be selling a maritime package
+  // against a condition the maritime package cannot fix. `antiShip` is what
+  // makes the difference: it is the standing risk off the surviving coast, and
+  // it is zero when there is nothing out there to kill.
+  const offStation = (b) => b.forward <= 0 && b.antiShip > 0 && !b.bmdRearming;
+
   const CONCERNS = [
     {
       id: 'telfix', doctrine: 'counterforce',
@@ -322,16 +338,46 @@ const Assess = (() => {
     },
     {
       id: 'strait', doctrine: 'maritime',
-      when: b => b.hormuz !== 'OPEN' || b.nStr > 0.3 || b.risk > 0.3,
-      sev: b => b.hormuz === 'CLOSED' ? 0.72 + clamp(b.hormuzTurns * 0.01, 0, 0.1)
+      // A deck standing off because the coast can still shoot at her is a
+      // maritime problem whoever made the call — the president on the levels
+      // with a fleet panel, Fifth Fleet on the one without. It is in `when`
+      // explicitly because the two terms already there can both be quiet while
+      // it is true: a worked navy puts `nStr` under the bar, and a deck south is
+      // exactly the state in which no workup is ever raised, so `risk` is 0.
+      when: b => b.hormuz !== 'OPEN' || b.nStr > 0.3 || b.risk > 0.3 || offStation(b),
+      // The severities are deliberately almost untouched. What a deck held south
+      // changes is what this concern SAYS and whether it is raised at all, not
+      // where it ranks: these numbers were calibrated against the read line's
+      // red/amber bands (v1.83), and two cuts that put a real off-station term
+      // on the open arm (+0.14, cap 0.78) and the shut arm (+0.08) took
+      // `sev >= 0.8` from 14–26% of turns to 31–44% on every persona and every
+      // difficulty. A condition flagged amber on two nights in five is not a
+      // signal. The one number that moves is +0.02 on the shut arm, which exists
+      // only to keep the ordering honest — a strait shut with nothing forward
+      // must not score under a strait open with nothing forward.
+      sev: b => b.hormuz === 'CLOSED'
+        ? 0.72 + clamp(b.hormuzTurns * 0.01, 0, 0.1) + (offStation(b) ? 0.02 : 0)
         : clamp(0.24 + b.nStr * 0.20 + b.risk * 0.26, 0, 0.72),
       now: b => b.hormuz === 'CLOSED'
-        ? `Hormuz shut ${Txt.turns(b.hormuzTurns)}, barrel at $${Math.round(b.oil)}.`
+        ? `Hormuz shut ${Txt.turns(b.hormuzTurns)}, barrel at $${Math.round(b.oil)}` +
+          (offStation(b) ? ', and no deck forward to lean on it.' : '.')
         : b.threat && b.risk > 0.05
           ? `${b.threat.src.short} is holding a firing solution on ${b.threat.name} — ${pc(b.risk)}% before dawn.`
-          : `Their navy and the coastal batteries are why the strait is a premium and not a shipping lane.`,
-      left: b => b.hormuz === 'CLOSED' ? 'the strait stays shut and the barrel stays where it is'
-        : 'the anti-ship threat is untouched',
+          // The actionable one, and it names the price rather than the risk: a
+          // deck off station is no Aegis, no weight on the strait and no lid on
+          // the barrel, and the barrel is what ends these campaigns.
+          : offStation(b)
+            ? `No deck forward while that coast can shoot — no Aegis, no lid on the barrel at ` +
+              `$${Math.round(b.oil)}.`
+            : `Their navy and the coastal batteries are why the strait is a premium and not a shipping lane.`,
+      // `left` names the same price `now` does, from the other side — an option
+      // that defers this has to say what it is deferring, and on a shut strait
+      // with nothing forward that is two facts and not one.
+      left: b => b.hormuz === 'CLOSED'
+        ? (offStation(b) ? 'the strait stays shut with no deck forward to lean on it'
+          : 'the strait stays shut and the barrel stays where it is')
+        : offStation(b) ? 'the coast keeps the deck south and the barrel unlidded'
+          : 'the anti-ship threat is untouched',
     },
     {
       id: 'israel', doctrine: 'jerusalem',
