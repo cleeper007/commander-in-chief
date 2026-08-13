@@ -36,7 +36,7 @@ const TARGETS = [
     world: -1,
     packages: [
       { asset: 'f35', qty: 2, base: 0.75, label: 'F-35 SEAD package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.70, label: 'Wild Weasel sweep — 3 F-16CM sorties' },
+      { asset: 'fighter', qty: 3, base: 0.70, label: 'Wild Weasel sweep — 3 F-16CM sorties, AGM-88 HARM' },
       { asset: 'cruise', qty: 3, base: 0.85, label: 'TLAM salvo — 3 cruise missiles' },
     ],
   },
@@ -47,7 +47,7 @@ const TARGETS = [
     world: -1,
     packages: [
       { asset: 'f35', qty: 2, base: 0.77, label: 'F-35 SEAD package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.72, label: 'Wild Weasel sweep — 3 F-16CM sorties' },
+      { asset: 'fighter', qty: 3, base: 0.72, label: 'Wild Weasel sweep — 3 F-16CM sorties, AGM-88 HARM' },
       { asset: 'cruise', qty: 3, base: 0.85, label: 'TLAM salvo — 3 cruise missiles' },
     ],
   },
@@ -58,7 +58,7 @@ const TARGETS = [
     world: -1,
     packages: [
       { asset: 'f35', qty: 2, base: 0.79, label: 'F-35 SEAD package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.74, label: 'Wild Weasel sweep — 3 F-16CM sorties' },
+      { asset: 'fighter', qty: 3, base: 0.74, label: 'Wild Weasel sweep — 3 F-16CM sorties, AGM-88 HARM' },
       { asset: 'cruise', qty: 3, base: 0.86, label: 'TLAM salvo — 3 cruise missiles' },
     ],
   },
@@ -96,7 +96,7 @@ const TARGETS = [
     packages: [
       { asset: 'cruise', qty: 2, base: 0.80, label: 'TLAM decapitation strike — 2 missiles' },
       { asset: 'f35', qty: 2, base: 0.75, label: 'F-35 precision strike — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.70, label: 'Precision air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.70, label: 'Precision air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'heavy', qty: 2, base: 0.74, label: 'HEAVY BOMBER STRIKE — 2 B-1B sorties, JASSM' },
     ],
   },
@@ -135,7 +135,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.70, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.65, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.65, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'cruise', qty: 3, base: 0.72, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.70, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, JDAM' },
     ],
@@ -157,7 +157,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.80, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.75, label: 'Air strike — 3 F/A-18E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.75, label: 'Air strike — 3 F/A-18E sorties, GBU-32 JDAM' },
       { asset: 'cruise', qty: 2, base: 0.80, label: 'TLAM salvo — 2 cruise missiles' },
       // Sixty miles from the shipping lane and well inside the screen's reach —
       // the shortest-legged round on the board finally has something to shoot
@@ -255,7 +255,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.75, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.70, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.70, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'cruise', qty: 3, base: 0.80, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.74, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, JDAM' },
     ],
@@ -267,7 +267,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.77, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.72, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.72, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'cruise', qty: 3, base: 0.80, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.76, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, JDAM' },
     ],
@@ -279,7 +279,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.81, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.76, label: 'Air strike — 3 F/A-18E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.76, label: 'Air strike — 3 F/A-18E sorties, GBU-32 JDAM' },
       // A naval base is piers, cranes and fuel — but it is also whatever is
       // alongside them, and that is the one thing a coordinate-guided weapon
       // cannot pick out. SLAM-ER's man in the loop can: this is the package that
@@ -298,7 +298,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.81, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.76, label: 'Air strike — 3 F/A-18E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.76, label: 'Air strike — 3 F/A-18E sorties, GBU-32 JDAM' },
       { asset: 'fighter', qty: 2, base: 0.79, weapon: 'slamer',
         label: 'SLAM-ER STRIKE — 2 F/A-18E sorties, AGM-84K onto the berths' },
       { asset: 'cruise', qty: 2, base: 0.82, label: 'TLAM salvo — 2 cruise missiles' },
@@ -393,7 +393,7 @@ const TARGETS = [
     packages: [
       { asset: 'cruise', qty: 3, base: 0.86, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'f35', qty: 2, base: 0.77, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.72, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.72, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'heavy', qty: 2, base: 0.76, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, loading berths and tank farm' },
     ],
   },
@@ -405,7 +405,7 @@ const TARGETS = [
     packages: [
       { asset: 'cruise', qty: 3, base: 0.86, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'f35', qty: 2, base: 0.77, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.72, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.72, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'heavy', qty: 2, base: 0.76, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, the whole refinery train' },
     ],
   },
@@ -434,7 +434,7 @@ const TARGETS = [
     packages: [
       { asset: 'cruise', qty: 3, base: 0.80, label: 'TLAM salvo — switchyard and auxiliaries, not the core' },
       { asset: 'f35', qty: 2, base: 0.75, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.70, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.70, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
     ],
   },
   {
@@ -444,7 +444,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.80, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 2, base: 0.75, label: 'Air strike — 2 F/A-18E sorties' },
+      { asset: 'fighter', qty: 2, base: 0.75, label: 'Air strike — 2 F/A-18E sorties, GBU-32 JDAM' },
       { asset: 'fighter', qty: 2, base: 0.78, weapon: 'slamer',
         label: 'SLAM-ER STRIKE — 2 F/A-18E sorties, AGM-84K onto the berths' },
       { asset: 'cruise', qty: 2, base: 0.82, label: 'TLAM salvo — 2 cruise missiles' },
@@ -458,7 +458,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.74, label: 'F-35 strike package — 2 sorties' },
-      { asset: 'fighter', qty: 3, base: 0.69, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.69, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'cruise', qty: 3, base: 0.80, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.72, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, runway and ramp' },
     ],
@@ -470,7 +470,7 @@ const TARGETS = [
     world: -2,
     packages: [
       { asset: 'f35', qty: 2, base: 0.72, label: 'F-35 strike package — 2 sorties (tunnel portals)' },
-      { asset: 'fighter', qty: 3, base: 0.67, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.67, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'cruise', qty: 3, base: 0.78, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.72, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, portals and support area' },
     ],
@@ -619,7 +619,7 @@ const TARGETS = [
     world: -1, worldOnKill: -4, momentumOnKill: 0.05,
     packages: [
       { asset: 'f35', qty: 2, base: 0.83, label: 'F-35 strike package — 2 sorties, yards and depot' },
-      { asset: 'fighter', qty: 3, base: 0.81, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.81, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'cruise', qty: 3, base: 0.85, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.85, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, the whole junction' },
     ],
@@ -645,7 +645,7 @@ const TARGETS = [
     world: -1, worldOnKill: -8, momentumOnKill: 0.06,
     packages: [
       { asset: 'f35', qty: 2, base: 0.84, label: 'F-35 strike package — 2 sorties, the switchyard' },
-      { asset: 'fighter', qty: 3, base: 0.82, label: 'Air strike — 3 F-15E sorties' },
+      { asset: 'fighter', qty: 3, base: 0.82, label: 'Air strike — 3 F-15E sorties, GBU-31 JDAM' },
       { asset: 'cruise', qty: 3, base: 0.86, label: 'TLAM salvo — 3 cruise missiles' },
       { asset: 'heavy', qty: 2, base: 0.86, label: 'HEAVY BOMBER STRIKE — 2 B-52H sorties, switchyard and turbine hall' },
     ],
@@ -691,7 +691,7 @@ const TARGETS = [
     world: -1,
     packages: [
       { asset: 'f35', qty: 2, base: 0.73, label: 'Armed reconnaissance — 2 F-35 sorties' },
-      { asset: 'fighter', qty: 2, base: 0.68, label: 'Armed reconnaissance — 2 F-16CM sorties' },
+      { asset: 'fighter', qty: 2, base: 0.68, label: 'Armed reconnaissance — 2 F-16CM sorties, GBU-12' },
       { asset: 'cruise', qty: 2, base: 0.58, label: 'TLAM salvo — 2 missiles (they will have moved)' },
     ],
   },
@@ -702,7 +702,7 @@ const TARGETS = [
     world: -1,
     packages: [
       { asset: 'f35', qty: 2, base: 0.71, label: 'Armed reconnaissance — 2 F-35 sorties' },
-      { asset: 'fighter', qty: 2, base: 0.66, label: 'Armed reconnaissance — 2 F-16CM sorties' },
+      { asset: 'fighter', qty: 2, base: 0.66, label: 'Armed reconnaissance — 2 F-16CM sorties, GBU-12' },
       { asset: 'cruise', qty: 2, base: 0.56, label: 'TLAM salvo — 2 missiles (they will have moved)' },
     ],
   },
@@ -713,7 +713,7 @@ const TARGETS = [
     world: -1,
     packages: [
       { asset: 'f35', qty: 2, base: 0.75, label: 'Armed reconnaissance — 2 F-35 sorties' },
-      { asset: 'fighter', qty: 2, base: 0.70, label: 'Armed reconnaissance — 2 F-16CM sorties' },
+      { asset: 'fighter', qty: 2, base: 0.70, label: 'Armed reconnaissance — 2 F-16CM sorties, GBU-12' },
       { asset: 'cruise', qty: 2, base: 0.60, label: 'TLAM salvo — 2 missiles (they will have moved)' },
     ],
   },
@@ -1373,6 +1373,55 @@ const AIR_ASSETS = {
   // nobody is aboard a Tomahawk, and nobody is aboard an Mk-48
   cruise:  { ad: 0,    loss: 0,     attrition: 0,     weight: 55, pgm: 0,  tanker: () => 0 },
 };
+
+// ============================================================
+// WHAT FLEW, ON THE LINE THE PRESIDENT ACTUALLY READS (v2.01)
+// ------------------------------------------------------------
+// The complaint that produced this was "I barely see the fourth-generation
+// fighters", and the obvious reading of it — that the staff does not task them
+// — is false and was measured false before anything was changed. Off the
+// folder on easy the fighter tier is 34.0% of every package flown, the LARGEST
+// single share, ahead of the F-35's 31.9%; the air-superiority gate opens by
+// turn 2–4 in 100% of campaigns and 0% of campaigns fly none. They were never
+// missing. They were never NAMED.
+//
+// Every strike came back as `BDA: <target name>` over `<SHORT> destroyed`, and
+// the platform appeared nowhere in the title, the summary or the prose — the
+// one place in the entire game the string "F-16CM" existed was dim grey text
+// after a `·`, behind a disclosure caret, in the courses-of-action folder. On
+// easy the president never opens a strike dialog, so that caret was the whole
+// of it. A third of the war was flown by an aircraft the player was never told
+// about, which is indistinguishable from its not being there.
+//
+// This is IDENTITY, exactly as MARITIME_WEAPONS is identity: nothing in the
+// strike math reads it, and `asset`/`base`/`qty` still carry all of it.
+//
+// Two rules. The tag is DERIVED from the label rather than duplicated into a
+// second field on all 134 packages, because the labels already carry the
+// airframe and two homes for one fact drift within a version — a package may
+// still override with an explicit `tag`, which is the escape hatch for a label
+// that cannot state its own platform. And the fallbacks are keyed on what
+// FIRES rather than on `asset`: an escort round and a Tomahawk are both
+// `asset: 'cruise'` for flight and animation, but "NSM" and "TLAM" are not the
+// same news, and the boat is not on the tasking order at all.
+const PLATFORM_TAG = {
+  sub: 'Mk 48', nsm: 'NSM', sm6: 'SM-6',
+  cruise: 'TLAM', f35: 'F-35A', fighter: '4th gen', heavy: 'bomber', stealth: 'B-2',
+};
+
+// F-16CM, F-15E, F/A-18E, B-1B, B-52H, B-2 — and deliberately NOT RGM-109E or
+// GBU-57, whose three-letter roots fall outside the class. Where a label names
+// a weapon and no airframe the fallback above is the honest answer anyway.
+const AIRFRAME_RE = /\b(?:F\/A-\d+[A-Z]*|[A-Z]{1,2}-\d+[A-Z]*)\b/;
+
+function platformTag(pkg) {
+  if (!pkg) return '';
+  if (pkg.tag) return pkg.tag;
+  if (pkg.sub) return PLATFORM_TAG.sub;
+  if (pkg.escort) return PLATFORM_TAG[pkg.escort] || PLATFORM_TAG.cruise;
+  const m = pkg.label && pkg.label.match(AIRFRAME_RE);
+  return m ? m[0] : (PLATFORM_TAG[pkg.asset] || '');
+}
 
 // Weapons an average package spends, used only to turn the precision-munitions
 // stock into the sentence a logistician would actually say — "four nights of
@@ -2154,9 +2203,18 @@ const COA = {
   // carries and the most that fits a phone in landscape without a scroll.
   slots: ['ALPHA', 'BRAVO', 'CHARLIE'],
 
+  // WHAT AN OPTION IS CALLED (v2.01). These were doctrine terms — ROLLBACK,
+  // COUNTERFORCE, THE OBJECTIVE — which is what the staff would say to each
+  // other and exactly wrong for the man they are briefing. A president is not
+  // a targeteer: the name is the first and often the only thing read off a
+  // three-column folder, and "THE OBJECTIVE" names a category of thing rather
+  // than a night's work. Every name now says what the packages will DO, in the
+  // words the president would use to repeat the order back. The doctrine terms
+  // survive nowhere in the player's view; `id` is unchanged, so everything that
+  // ranks, defers or maps a concern to a doctrine still keys off `rollback`.
   intents: [
     {
-      id: 'rollback', name: 'ROLLBACK',
+      id: 'rollback', name: 'BREAK THE AIR DEFENSES',
       line: 'Gain air superiority. Everything else is waiting on it.',
       types: ['airdefense', 'airbase'], weight: 0.58, scale: 1.05, min: 1,
       why: 'The belt is the reason every package tonight is small, expensive and flown by ' +
@@ -2165,7 +2223,7 @@ const COA = {
         'raid and starts being a place we operate.',
     },
     {
-      id: 'counterforce', name: 'COUNTERFORCE',
+      id: 'counterforce', name: 'HUNT THE LAUNCHERS',
       line: 'Service the missile force before it services us.',
       types: ['tel', 'missile'], weight: 0.46, scale: 1.35, min: 1,
       why: 'Every brigade left standing is a salvo at the ramps we are flying from and a ' +
@@ -2173,7 +2231,7 @@ const COA = {
         'twice — fewer inbound tonight, and interceptors still in the tubes in week three.',
     },
     {
-      id: 'objective', name: 'THE OBJECTIVE',
+      id: 'objective', name: 'HIT THE ENRICHMENT HALLS',
       line: 'The halls themselves. This is what the war is for.',
       types: ['nuclear'], weight: 0.72, scale: 1.55, min: 1,
       why: 'Everything else on this list is a means. The enrichment program is the reason ' +
@@ -2181,7 +2239,7 @@ const COA = {
         'while we work the belt.',
     },
     {
-      id: 'maritime', name: 'MARITIME',
+      id: 'maritime', name: 'CLEAR THE STRAIT',
       line: 'Clear the water. The strait and the hulls that close it.',
       types: ['ship', 'naval'], weight: 0.44, scale: 1.30, min: 1,
       why: 'The anti-ship batteries and what is left of their navy are what keeps the ' +
@@ -2190,7 +2248,7 @@ const COA = {
         'a night on its own.',
     },
     {
-      id: 'pressure', name: 'PRESSURE',
+      id: 'pressure', name: 'SHUT DOWN THE WAR ECONOMY',
       line: 'The regime\'s own machinery — command, oil, the grid.',
       types: ['command', 'oil', 'infra'], weight: 0.34, scale: 0.95, min: 2,
       why: 'This is the campaign against Tehran\'s ability to keep fighting rather than ' +
@@ -2199,7 +2257,7 @@ const COA = {
         'abroad as an American president bombing a country\'s electricity.',
     },
     {
-      id: 'jerusalem', name: "JERUSALEM'S LIST",
+      id: 'jerusalem', name: "FLY ISRAEL'S TARGETS",
       line: 'Fly the aimpoints Israel is threatening to fly itself.',
       types: null, weight: 0.30, scale: 1.70, min: 1,
       // types: null — the list is israelPriority, wherever those sites happen to be,
@@ -2209,7 +2267,7 @@ const COA = {
         'without spending a phone call, and it is aimpoints we would want anyway.',
     },
     {
-      id: 'southern', name: 'THE SOUTHERN FRONT',
+      id: 'southern', name: 'THE RED SEA COAST',
       line: 'Ansar Allah. The strait nobody planned for.',
       types: ['houthi'], weight: 0.40, scale: 1.60, min: 1,
       why: 'The Red Sea coast is a different war on a different ocean and it is currently ' +
@@ -2604,10 +2662,49 @@ const INTEL_SLATE = {
 // day a random pick and the staff's pick are the same campaign, the folder is
 // furniture. Do not raise this knob to fix a complaint about pacing; raise
 // ATO.perFlow, which buys weight out of the buildup the player can see.
+//
+// v2.01 — THE SURGE, AND WHY IT IS NOT THE THING THE NOTE ABOVE FORBIDS.
+//
+//   coaSurge    packages the staff will put up PAST the plan, once the night is
+//               signed. 0 = off, which is normal and hard: they have the map and
+//               have been able to late-frag since v1.68.
+//
+// The complaint was that easy cannot bring firepower to bear the way normal and
+// hard can, and it measured true and structural rather than tuned.
+// `.claude/betatest/mix.js`, easy, same board: 2.99 packages a night off the
+// folder against 4.51 hand-fragging the same level — a third less war per night.
+// The cause is that `atoWall` lets every other level keep fragging to plan +
+// ATO.ceiling and easy's only brake, `coaSigns: 1`, stops dead at the plan. Easy
+// was not a gentler war, it was a SMALLER one, and nothing on screen said so.
+//
+// The note above is the argument against fixing that with more free packages and
+// it stands. What it does not cover is a package the president PAYS for. A surge
+// is the late frag the other two levels already fly, with every charge intact —
+// `atoOver` degrades the effects, multiplies the aircrew roll and books
+// crew-rest debt against tomorrow — so the scarcity the level is built on is
+// untouched. What changes is that a president who needs tonight badly enough can
+// borrow against tomorrow, and is told the price before signing rather than
+// discovering it in the morning.
+//
+// THE SURGE FLIES THE DOCTRINE THAT WAS SIGNED, and that is the load-bearing
+// part rather than a flourish. A surge built from the best aimpoints on the
+// board would be a second, better night bolted onto the first, and it would
+// flatten exactly what the note above says to protect: if every doctrine gets
+// serviced eventually, which one was signed stops mattering. Extending the
+// signed option instead makes the surge an amplifier of the decision — pressing
+// the wrong doctrine harder is a worse night, not a rescue from one — so the
+// ranking is still the president's protection. It falls through to the
+// next-ranked doctrine only when its own list is exhausted, because a surge with
+// nothing to fly is not a decision either.
+//
+// One surge a night, capped at 2 rather than at ATO.ceiling's 4: the wall is
+// still the wall, and the point is reach, not a second plan. Read the measured
+// coaTop/coaBlind gap in `.claude/betatest/coa.js` after touching this — that
+// gap is the whole bar, and this knob is the one most likely to close it.
 const DIFFICULTY = {
   easy:   { name: 'EASY', casualties: 320, repair: 0.75, coord: 0.85, breakout: 1.25, israel: 0.75, bmd: 1.35, covert: 1.3, retaliation: 0.55, softGate: false,
     coa: 3, coaFill: 'full', freeTargeting: false, recommend: true, pgm: 0,
-    coaSigns: 1, strike: { base: 1.30, perFlow: 0.08, edge: 0.03 },
+    coaSigns: 1, coaSurge: 2, strike: { base: 1.30, perFlow: 0.08, edge: 0.03 },
     plainAssets: true, intelSlate: 3,
     railPanels: ['advisors', 'resources', 'specops'],
     popups: ['brief', 'recovery', 'diplo', 'intel'], autoTheater: true,

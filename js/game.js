@@ -2219,7 +2219,10 @@ const Game = (() => {
     if (G.over || busy()) return;
     const armed = briefPending;
     briefPending = false;      // clearing first is what puts END TURN back
-    UI.openBrief(diff().coa ? coaOptions() : [], armed ? takeTheaterNotes() : null);
+    // briefOptions, not coaOptions: pressing BRIEF ME after the night is signed
+    // is the other door to the surge, and it must show the same slate the folder
+    // would have walked into (see surgeOption).
+    UI.openBrief(diff().coa ? briefOptions() : [], armed ? takeTheaterNotes() : null);
   }
 
   // ---- end-of-turn fleet movement ----
@@ -4176,7 +4179,154 @@ const Game = (() => {
   const coaSigns = () => diff().coaSigns || 0;
   function coaSignsLeft() {
     const cap = coaSigns();
-    return cap ? Math.max(0, cap - coaFlown().size) : Infinity;
+    if (!cap) return Infinity;
+    // The surge is not one of the night's signatures — it is what happens after
+    // they are spent — so it must not eat the budget it is gated behind. Counted
+    // out here rather than kept in a second set, because coaFlown() is read off
+    // the missions on purpose and scrubbing the surge has to hand it back too.
+    let n = 0;
+    for (const id of coaFlown()) if (id !== SURGE_ID) n++;
+    return Math.max(0, cap - n);
+  }
+
+  // ============================================================
+  // THE SURGE — the reach easy did not have (v2.01)
+  // ------------------------------------------------------------
+  // See the coaSurge block in data.js for the measurement and the argument. In
+  // short: every other level can frag past the written plan to `atoWall`, easy
+  // could not, and the gap is a third of the war per night. This is that reach,
+  // at the late-frag price, briefed.
+  //
+  // Built LIVE and deliberately outside coaOptions()' per-turn cache: a surge
+  // exists only once the night has been signed, which is a state that changes
+  // inside a turn and that the cache cannot see.
+  const SURGE_ID = 'surge';
+  const coaSurgeMax = () => diff().coaSurge || 0;
+
+  // The option object, or null. Same shape every other briefed option has, so
+  // coaRows draws it, the room walks to it and takeCoa flies it with no second
+  // copy of any of that.
+  function surgeOption() {
+    const d = diff();
+    if (!d.coa || G.over || !coaSurgeMax()) return null;
+    // the plan first — a surge before the plan is just the plan
+    if (coaSignsLeft() > 0) return null;
+    const flown = coaFlown();
+    if (flown.has(SURGE_ID)) return null;        // one a night
+    if (atoWall()) return null;                  // no rested crew left to brief
+    // AND THE WING HAS TO BE RESTED, which is the difference between a decision
+    // and a trap. Measured at n=60 without this line: the surge was offered on
+    // 21.5 of ~25 nights, a bot took every one of them, and easy's win rate fell
+    // 85% → 68%. That is not the late-frag price being felt, it is a spiral —
+    // `fatiguePerSurge` is charged per package and `planSize` subtracts fatigue
+    // straight off tomorrow's plan, so surging nightly walks the tasking order
+    // from three packages down to the floor of one and never lets it back up.
+    // An affordance the staff offers every night, on the level built for
+    // first-time players, cannot be one whose obvious use loses the war.
+    //
+    // Gated on the debt being CLEAR rather than on a ceiling, because that is
+    // the rhythm the numbers already describe: a two-package surge books two
+    // nights of debt against `fatigueDecay` of one, so the wing surges, rests,
+    // and surges again. The president gets the reach roughly every third night
+    // and the plan underneath it is never eroded.
+    if ((G.fatigue || 0) > 0) return null;
+
+    // WHOSE aimpoints. The doctrine that was signed, falling through to the
+    // next-ranked only when its own list is finished — see data.js for why this
+    // is the load-bearing half and not a flourish.
+    const signedId = [...flown].find(id => id !== SURGE_ID);
+    const signed = COA.intents.find(i => i.id === signedId);
+    if (!signed) return null;
+
+    // What tonight has already booked. A surge is the NEXT aimpoints, not a
+    // second pass over the ones already on the order.
+    const done = new Set(G.struckThisTurn);
+    const flownTonight = {};
+    for (const m of G.missions) {
+      if (m.turn !== G.turn) continue;
+      done.add(m.targetId);
+      if (m.pkg) flownTonight[m.pkg.asset] = (flownTonight[m.pkg.asset] || 0) + 1;
+    }
+
+    // One read of the board for the whole fallback ranking, per rule 2 in
+    // assess.js — and hoisted out of the sort because board() is not cached and
+    // scoring seven doctrines against seven separate reads is both wasteful and
+    // a ranking of nights that never existed together.
+    const b = Assess.board();
+    const order = [signed].concat(
+      COA.intents.filter(i => i.id !== signed.id)
+        .map(i => ({ i, u: coaScore(i, b) }))
+        .sort((x, y) => y.u - x.u).map(x => x.i));
+
+    const legs = [];
+    const room = Math.min(coaSurgeMax(), ATO.ceiling);
+    for (const intent of order) {
+      for (const t of coaTargets(intent)) {
+        if (legs.length >= room) break;
+        if (done.has(t.id)) continue;
+        const pkg = coaPackage(t, flownTonight);
+        if (!pkg) continue;
+        done.add(t.id);
+        flownTonight[pkg.asset] = (flownTonight[pkg.asset] || 0) + 1;
+        legs.push({ targetId: t.id, pkg, main: intent.id === signed.id });
+      }
+      if (legs.length >= room) break;
+    }
+    if (!legs.length) return null;
+
+    const e = coaEffect(legs);
+    // How many of these legs actually cost tomorrow. See the LEAVES line below:
+    // `atoOver` returns 0 for cruise and for the boat, so those legs are neither
+    // degraded as late frags nor charged crew-rest debt.
+    const charged = legs.filter(l => !l.pkg.sub && l.pkg.asset !== 'cruise').length;
+    return {
+      id: SURGE_ID, surge: true,
+      // The slot chip already says SURGE and it is rendered immediately to the
+      // left of this, so naming the word twice reads as a stutter. Plain and
+      // imperative like the seven doctrines it sits under.
+      name: 'FLY MORE TONIGHT',
+      slot: 'SURGE',
+      // Deliberately does not name tomorrow: which price this surge carries
+      // depends on what the staff could fill it with, and the LEAVES line below
+      // is where that is answered honestly.
+      line: `More weight on tonight, past the written plan, at a price.`,
+      why: 'The tasking order for tonight is signed and flown. This is what the wing can still ' +
+        'put in the air on top of it: crews briefed on the ramp against a hasty target study, ' +
+        'on whatever tanker happens to be airborne. It is real weight and it arrives tonight — ' +
+        'and every hour of it comes out of tomorrow, when the same crews are the ones who were ' +
+        'going to fly the plan.',
+      read: `Tonight is signed and there ${Txt.are(legs.length)} still ` +
+        `${Txt.plural(legs.length, 'aimpoint')} the wing can reach before dawn. Nothing about ` +
+        `the night gets easier by waiting for it.`,
+      urgency: 0, rank: 0, legs,
+      shape: coaShape(e.classes), bill: coaBill(e), est: coaEstimate(e),
+      kill: e.kill, loss: e.loss,
+      // A surge has no rival to defer to — it is the last thing offered — so
+      // the LEAVES line carries its price instead, which is the whole reason
+      // this card is a decision rather than a bonus.
+      //
+      // And it has to name the price this surge actually has. `atoOver` exempts
+      // cruise and the boat — a Tomahawk is not on the tasking order, spends no
+      // crew rest and books no debt — so a surge the staff filled with TLAM
+      // costs nothing tomorrow and everything in the reservoir. The first
+      // version of this line said "every package here is charged against the
+      // plan the same crews fly next" unconditionally, which on those nights is
+      // simply false, and a false LEAVES line is worse than none: it is the one
+      // clause the president is meant to be able to trust.
+      defers: charged === legs.length
+        ? `Tomorrow. Every package here is a late frag, and the crews flying it are the crews who fly the plan tomorrow.`
+        : charged > 0
+          ? `Tomorrow, in part — ${Txt.plural(charged, 'package')} of ${legs.length} ${Txt.are(charged)} late frags charged against the crews who fly the plan tomorrow. The rest comes out of the reservoir.`
+          : `Not the crews — nothing here is on the tasking order. It comes out of the reservoir instead, and the reservoir does not refill.`,
+    };
+  }
+
+  // The three doctrines plus the surge, which is what the folder, the panel and
+  // the walkthrough all actually brief. One call so those three can never show
+  // different slates.
+  function briefOptions() {
+    const s = surgeOption();
+    return s ? coaOptions().concat([s]) : coaOptions();
   }
 
   // Sign one. Each leg is authorized exactly as the dialog would authorize it,
@@ -4185,12 +4335,16 @@ const Game = (() => {
   // not get a refusal it can argue with either.
   function takeCoa(id) {
     if (G.over || busy()) return 0;
-    const coa = coaOptions().find(c => c.id === id);
+    const coa = briefOptions().find(c => c.id === id);
     if (!coa || coaFlown().has(id)) return 0;
     // Enforced here and not only greyed in the two places the cards are drawn:
     // the panel and the dialog render the same rows through coaRows, and the
     // walkthrough opens the real folder on the real board.
-    if (coaSignsLeft() <= 0) return 0;
+    //
+    // The surge is exempt because it is gated on the budget being SPENT — see
+    // surgeOption, which refuses to exist until coaSignsLeft() hits zero. Asking
+    // it to pass a cap it is downstream of would mean it could never fly.
+    if (!coa.surge && coaSignsLeft() <= 0) return 0;
     let flown = 0;
     for (const leg of coa.legs) {
       const t = TARGETS.find(x => x.id === leg.targetId);
@@ -4218,9 +4372,10 @@ const Game = (() => {
   function resolveImpact(target, pkg, mission) {
     if (target.status === 'destroyed') {
       // an earlier package in the same volley (or turn) already finished it
+      const wasted = platformTag(pkg);
       return {
         cls: 'friendly', title: `BDA: ${target.name}`, internal: true,
-        sum: `${target.short} — already destroyed, sortie wasted`,
+        sum: (wasted ? `${wasted} · ` : '') + `${target.short} — already destroyed, sortie wasted`,
         text: 'The package arrived over a target already destroyed. Aircraft and missiles expended against rubble — coordination cost, nothing gained.',
       };
     }
@@ -4262,17 +4417,32 @@ const Game = (() => {
     observe(target, false);
     const outcome = target.hp <= 0 ? 'destroyed' : dmg > 0 ? 'damaged' : 'miss';
 
-    const ev = { cls: 'friendly', title: `BDA: ${target.name}`, dWorld: worldCost, internal: true };
+    // What flew, and it leads the line. See platformTag in data.js: a third of
+    // every campaign was being flown by an aircraft the report never named
+    // anywhere, which on easy — where the president opens no strike dialog —
+    // made the fourth-generation force indistinguishable from absent. The
+    // platform goes FIRST rather than after the verdict so the mix is readable
+    // straight down the left edge of the night without opening a single row;
+    // the full package, with its sortie count and its weapon, is one caret away
+    // in the title.
+    const flew = platformTag(pkg);
+    const ev = { cls: 'friendly',
+      // `·` and not an em dash: most labels already contain one, and
+      // "Bandar Abbas Coastal Defense — F-35 SEAD package — 2 sorties" reads as
+      // three things at the same level rather than a target and its package.
+      title: `BDA: ${target.name}${pkg.label ? ` · ${pkg.label}` : ''}`,
+      dWorld: worldCost, internal: true };
     ev.hit = outcome === 'destroyed' || outcome === 'damaged';
     // The whole assessment in four words, for the report's scan line. The prose
     // below is the same finding written out; a player who reads only this one
     // still knows what tonight's package did (see showReport in ui.js).
     ev.outcome = outcome;
-    ev.sum = outcome === 'destroyed'
+    const verdict = outcome === 'destroyed'
       ? `${target.short} DESTROYED`
       : outcome === 'damaged'
         ? `${target.short} damaged — now ${condition(target)}`
         : `${target.short} — no effect`;
+    ev.sum = flew ? `${flew} · ${verdict}` : verdict;
 
     if (outcome === 'destroyed') {
       // A site that has already been destroyed once and came back out of the
@@ -6685,6 +6855,7 @@ const Game = (() => {
     // and whether the president is writing orders on the map at all. takeCoa is
     // the only way in — every leg still goes through executeStrike.
     coaOptions, coaFlown, takeCoa, coaSignsLeft, freeTargeting,
+    surgeOption, briefOptions,
     // the precision-munitions stock. pgmBlock is the one sentence for "we
     // cannot build this package up", the same contract pkgBlock has.
     pgmLedger, pgmBlock, pgmCost, pgmNights,

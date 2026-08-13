@@ -1785,7 +1785,13 @@ const UI = (() => {
     const spare = Game.coaSignsLeft();
     return list.map((c) => {
       const done = flown.has(c.id);
-      const shut = !done && spare <= 0;
+      // The surge is exempt from the signature budget for the same reason
+      // takeCoa exempts it: it is gated on that budget being SPENT (see
+      // surgeOption), so measuring it against the cap would grey out the one
+      // card that only exists once the cap is reached, and it would grey it out
+      // with "NOT TONIGHT — THE NIGHT IS SIGNED" — which is precisely the state
+      // it is offered in.
+      const shut = !done && !c.surge && spare <= 0;
       const open = actOpen.has(`coa-${c.id}`);
       const main = c.legs.filter(l => l.main), supp = c.legs.filter(l => !l.main);
       const nameOf = (l) => {
@@ -1833,7 +1839,7 @@ const UI = (() => {
 
   function renderCoa(G) {
     const panel = $('coa-panel');
-    const list = Game.coaOptions();
+    const list = Game.briefOptions();
     // hard briefs nothing at all, and the panel is not there to say so
     if (!Game.difficulty().coa) { panel.classList.add('hidden'); return; }
     panel.classList.remove('hidden');
@@ -1918,9 +1924,20 @@ const UI = (() => {
       // walked back into this room to show them would be re-asking a question it
       // has already refused to accept a second answer to. The cards themselves
       // do stay, greyed — see coaRows — for anyone who walks BACK.
-      live: (G, opts) => Game.coaSignsLeft() > 0 && opts.length > Game.coaFlown().size,
+      // ...and it is live again once the night is SIGNED, if the staff can put
+      // something up past the plan (v2.01). That is the one case where a room
+      // gains a decision by being answered rather than losing one: the surge
+      // does not exist until the signature that creates it, so a chain that
+      // walked past this room on the signature would put the only door to it
+      // behind a second press of BRIEF ME. It cannot loop — a signed surge
+      // makes surgeOption() null.
+      live: (G, opts) => (Game.coaSignsLeft() > 0 && opts.length > Game.coaFlown().size)
+        || !!Game.surgeOption(),
       count: (G, opts) => {
         const flown = Game.coaFlown().size;
+        // A signed night that can still put weight up says so, because that is
+        // the only reason the folder has walked back into this room at all.
+        if (flown && Game.surgeOption()) return `${flown} SIGNED — SURGE AVAILABLE`;
         // Counted through Txt like every other number in a sentence, then cased
         // — inflecting an already-shouted noun gets you "3 OPTIONs". With
         // nothing staffed it says so rather than reading "0 OPTIONS", which is
@@ -1992,7 +2009,7 @@ const UI = (() => {
     const G = Game.G;
     if (G.over) return;
     briefReset();
-    briefOptions = list || (Game.difficulty().coa ? Game.coaOptions() : []);
+    briefOptions = list || (Game.difficulty().coa ? Game.briefOptions() : []);
     briefNotes = notes;
 
     const rooms = briefRooms();
@@ -2061,8 +2078,17 @@ const UI = (() => {
     // holding the folder open over the answer hides the one thing the president
     // just asked for. So they stand the folder down and arm `briefResume`, which
     // walks it back in when the last of those dialogs is gone.
+    // `briefAt = briefRoom` and not `briefRoom + 1` (v2.01): the chain re-reads
+    // the room it is standing in before walking past it, because the strike room
+    // can GAIN a decision by being answered — signing the night is what creates
+    // the surge. Safe for the other two rooms, whose `live` goes false the moment
+    // their slot is spent, and safe against a loop for this one, because a signed
+    // surge makes surgeOption() null. The slate is re-read for the same reason
+    // resumeBrief re-reads it: the option that just appeared is not in the list
+    // the folder was opened with.
     const advance = () => {
-      briefAt = briefRoom + 1;
+      briefAt = briefRoom;
+      briefOptions = Game.difficulty().coa ? Game.briefOptions() : [];
       const n = nextLive();
       if (n < 0) closeBrief(); else showRoom(n);
     };
@@ -2119,7 +2145,7 @@ const UI = (() => {
     // of answer that changes what the staff would brief in the next room, and
     // the whole point of the intelligence room coming first is that the other
     // two are argued from it.
-    briefOptions = Game.difficulty().coa ? Game.coaOptions() : [];
+    briefOptions = Game.difficulty().coa ? Game.briefOptions() : [];
     const n = nextLive();
     if (n < 0) { syncBriefButton(); return; }
     showRoom(n);
@@ -2167,7 +2193,7 @@ const UI = (() => {
     // decision left in the folder, which is the thing this level moved it in
     // there to prevent.
     const on = Game.popup('brief') && !Game.G.over && !pending &&
-      ((Game.difficulty().coa && Game.coaOptions().length > 0) || briefSlotPending());
+      ((Game.difficulty().coa && Game.briefOptions().length > 0) || briefSlotPending());
     btn.classList.toggle('hidden', !on);
   }
 
@@ -4640,11 +4666,12 @@ const UI = (() => {
             text: 'Click any target to plan a strike. Most of your force is grounded until the SAM belt ' +
               'comes down, so hit air defenses first. STRIKE ASSETS shows what has been released.' },
       // The ladder still has to be taught on easy — the options are ranked
-      // against it, and a president who never understands why ROLLBACK keeps
-      // coming up first is picking off a menu rather than reading a war.
+      // against it, and a president who never understands why BREAK THE AIR
+      // DEFENSES keeps coming up first is picking off a menu rather than
+      // reading a war.
       ...(d.freeTargeting ? [] : [{ cls: '', title: 'GAIN AIR SUPERIORITY FIRST',
-        text: 'Most of the force is grounded until the SAM belt is down, which is why ROLLBACK keeps ' +
-          'coming up. Gain air superiority and the heavier options open.' }]),
+        text: 'Most of the force is grounded until the SAM belt is down, which is why BREAK THE AIR ' +
+          'DEFENSES keeps coming up. Gain air superiority and the heavier options open.' }]),
       // The board opens SHORT as of v1.69, and a player who reads night one as
       // the whole war mis-plans everything downstream of it — Arak arrives on
       // the ramp, so the nuclear objective is not even fully visible yet.
