@@ -2013,6 +2013,31 @@ const Game = (() => {
   // step with the first.
   const AUTO_REARM_AT = 0.25;   // fraction of the magazine left before she reloads
 
+  // ---- what the staff will stand her into ----
+  // The floor is the nightly chance of taking a weapon that Fifth Fleet will
+  // accept for a station that is buying nothing tonight — which is not zero,
+  // because a deck that never comes north is a deck the president paid for and
+  // never sees. The ceiling is what the umbrella over Al Udeid and Al Dhafra is
+  // worth on a night Tehran is still shooting and there are still rounds in the
+  // cells to meet it. Between them, `forwardWorth` decides.
+  //
+  // Both are chances of losing or wrecking a supercarrier, so they are small
+  // numbers and they should look small: 3% a night over a fifteen-day war is
+  // already about one campaign in ten. Anything looser than this and the
+  // measurement below stops holding.
+  const AUTO_RISK_FLOOR = 0.03;
+  const AUTO_RISK_CEIL = 0.10;
+  const riskTolerance = () => AUTO_RISK_FLOOR + (AUTO_RISK_CEIL - AUTO_RISK_FLOOR) * forwardWorth();
+
+  // Hysteresis, and it is not decoration. A deck under way is HALF EXPOSED
+  // (carrierExposure) whichever way she is pointed, so crossing this line costs
+  // the same as standing on the wrong side of it for a night — and a call that
+  // sat on the line would send her back and forth across the Ra's al Hadd line
+  // for the whole war, exposed every single night, which is precisely the state
+  // v1.93 left her in. Going north asks for real margin; staying north does not.
+  const standForward = (cv) =>
+    antiShipRisk() <= riskTolerance() * (cv.posture === 'forward' ? 1 : 0.6);
+
   // What the staff did tonight, in the president's words, for the brief dialog
   // to read back. Transient by design — a note that survived a reload would
   // report an order given yesterday as tonight's news — so it never goes near
@@ -2028,6 +2053,51 @@ const Game = (() => {
   let quietOrders = false;
   const cable = () => { if (!quietOrders) AudioSys.play('cable'); };
 
+  // The two halves of the standing posture call, in the president's words.
+  //
+  // The south note has to name what would bring her back, or the automation is
+  // just a thing that happened to the fleet in the night. On this level the
+  // coast is the only lever the president has on their own carrier's station —
+  // and it is three depth-1 aimpoints they can put on tonight's tasking order,
+  // which makes "there needs to be a reason" a decision rather than a mood.
+  const coastList = () => {
+    const names = liveShooters().map(t => t.name.split(' — ')[0]);
+    if (!names.length) return 'the coast';
+    if (names.length === 1) return names[0];
+    return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  };
+
+  function southNote(cv, held) {
+    if (held) {
+      const src = TARGETS.find(t => t.id === G.threat.srcId);
+      return `An anti-ship brigade${src ? ` at ${src.name.split(' — ')[0]}` : ''} is holding a firing ` +
+        `solution on ${cvName(cv)}. Fifth Fleet has taken her south out of the envelope — a day of ` +
+        `reduced sorties, no Aegis over the Gulf bases, and the lid off the barrel. She is under way ` +
+        `when the weapons arrive rather than clear of them, which is half an answer and the only one ` +
+        `left this late.`;
+    }
+    const n = liveShooters().length;
+    return `Fifth Fleet is not standing ${cvShort(cv)} in the envelope tonight. ${coastList()} ` +
+      `${Txt.are(n)} still able to run a targeting cycle on her, and the forward station is not ` +
+      `buying enough tonight to be worth a carrier. She works the war from south of the Ra's al Hadd ` +
+      `line — no Aegis over the Gulf bases, no weight on the strait, no lid on the barrel. She comes ` +
+      `back north when ${n === 1 ? 'that shooter is' : 'those shooters are'} dead.`;
+  }
+
+  function northNote(cv) {
+    const n = liveShooters().length;
+    // one of these clauses opens on a place name and the other on a pronoun, so
+    // the capital goes on here rather than being baked into either
+    const reason = forwardReason();
+    const why = !n
+      ? 'nothing on that coast can run a targeting cycle on her any more'
+      : `${coastList()} ${Txt.are(n)} still on the coast, but ` + (reason ||
+        `not enough of ${n === 1 ? 'a shooter' : 'a threat between them'} to hold a deck out of ` +
+        'the carrier box');
+    return `${why.charAt(0).toUpperCase()}${why.slice(1)}. ${cvShort(cv)} is moving back up into the ` +
+      `Gulf of Oman — Aegis over the Gulf bases, weight on the strait, and a lid on the barrel.`;
+  }
+
   function autoTheater() {
     // Tonight's notes are tonight's. The brief is now armed rather than opened
     // (see openBrief below), so a president who never asked for the folder
@@ -2039,37 +2109,46 @@ const Game = (() => {
     if (G.over || !diff().autoTheater) return;
 
     // ---- posture, which does not spend the transit plan ----
-    // Three states, in priority order, and the middle one is the whole reason
-    // the anti-ship warning exists. A workup is announced at the end of the
-    // previous turn and rolled at the end of this one (see raiseThreat), which
-    // gives exactly one night to act on it — and pulling her south is one of the
-    // three answers the warning's own text names. A staff that read the warning
-    // and left the deck standing in the envelope is not staffing the level, it
-    // is watching. The umbrella and the oil lid come off for a night, which is
-    // the price, and it is the price the warning already quotes.
+    // v1.93 pulled her south when a solution was HELD on her, and that reads
+    // right and is a night too late. The order is given at this turn boundary,
+    // carrierExposure counts a deck UNDER WAY as half exposed, and carrierRisk
+    // rolls the shot at the end of the same turn — before checkCarrierTransit
+    // puts her on the new station. So the answer halved the odds and could never
+    // remove them, and the next night she walked back into the envelope to be
+    // warned again.
     //
-    // She is held back only while the solution is live: G.threat is cleared the
-    // moment it resolves, so the branch below walks her forward again the next
-    // night without anyone deciding to.
+    // Measured over 160 easy campaigns at v1.98: a workup on 27.1% of nights
+    // against 9.9% on normal, every one of the 1,181 of them rolled at half
+    // exposure and not one at zero, the Lincoln struck in 100% of campaigns and
+    // SUNK in 33.8% — worse than hard, on the level where the president may not
+    // touch the fleet at all. The staff was reacting to the warning, and Fifth
+    // Fleet does not run a carrier by reacting to the warning.
+    //
+    // So the call is a STANDING one, and the held solution is the last resort it
+    // always was rather than the whole policy. A deck on her southern station
+    // with no transit ordered has exposure 0, which means raiseThreat cannot
+    // raise a workup against her at all — that, and not a faster reaction, is
+    // the only thing on this board that actually keeps her afloat.
+    //
+    // And it gives the president the reason the automation owes them: the coast
+    // is three depth-1 aimpoints, and killing them is what brings her north.
     const cv = G.carriers.find(c => c.arrived && !c.lost && !cvFixed(c));
     if (cv && !bmdRearming()) {
-      const held = G.threat && G.threat.cvId === cv.id;
+      const held = !!(G.threat && G.threat.cvId === cv.id);
+      // a solution already in the system overrides the standing call: half an
+      // answer is still better than none on the one night it is all there is
+      const want = held || !standForward(cv) ? 'back' : 'forward';
       if (bmdFrac() < AUTO_REARM_AT && IranAI.missileStrength() > 0) {
         orderRearm();
         theaterNotes.push(`The escort screen is down to ${Math.round(bmdFrac() * 100)}% of its ` +
           `interceptors. ${cvShort(cv)} is detaching to the ammunition ship to reload — no umbrella ` +
           `over the Gulf bases for ${Txt.turns(NAVAL_BMD.rearmTurns)}.`);
-      } else if (held && carrierExposure(cv) > 0 && cv.moving !== 'back') {
-        const src = TARGETS.find(t => t.id === G.threat.srcId);
+      } else if (!cv.moving && want !== cv.posture) {
+        // a deck already under way is committed — toggleCarrierPosture refuses
+        // her anyway, and there is nothing to report that was not reported the
+        // night the order went out
         toggleCarrierPosture(cv.id);
-        theaterNotes.push(`An anti-ship brigade${src ? ` at ${src.name.split(' — ')[0]}` : ''} is ` +
-          `holding a firing solution on ${cvName(cv)}. Fifth Fleet has taken her south and out of the ` +
-          `envelope for the night — a day of reduced sorties, no Aegis over the Gulf bases, and the ` +
-          `lid off the barrel. She goes back up when the shooter is dead or the solution is stale.`);
-      } else if (!held && cv.posture !== 'forward' && !cv.moving) {
-        toggleCarrierPosture(cv.id);
-        theaterNotes.push(`${cvShort(cv)} is moving back up into the Gulf of Oman — Aegis over the ` +
-          `Gulf bases, weight on the strait, and a lid on the barrel.`);
+        theaterNotes.push(want === 'back' ? southNote(cv, held) : northNote(cv));
       }
     }
 
@@ -2247,6 +2326,66 @@ const Game = (() => {
   // ============================================================
   const THREAT_SOURCES = ['naval-bandar', 'naval-bushehr', 'ship-mahdavi'];
 
+  // the brigades and the hull that can still run a targeting cycle tonight
+  const liveShooters = () => THREAT_SOURCES
+    .map(id => TARGETS.find(t => t.id === id))
+    .filter(t => t && t.hp > 0);
+
+  // ============================================================
+  // THE STAFF'S READ OF THE SAME BOARD — Game.antiShipRisk / forwardWorth
+  // ------------------------------------------------------------
+  // What CENTCOM assesses it costs to keep a deck in the Gulf of Oman tonight,
+  // and what it buys. Read only by autoTheater, which is to say by the level
+  // where the president is not allowed to touch the fleet — but written HERE,
+  // beside the mechanic, because the whole point is that the staff is reading
+  // the same board the shot is rolled off and not a second copy of it.
+  //
+  // The risk is raiseThreat's own arithmetic run forward: a workup on
+  // `0.30 * naval` of nights, a shot on `p` of those, and the shooter's own
+  // condition on top of that. Nothing here invents a number — change the
+  // mechanic and the assessment moves with it, which is the only way an
+  // automatic posture call can stay honest.
+  // ============================================================
+  function antiShipRisk() {
+    const naval = IranAI.navalStrength();          // 0..2
+    if (naval <= 0) return 0;
+    const live = liveShooters();
+    if (!live.length) return 0;                    // nobody left to hold a solution
+    const coast = live.reduce((s, t) => s + t.hp / 100, 0) / live.length;
+    return 0.30 * naval * clamp(0.22 * naval, 0.1, 0.5) * coast;
+  }
+
+  // What the forward station is worth tonight — the three things that hang off
+  // it, none of which matters on every night of every war. The Aegis umbrella is
+  // worth nothing with an empty magazine or a dead missile force, the weight on
+  // the strait is worth nothing while it is open, and the lid on the barrel is
+  // worth most when the barrel is already up.
+  //
+  // Built once and read twice: `forwardWorth` is the number the posture call
+  // uses and `forwardReason` is the words the president is given for it. Same
+  // rule the sidebar and the brief follow for a course of action — a decision
+  // and its stated reason cannot come from two different computations, or the
+  // night the two disagree is the night nobody can tell which one was the war.
+  const FORWARD_TERMS = [
+    ['umbrella', () => (IranAI.missileStrength() > 0 ? bmdFrac() : 0),
+      () => 'the Gulf bases still need the Aegis umbrella and the cells still have rounds in them'],
+    ['strait', () => (G.hormuz === 'OPEN' ? 0 : 1),
+      () => `the strait is ${G.hormuz.toLowerCase()} and a carrier in the Gulf of Oman is the weight on it`],
+    ['barrel', () => clamp((G.oil - 95) / 35, 0, 1),
+      () => `Brent is at $${Math.round(G.oil)} and her presence is the lid on it`],
+  ];
+  // the best of the three, not their sum: any one on its own is a reason to be there
+  const forwardWorth = () => clamp(Math.max(...FORWARD_TERMS.map(([, v]) => v())), 0, 1);
+  // ...and null on a night none of the three is worth anything, which is a real
+  // state and not a missing string: she also goes north when the risk has simply
+  // fallen away under her, and a sentence claiming the barrel or the strait sent
+  // her would be the staff inventing a reason it does not have.
+  function forwardReason() {
+    let best = null;
+    for (const term of FORWARD_TERMS) if (!best || term[1]() > best[1]()) best = term;
+    return best && best[1]() > 0 ? best[2]() : null;
+  }
+
   // Warn for NEXT turn's fires, at the end of this one. Stored on G so the
   // sidebar, the map and the fires themselves all read the same object.
   function raiseThreat() {
@@ -2254,9 +2393,7 @@ const Game = (() => {
     const exposed = G.carriers.filter(cv => carrierExposure(cv) > 0 && !cv.lost);
     if (naval <= 0 || !exposed.length) { G.threat = null; return null; }
     // a workup needs a shooter: the surviving bases and the hull at sea
-    const live = THREAT_SOURCES
-      .map(id => TARGETS.find(t => t.id === id))
-      .filter(t => t && t.hp > 0);
+    const live = liveShooters();
     if (!live.length) { G.threat = null; return null; }
     // A workup on roughly three nights in five at full Iranian naval strength,
     // and a shot on a little under half of those. Ignore every warning at full
@@ -6524,6 +6661,9 @@ const Game = (() => {
     gulfHawkDrivers, gulfDoveDrivers, gulfEta, gulfSummitCost, gulfPriorities,
     gulfStates, gulfFoldThreshold,
     airDefenseWeight, orderCarrier, toggleCarrierPosture, carrierFactor, carrierExposure, navalForward,
+    // exported for .claude/betatest/lincoln.js, which is the only thing that can
+    // see whether the standing posture call ever uses the middle of its band
+    antiShipRisk, forwardWorth,
     carrierFixed: cvFixed,
     // the escort screen's interceptor magazine: ai.js fires it, the panel and
     // the advisors read it, and nothing else may touch G.bmdPool directly
