@@ -2612,7 +2612,7 @@ const DIFFICULTY = {
     railPanels: ['advisors', 'resources', 'specops'],
     popups: ['brief', 'recovery', 'diplo', 'intel'], autoTheater: true,
     tag: 'RECOMMENDED FOR FIRST-TIME PLAYERS',
-    desc: 'You are the President. Choose-your-own-adventure: CENTCOM walks in every evening with the night already staffed, you pick one course of action, and you live with what it does. No target lists, no magazines, no fleet to move. The country is patient, Iran rebuilds slowly and Jerusalem is willing to wait.' },
+    desc: 'You\'re President. Each night, CENTCOM briefs you on the situation and gives you options. You pick one. That\'s it — no micromanaging strikes, no moving ships around, no target lists. Just decisions.' },
   normal: { name: 'NORMAL', casualties: 250, repair: 1, coord: 1, breakout: 1, israel: 1, bmd: 1, covert: 1, retaliation: 0.75, softGate: false,
     coa: 2, coaFill: 'half', freeTargeting: true, recommend: false, pgm: 0,
     coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0,
