@@ -48,6 +48,11 @@ const AudioSys = (() => {
     francePmCall: 'france-pm-call.mp3',              // ~4.7 s
     ukPmCallStrong: 'uk-pm-call-strong.mp3',         // ~7.4 s
     francePmCallStrong: 'france-pm-call-strong.mp3', // ~8.2 s
+    // ...and the one call that is not a courtesy. Jerusalem, one turn out from
+    // launching, on the same secure line and through the same popup — which is
+    // the whole reason that popup was built to take a leader off a data table
+    // rather than off a hardcoded pair. See WORLD_LEADERS in data.js.
+    israelPmCall: 'israel-pm-call.mp3',              // ~7.5 s
     // The switchboard, ringing under the incoming-call popup until it is
     // answered or declined. Looped by hand — see ringStart.
     phoneRing: 'phone-ring.m4a',   // ~2.3 s

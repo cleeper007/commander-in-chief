@@ -4041,33 +4041,51 @@ const UI = (() => {
   }
 
   // ============================================================
-  // ALLIED HEAD-OF-GOVERNMENT CALL
+  // HEAD-OF-GOVERNMENT CALL
   // ------------------------------------------------------------
-  // Runs twice a campaign at most: London off the coalition cable, Paris the
-  // following turn (see `leaderCalls` in game.js). Take it or don't; the numbers
-  // are tiny either way and the point is the moment, not the point. Everything
-  // about the leader — office, country, which flag goes on the terminal —
-  // comes from WORLD_LEADERS in data.js, and which of that leader's two takes
-  // gets played is decided there too and handed in as `V`.
+  // Runs three times a campaign at most, and two of them are the same event:
+  // London off the coalition cable, Paris the following turn (see `leaderCalls`
+  // in game.js). Take those or don't; the numbers are tiny either way and the
+  // point is the moment, not the point. The third is Jerusalem the night before
+  // it goes alone, which is the same telephone and nothing else the same — so
+  // everything that differs between a courtesy and an ultimatum is DATA:
+  // office, country, the flag on the terminal, how the switchboard announces
+  // it, and what either answer is worth. All of it comes from WORLD_LEADERS in
+  // data.js, and which of a leader's takes gets played is decided there too and
+  // handed in as `V`.
   // ============================================================
 
-  // The flag pin, drawn at r=8 around a local origin so both flags are
+  // The flag pin, drawn at r=8 around a local origin so every flag is
   // interchangeable wherever it is dropped. Simplified on purpose: at 17px
   // across on screen, a faithful Union Jack is mud — the diagonals and the
   // cross are the whole recognisable signature and everything else is noise.
+  // The same rule picks the Israeli flag apart: two bands and a six-pointed
+  // star, and the star is drawn as two OPEN triangles because a filled hexagram
+  // at this size is a blue dot.
+  const PINS = {
+    union: () =>
+      `<rect x="-8" y="-8" width="16" height="16" fill="#0c2074"/>` +
+      `<path d="M-8-8 L8 8 M-8 8 L8-8" stroke="#f4f6fb" stroke-width="3.6"/>` +
+      `<path d="M-8-8 L8 8 M-8 8 L8-8" stroke="#c8102e" stroke-width="1.7"/>` +
+      `<path d="M-8 0 H8" stroke="#f4f6fb" stroke-width="5.4"/>` +
+      `<path d="M0-8 V8" stroke="#f4f6fb" stroke-width="5.4"/>` +
+      `<path d="M-8 0 H8" stroke="#c8102e" stroke-width="3"/>` +
+      `<path d="M0-8 V8" stroke="#c8102e" stroke-width="3"/>`,
+    tricolore: () =>
+      `<rect x="-8" y="-8" width="5.34" height="16" fill="#0d3b93"/>` +
+      `<rect x="-2.67" y="-8" width="5.34" height="16" fill="#f4f6fb"/>` +
+      `<rect x="2.67" y="-8" width="5.34" height="16" fill="#c8102e"/>`,
+    magen: () =>
+      `<rect x="-8" y="-8" width="16" height="16" fill="#f4f6fb"/>` +
+      `<rect x="-8" y="-6.4" width="16" height="2.1" fill="#0d3b93"/>` +
+      `<rect x="-8" y="4.3" width="16" height="2.1" fill="#0d3b93"/>` +
+      `<path d="M0-3.5 L3.03 1.75 L-3.03 1.75 Z M0 3.5 L3.03-1.75 L-3.03-1.75 Z" ` +
+        `fill="none" stroke="#0d3b93" stroke-width="1.15" stroke-linejoin="round"/>`,
+  };
+
   function flagPin(kind, id) {
     const clip = `lc-pin-${id}`;
-    const inner = kind === 'union'
-      ? `<rect x="-8" y="-8" width="16" height="16" fill="#0c2074"/>` +
-        `<path d="M-8-8 L8 8 M-8 8 L8-8" stroke="#f4f6fb" stroke-width="3.6"/>` +
-        `<path d="M-8-8 L8 8 M-8 8 L8-8" stroke="#c8102e" stroke-width="1.7"/>` +
-        `<path d="M-8 0 H8" stroke="#f4f6fb" stroke-width="5.4"/>` +
-        `<path d="M0-8 V8" stroke="#f4f6fb" stroke-width="5.4"/>` +
-        `<path d="M-8 0 H8" stroke="#c8102e" stroke-width="3"/>` +
-        `<path d="M0-8 V8" stroke="#c8102e" stroke-width="3"/>`
-      : `<rect x="-8" y="-8" width="5.34" height="16" fill="#0d3b93"/>` +
-        `<rect x="-2.67" y="-8" width="5.34" height="16" fill="#f4f6fb"/>` +
-        `<rect x="2.67" y="-8" width="5.34" height="16" fill="#c8102e"/>`;
+    const inner = (PINS[kind] || PINS.tricolore)();
     return `<clipPath id="${clip}"><circle cx="0" cy="0" r="8"/></clipPath>` +
       `<g clip-path="url(#${clip})">${inner}</g>` +
       `<circle cx="0" cy="0" r="8" fill="none" stroke="#d8b46a" stroke-width="1.4"/>`;
@@ -4164,8 +4182,12 @@ const UI = (() => {
     // No pronoun follows it: these are offices rather than named characters,
     // and the game has no business assigning one a gender it never established.
     const midSentence = L.name.charAt(0).toLowerCase() + L.name.slice(1);
+    // The courtesy announcement, unless the leader carries one of its own —
+    // an ally ringing to thank you and an ally ringing the night before it goes
+    // alone are not put through the same way.
     $('lc-line').innerHTML = `<span class="dim">SECRETARY OF STATE —</span> ` +
-      `Mr. President, ${midSentence} is on the line, and would like to speak to you personally.`;
+      (L.announce ||
+        `Mr. President, ${midSentence} is on the line, and would like to speak to you personally.`);
     $('lc-outcome').classList.add('hidden');
     $('lc-effect').classList.add('hidden');
     $('lc-footer').innerHTML = '';
@@ -4190,12 +4212,24 @@ const UI = (() => {
       if (onDone) onDone();
     };
 
-    const effect = (text, bad) => {
+    // What the answer cost or bought, written off the leader's own `stakes`
+    // (see WORLD_LEADERS) rather than hardcoded here — the coalition's calls
+    // move standing abroad and Jerusalem's is billed at home. A branch with
+    // nothing in it draws no box at all: this popup's effect line is for
+    // numbers, and a call that is purely information has none to show. That is
+    // the correct rendering of taking Jerusalem's warning — what it buys is a
+    // turn's notice, and the readout underneath says so in words.
+    const STAKE_NAMES = { world: 'WORLD OPINION', approval: 'APPROVAL', oil: 'OIL' };
+    const effect = (s) => {
       const box = $('lc-effect');
-      box.textContent = text;
-      box.classList.toggle('bad', !!bad);
+      const keys = Object.keys(STAKE_NAMES).filter(k => s && s[k]);
+      if (!keys.length) { box.classList.add('hidden'); return; }
+      box.textContent = keys.map(k => `${STAKE_NAMES[k]} ${Txt.signed(s[k])}`).join('  ·  ');
+      box.classList.toggle('bad', keys.some(k => s[k] < 0));
       box.classList.remove('hidden');
     };
+    const stakes = (accepted) =>
+      (L.stakes && L.stakes[accepted ? 'accept' : 'decline']) || {};
 
     const btn = (label, cls, fn) => {
       const b = document.createElement('button');
@@ -4212,7 +4246,7 @@ const UI = (() => {
       modal.classList.add('ended');
       $('lc-state-text').textContent = 'DECLINED — CALL PASSED TO STATE';
       $('lc-line').textContent = L.declined;
-      effect('WORLD OPINION −1', true);
+      effect(stakes(false));
       $('lc-footer').innerHTML = '';
       btn('ACKNOWLEDGE', 'btn-primary', close);
     });
@@ -4223,7 +4257,7 @@ const UI = (() => {
       modal.classList.add('connected');
       $('lc-state-text').textContent = 'LINE OPEN — SECURE';
       $('lc-line').textContent = V.caption;
-      effect('WORLD OPINION +1', false);
+      effect(stakes(true));
       $('lc-footer').innerHTML = '';
       // The clip is the scene. END CALL cuts it short and hands straight on to
       // the same finish the clip would have reached on its own, so a player who

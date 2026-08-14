@@ -3320,15 +3320,25 @@ const IRAN_LAUNCH_SITES = {
 // ---- Hormuz indicator location ----
 const HORMUZ_POS = { x: 607, y: 494 };
 
-// ---- Allied heads of government who call the moment the coalition forms ----
-// Assembling the coalition is the one diplomatic action that puts other
-// governments' names on the operation, so it is the one that earns a personal
-// call. Both of them ring — London first, off the cable itself, then Paris the
-// following turn (see `leaderCalls` in game.js). Taking a call is worth +1 world
-// opinion, refusing it -1. Deliberately small numbers — this is a courtesy, not
-// a lever, and it should never be worth farming. The whole point is that it
-// costs the player nothing but a click and they still have to decide whether to
-// be bothered.
+// ---- Heads of government who ring the White House personally ----
+// Two occasions, and they are not the same kind of call. Assembling the
+// coalition is the one diplomatic action that puts other governments' names on
+// the operation, so it is the one that earns a courtesy: both allies ring —
+// London first, off the cable itself, then Paris the following turn (see
+// `leaderCalls` in game.js). Taking a call is worth +1 world opinion, refusing
+// it -1. Deliberately small numbers — that is a courtesy, not a lever, and it
+// should never be worth farming. The whole point is that it costs the player
+// nothing but a click and they still have to decide whether to be bothered.
+//
+// The third entry is the other kind, and it is the reason `stakes` exists as a
+// field rather than a pair of literals in game.js: Jerusalem does not ring to
+// thank anybody. See the Israeli entry below.
+//
+// `stakes` is what answering is worth, banked at pickup. The keys are the
+// currencies UI.openLeaderCall knows how to write on the card, and a branch
+// with nothing in it is a branch that costs nothing — the card simply shows no
+// number, which is the honest rendering of a call that is information rather
+// than a transaction.
 //
 // Each leader has two versions of the same call, chosen on world opinion at the
 // moment the coalition forms (LEADER_STRONG_WORLD). Above the line the ally
@@ -3363,6 +3373,7 @@ const WORLD_LEADERS = [
     office: 'The Prime Minister',
     country: 'UNITED KINGDOM',
     pin: 'union',
+    stakes: { accept: { world: 1 }, decline: { world: -1 } },
     declined: 'You let it go to the Secretary of State. It is noticed. A Number 10 spokesman is ' +
       'asked whether the Prime Minister has spoken to the President and declines to say — which ' +
       'is itself the story by the evening broadcasts.',
@@ -3394,6 +3405,7 @@ const WORLD_LEADERS = [
     office: 'The President',
     country: 'FRANCE',
     pin: 'tricolore',
+    stakes: { accept: { world: 1 }, decline: { world: -1 } },
     declined: 'You let it go to the Secretary of State. Paris reads the snub exactly as a snub. ' +
       'Whatever the President intended to say to you privately is said in public instead, ' +
       'and the French position on this war hardens a degree overnight.',
@@ -3414,6 +3426,56 @@ const WORLD_LEADERS = [
         'that the two of you spoke. France is out, and the President thought enough of the ' +
         'relationship to say so directly rather than let you learn it from a communiqué. ' +
         'Taking the call was the only part of this you controlled.',
+    },
+  },
+  // ---- and the call that is not a courtesy ----
+  // Placed by Jerusalem one turn out from a unilateral launch — the same secure
+  // line, the same popup, an entirely different conversation. Queued in
+  // `israelTurn` off israelEta() rather than off a threshold of its own, so the
+  // night the Prime Minister says "tomorrow" is the night the ALLIES panel has
+  // been saying it too; see the comment at the queue site in game.js.
+  //
+  // Sidelined Israel only, and at most once a war. A coordinated Israel is
+  // already inside the tasking order and has nothing to threaten; a unilateral
+  // one has already carried the threat out, and an ultimatum is spent the
+  // moment it is executed.
+  //
+  // ON THE STAKES. Taking it buys nothing and that is deliberate: this call is
+  // information, and the information is the whole payload — a president who
+  // picks up gets one turn's notice and two real answers to it (bring them
+  // inside the tasking order, or ask them to hold). The snub is charged AT
+  // HOME, which is where this game has always billed the Israel relationship —
+  // see `holdApproval` in ISRAEL, the one diplomatic action priced in approval
+  // rather than standing abroad. Standing abroad is about to take the
+  // unilateral strike's own -15 regardless, and charging the snub there too
+  // would be the same event billed twice. It cannot be farmed in either
+  // direction: it fires once, unprompted, and the branch worth taking is the
+  // one that costs nothing.
+  {
+    id: 'israel',
+    name: 'The Prime Minister of Israel',
+    office: 'The Prime Minister',
+    country: 'ISRAEL',
+    pin: 'magen',
+    stakes: { accept: {}, decline: { approval: -3 } },
+    // The switchboard's own line, overriding the courtesy announcement — an
+    // ally asking to be put through is not the same event as an ally who has
+    // been holding since the evening and is not asking for an appointment.
+    announce: 'Mr. President, the Prime Minister of Israel is holding on the secure line — ' +
+      'not through the Embassy, and not asking for an appointment.',
+    declined: 'You let it go to the Secretary of State. The message is delivered anyway, ' +
+      'to a Cabinet Secretary rather than to you, and Jerusalem makes sure the sequence is on ' +
+      'the record: that the warning was given, that it was given in time, and that the ' +
+      'President of the United States was not on the line to hear it.',
+    standard: {
+      clip: 'israelPmCall',
+      caption: 'The Prime Minister tells you Iran has left Israel no choice but to defend ' +
+        'itself, and asks you to coordinate — or Israel is prepared to act alone.',
+      accepted: 'You take the call. It is short and there is nothing conditional in it: the ' +
+        'Israeli Air Force is ready to go against the program, and Jerusalem would rather go ' +
+        'inside your plan than around it. What you have bought by picking up is a night of ' +
+        'warning and the two answers that fit inside one — fold them into the tasking order, ' +
+        'or ask them, again, to wait.',
     },
   },
 ];

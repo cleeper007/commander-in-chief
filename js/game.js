@@ -5133,10 +5133,15 @@ const Game = (() => {
         // to the world as it stood the moment the coalition formed, and a war
         // that turns ugly overnight should not retroactively cool a call that
         // was already placed.
-        G.leaderCalls = [
+        //
+        // Appended rather than assigned: the queue is no longer only the
+        // coalition's, and Jerusalem's warning may already be in it — answered
+        // or still ringing. Overwriting it would drop the record that the call
+        // was placed, which is the once-a-campaign guard warningCall() reads.
+        G.leaderCalls = (G.leaderCalls || []).concat([
           { who: 'uk', tone, turn: G.turn, answered: false },
           { who: 'france', tone, turn: G.turn + 1, answered: false },
-        ];
+        ]);
         break;
       }
       case 'israel': {
@@ -5406,11 +5411,16 @@ const Game = (() => {
       events, after);
   }
 
-  // ---- the allied call ----
-  // Taking it is +1 world opinion, refusing it -1. The swing is deliberately
-  // trivial: this is a courtesy, not a lever, and a president who cannot spare
-  // ninety seconds for an ally who just committed their own aircrew should pay
-  // for it in exactly the currency the snub is denominated in — nothing else.
+  // ---- the head-of-government call ----
+  // One popup, two occasions. The coalition's two allies ring to thank the
+  // president: taking it is +1 world opinion, refusing it -1, and the swing is
+  // deliberately trivial — that is a courtesy, not a lever, and a president who
+  // cannot spare ninety seconds for an ally who just committed their own
+  // aircrew should pay for it in exactly the currency the snub is denominated
+  // in and nothing else. Jerusalem rings for the opposite reason, the night
+  // before it goes alone. What each answer is worth is on the leader
+  // (`stakes` in WORLD_LEADERS), because those two calls have nothing in
+  // common but the telephone.
 
   // A call nobody has answered yet whose turn has come round. The queue is in
   // order, so this is always the earliest one outstanding.
@@ -5425,6 +5435,19 @@ const Game = (() => {
   // Fire the outstanding call, if there is one, CALL_DELAY after whatever the
   // player was just looking at. `done` runs either way and exactly once, so a
   // caller can hand its continuation straight through.
+  //
+  // KNOWN, PRE-EXISTING, AND DELIBERATELY LEFT ALONE HERE. The board under the
+  // pause is live — the popup is modal, the three seconds in front of it are
+  // not — so a president who spends a free action inside the window ends that
+  // action's report on a second maybeLeaderCall against the same unanswered
+  // call, and the popup owns one set of DOM nodes. Jerusalem's warning makes
+  // that window reachable in about a third of campaigns rather than only off
+  // the coalition cable. It wants a fix and the fix is not free: guarding it
+  // with a "already ringing" flag moves 654 of 1440 campaigns and swings easy
+  // by 8-30 points of win rate, because the continuations that pile up behind
+  // the call are the brief chain on the one level that is played through it.
+  // That is a measured change to how the game plays and it does not belong in
+  // the same commit as a phone call.
   function maybeLeaderCall(done) {
     if (!pendingLeaderCall()) { if (done) done(); return; }
     setTimeout(() => leaderCall(done), CALL_DELAY);
@@ -5443,7 +5466,15 @@ const Game = (() => {
       // must not lose a decision the player already made
       (accepted) => {
         call.answered = true;
-        G.world = clamp(G.world + (accepted ? 1 : -1), 0, 100);
+        // What answering was worth comes off the leader, not off this function:
+        // the coalition's two ring to thank the president and Jerusalem's rings
+        // to warn them, and those cannot share a pair of literals. Unscaled by
+        // difficulty on purpose — `applyEvent`'s retaliation multiplier is for
+        // what Tehran does to the country, and a president declining to pick up
+        // the phone costs the same on every setting.
+        const s = (L.stakes && L.stakes[accepted ? 'accept' : 'decline']) || {};
+        if (s.world) G.world = clamp(G.world + s.world, 0, 100);
+        if (s.approval) G.approval = clamp(G.approval + s.approval, 0, 100);
         UI.renderAll(G);
         Save.write();
       },
@@ -5459,6 +5490,49 @@ const Game = (() => {
   // The promise to hold is paid down here rather than in the diplomacy handler,
   // for the same reason crew-rest debt is: a countdown that only ticks on turns
   // the player did something is not a countdown, it is a trap.
+
+  // ---- the night before ----
+  // Jerusalem does not go up out of a clear sky at a president they are still
+  // talking to. One turn out from a unilateral launch the Prime Minister rings
+  // the White House personally and says so — the only call in the game that is
+  // not a courtesy, placed through the same secure-line popup as London's and
+  // Paris's (see the Israeli entry in WORLD_LEADERS).
+  //
+  // Read off israelEta() rather than a second threshold of its own, so the
+  // night the Prime Minister says "tomorrow" is the same night the ALLIES panel
+  // and every advisor line are already saying it: eta 1 IS tomorrow night. A
+  // warning with its own cut could tell the president one thing while the gauge
+  // beside it told them another, which is the bug the ETA projection exists to
+  // have stopped.
+  //
+  // Only from SIDELINED, and it is checked here rather than being folded into
+  // the eta because the two facts mean different things: a coordinated Israel
+  // is already inside the tasking order and has nothing to threaten, and a
+  // unilateral one carried the threat out the first time the gauge filled.
+  //
+  // Once a campaign, guarded off the QUEUE rather than a new flag on G. An
+  // entry in `leaderCalls` is already the record that this call was placed, it
+  // is already on FIELDS, and a president who saved the war with the phone
+  // ringing resumes with it ringing — none of which a second field would do
+  // better, and it would need a VERSION bump to do at all.
+  //
+  // Nothing here is guaranteed: a salvo that lands on Israel is worth 8 on a
+  // gauge whose ambient climb is 3.5, so a bad night can carry Jerusalem from
+  // two turns out to airborne without ever standing on one. That is honest —
+  // the night Iranian warheads land in Tel Aviv is not the night the Prime
+  // Minister calls to discuss coordination — and it is the reason the call is a
+  // warning rather than a promise.
+  function warningCall() {
+    if (G.israelPosture !== 'sidelined') return;
+    if ((G.leaderCalls || []).some(c => c.who === 'israel')) return;
+    if (israelEta() !== 1) return;
+    // Queued for tonight, which means it rings after the night's reports at the
+    // turn boundary — the president reads what the war did, and then the phone
+    // goes. `tone` is the only take there is: this call does not soften with
+    // world opinion, because it is not about the United States' standing.
+    G.leaderCalls.push({ who: 'israel', tone: 'standard', turn: G.turn, answered: false });
+  }
+
   function israelTurn() {
     if (G.israelHold > 0) G.israelHold--;
 
@@ -5472,7 +5546,7 @@ const Game = (() => {
     // this war yet, and there is no ally to be unpredictable about.
     const early = G.israelPosture !== 'sidelined' &&
       G.israelPressure >= ISRAEL.earlyFloor && Math.random() < ISRAEL.earlyFly;
-    if (G.israelPressure < ISRAEL.fly && !early) return null;
+    if (G.israelPressure < ISRAEL.fly && !early) { warningCall(); return null; }
 
     // They are going. Posture decides whose war it is — and a sidelined Israel
     // that reaches this point is a sidelined Israel no longer: the first
