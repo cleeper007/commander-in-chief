@@ -475,14 +475,25 @@ const Game = (() => {
     // The leadership target died — whether or not the task force came home.
     // 'pyrrhic' bought the same decapitation at the price of the whole team.
     raidDecapitated() { return this.raid === 'success' || this.raid === 'pyrrhic'; },
+    // Where the second half of the gate sits tonight — `DIFFICULTY.dealBar`, on
+    // the 0..4 combined scale. One home, read by all three of the functions
+    // below, because a bar that moved in the gate and not in the odds would open
+    // the window onto a 3% chance and a progress readout that never reaches 100.
+    dealBar() { return diff().dealBar != null ? diff().dealBar : 1.5; },
     negotiationReady() {
       // Tehran only talks when it is already losing the war: the program gone
       // AND its ability to fight visibly draining away. The raid does NOT
       // discount this gate — killing the leadership cannot substitute for
       // destroying the thing the war is about, or the raid becomes the game.
       // What it buys instead is a better chance at the table (see doDiplo).
+      //
+      // The PROGRAM half is not scaled and is not going to be. It is the thing
+      // the war is about and there is no partial credit for it on any level;
+      // what `dealBar` scales is only how much of the fighting has to be over
+      // before the pragmatists can move, which is a judgement about Tehran's
+      // politics rather than about the objective.
       const warStr = IranAI.missileStrength() + IranAI.navalStrength(); // 0..4
-      return this.nukeDegraded() >= 100 && warStr <= 1.5;
+      return this.nukeDegraded() >= 100 && warStr <= this.dealBar();
     },
     // ---- HOW FAR TEHRAN IS FROM THE TABLE (v2.05) ----
     // The negotiation gate, component by component, scored exactly the way
@@ -508,13 +519,16 @@ const Game = (() => {
     dealProgress() {
       const m = IranAI.missileStrength(), n = IranAI.navalStrength(); // each 0..2
       const deg = this.nukeDegraded();
+      const bar = this.dealBar();
       // Same "how far to the bar" shape warMachine() uses, so a percentage here
-      // and a percentage in the objectives panel mean the same thing.
-      const pct = Math.max(0, Math.min(100, Math.round(100 * (4 - (m + n)) / (4 - 1.5))));
+      // and a percentage in the objectives panel mean the same thing — and it
+      // reads against THIS level's bar, so 100% always means "the window is
+      // open" rather than "the window would be open on normal".
+      const pct = Math.max(0, Math.min(100, Math.round(100 * (4 - (m + n)) / (4 - bar))));
       return {
         open: this.negotiationReady(),
         program: { done: deg >= 100, pct: Math.min(100, Math.round(deg)) },
-        machine: { done: m + n <= 1.5, pct },
+        machine: { done: m + n <= bar, pct },
         // The arm with the most left in it, because the bar is on the SUM of two
         // weighted means and there is no per-arm bar to clear — only the larger
         // of the two numbers to bring down. Measured over 40 shared seeds on
@@ -534,7 +548,14 @@ const Game = (() => {
     dealOdds() {
       const warStr = IranAI.missileStrength() + IranAI.navalStrength(); // 0..4
       const irgcDown = TARGETS.find(t => t.id === 'irgc-hq').status === 'destroyed';
-      return clamp(0.08 + (1.5 - warStr) * 0.12 + (irgcDown ? 0.08 : 0) +
+      // MEASURED FROM THE BAR, not from a literal 1.5, and this is the half of
+      // `dealBar` that is easy to miss. The term is what a president earns by
+      // going on fighting after the window opens, so it has to be zero AT the
+      // bar on every level: pinned to 1.5, an easy war opening at 2.5 would
+      // arrive at −0.12 and clamp to a 3% chance, which is a window that is
+      // open in name only and cannot be worked. Identical arithmetic on normal
+      // and hard, where the bar IS 1.5.
+      return clamp(0.08 + (this.dealBar() - warStr) * 0.12 + (irgcDown ? 0.08 : 0) +
         this.sanctions * 0.03 + this.negotiationMomentum +
         (this.raidDecapitated() && !this.regimeErratic ? 0.10 : 0) +
         (this.regimeChaosTurns > 0 ? 0.15 : 0) - (this.regimeErratic ? 0.15 : 0), 0.03, 0.65);

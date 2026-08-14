@@ -2541,6 +2541,41 @@ const INTEL_SLATE = {
 //                  side. On a level with the panel it is a mark on one order;
 //                  on a level with the dialog it is the three staffed tracks.
 //   pgm            campaign precision-munitions reservoir. 0 = no ledger kept
+//   dealBar        how much of Iran's war machine has to be gone before Tehran
+//                  will take the call — the other half of negotiationReady(),
+//                  on IranAI's 0..4 combined scale. This is the ONE knob in the
+//                  table that moves a victory condition rather than a price,
+//                  and it is here rather than hardcoded for the reason
+//                  everything else is: nothing should pin a threshold that
+//                  difficulty is supposed to scale.
+//
+//                  It exists because the negotiated ending was measured
+//                  (`.claude/betatest/deal.js`, v2.05) and found to arrive after
+//                  the campaign it belongs to. ARMISTICE is the most common win
+//                  in the game, the enrichment program finishes on turn 15 of an
+//                  easy campaign, and at 1.5 the second half of the gate did not
+//                  land until turn 29 — of a war that ends on turn 29. So a
+//                  president who did everything right spent the last fourteen
+//                  turns with no reachable ending, which is the same failure the
+//                  covert tier had at v1.66: a whole mechanic priced against a
+//                  war nobody plays. Measured on the same 120 campaigns, the
+//                  curve is smooth — 1.8 opens on turn 26, 2.0 on 24, 2.2 on 23,
+//                  2.5 on 21, 3.0 on 19.
+//
+//                  2.5 on easy is deliberately not the earliest of those. It is
+//                  the point where Tehran has lost the program the war is about
+//                  AND better than a third of what it fights with, which is a
+//                  board a player can look at and agree is a defeat — the prose
+//                  on that ending says TEHRAN SUES FOR PEACE and it has to be
+//                  true. Past about 2.8 the window opens with three quarters of
+//                  the war machine intact, and the armistice stops reading as a
+//                  won war and starts reading as the game letting you leave.
+//                  It also keeps a real on-ramp: the halls fall on turn 15 and
+//                  the window opens on 21, so the six turns in between are still
+//                  the `deal` concern telling the president what is left.
+//
+//                  NORMAL AND HARD STAY AT 1.5. What easy buys here is an
+//                  ending it can reach, not a softer war.
 //
 // EASY is the war as a president experiences it: three staffed options, one
 // pick, a marked recommendation on the diplomatic side, and no map targeting at
@@ -2718,7 +2753,7 @@ const INTEL_SLATE = {
 const DIFFICULTY = {
   easy:   { name: 'EASY', casualties: 320, repair: 0.75, coord: 0.85, breakout: 1.25, israel: 0.75, bmd: 1.35, covert: 1.3, retaliation: 0.55, softGate: false,
     coa: 3, coaFill: 'full', freeTargeting: false, recommend: true, pgm: 0,
-    coaSigns: 1, coaSurge: 2, strike: { base: 1.30, perFlow: 0.08, edge: 0.03 },
+    coaSigns: 1, coaSurge: 2, strike: { base: 1.30, perFlow: 0.08, edge: 0.03 }, dealBar: 2.5,
     plainAssets: true, intelSlate: 3,
     railPanels: ['advisors', 'resources', 'specops'],
     popups: ['brief', 'recovery', 'diplo', 'intel'], autoTheater: true,
@@ -2726,12 +2761,12 @@ const DIFFICULTY = {
     desc: 'You\'re President. Each night, CENTCOM briefs you on the situation and gives you options. You pick one. That\'s it — no micromanaging strikes, no moving ships around, no target lists. Just decisions.' },
   normal: { name: 'NORMAL', casualties: 250, repair: 1, coord: 1, breakout: 1, israel: 1, bmd: 1, covert: 1, retaliation: 0.75, softGate: false,
     coa: 2, coaFill: 'half', freeTargeting: true, recommend: false, pgm: 0,
-    coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0,
+    coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0, dealBar: 1.5,
     railPanels: null, popups: [], autoTheater: false,
     desc: 'A staff you can overrule. Two options are briefed each night and neither one fills the tasking order — what is left over you frag yourself, off the map, against whatever you think they have missed. The war as designed.' },
   hard:   { name: 'HARD', casualties: 190, repair: 1.25, coord: 1.15, breakout: 0.85, israel: 1.3, bmd: 0.7, covert: 0.75, retaliation: 1, softGate: true,
     coa: 0, coaFill: 'full', freeTargeting: true, recommend: false, pgm: 440,
-    coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0,
+    coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0, dealBar: 1.5,
     railPanels: null, popups: [], autoTheater: false,
     desc: 'You are the air component commander and nobody is drafting anything for you. Every package by hand, a finite stock of precision weapons that only the munitions ships replace, less patience at home, faster Iranian repair, a light interceptor magazine and no patience at all in Jerusalem. The staff will fly any plan you sign and hand you the casualty list afterwards.' },
 };
