@@ -4567,7 +4567,29 @@ const Game = (() => {
       // watchdog: if the animation frame loop is throttled (background tab),
       // resolve anyway — a stalled animation must never hold up the war
       let resolved = false;
-      const finishBatch = () => {
+      // A BATCH IS A HOP, and it has to be, for two reasons that are really one.
+      //
+      // The resolution watchdog gives each leg RESOLVE_TIMEOUT and re-arms on
+      // every guard() — but until this wrapper existed there was no guard
+      // between `resolveTurn` and `bda`, so the whole night's footage shared one
+      // 45s budget. Every package's launch clip GATES its flight (see
+      // overlayScopeClip's onEnd in map.js), so the cost is serial and it is
+      // large: a TLAM is 10.7s, a fighter off a deck 14.6s, a BUFF 19.5s, and
+      // whenFootageDone then holds for the last hit clip's tail — up to 8s. At
+      // ATO.base alone that is ~48s for three carrier sorties, and the plan
+      // grows. A player who watched the footage instead of skipping it was shown
+      // TURN RESOLUTION FAULT on most nights of most campaigns, for a turn that
+      // was resolving perfectly well. The modal escape in armWatchdog could
+      // never cover it: a scope card lives in #flight-status and is not an
+      // .overlay, because it is not something the turn is waiting on a person to
+      // dismiss — it is the turn happening.
+      //
+      // And this is the one part of the night that ran OUTSIDE the boundary at
+      // all. finishBatch is called from map.js's rAF frame, so a throw in
+      // resolveImpact, covertLead or renderAll unwound into the browser's event
+      // loop past every catch there is — the exact strand-forever failure the
+      // boundary below exists to have deleted, in the one place it wasn't.
+      const finishBatch = guard(`strike:${head.targetId}`, () => {
         if (resolved) return;
         resolved = true;
         AudioSys.play('impact');
@@ -4590,16 +4612,30 @@ const Game = (() => {
             batchEvents.some(ev => ev.outcome === 'destroyed'));
         UI.renderAll(G);
         next();
-      };
+      });
       MapView.animateStrike(head.pkg.asset, target, finishBatch, count, head.pkg);
-      // watchdog window must clear the whole run; a launch clip plays before the
-      // flight (TLAMs always, carrier fighter sorties sometimes), so allow extra
-      // time before force-resolving. Fighters can't be told apart here, so the
-      // allowance is applied to all of them — it only delays the stall fallback.
-      // the submarine shot runs on its own (longer) clock and plays no launch
-      // clip — a torpedo swims out of the tube, it doesn't breach and boost
+      // The stall fallback, and it must land BEHIND the animation for every
+      // asset that has one — a fallback that fires first is not a safety net,
+      // it is the primary path, and it resolves the batch while the formation
+      // is still inbound. playStrikeHit is called from finishBatch, so the
+      // explosion goes onto a scope card whose aircraft have not arrived yet.
+      //
+      // A launch clip plays in full before the run and gates it, so the
+      // allowance has to cover the clip: TLAMs always (4.2s), fighters and
+      // F-35s off a deck (4.1s), and a heavy package flying the BUFF (5.5s).
+      // The first cut listed cruise and fighter only, which is right for the
+      // one it was written for and wrong twice — `f35` is its own asset key,
+      // not a kind of fighter, and the B-52 roll is the longest clip in the
+      // game. Both fell 0.6s and 2.0s short, on every package they flew.
+      // Whether a given sortie actually launches off a deck cannot be told
+      // apart here, so the allowance goes to the whole tier; it only ever
+      // delays the fallback, and being late is this timer's whole job.
+      // The submarine shot runs on its own (longer) clock and plays no launch
+      // clip — a torpedo swims out of the tube, it doesn't breach and boost.
       const launchClip = head.pkg.sub ? 0
-        : head.pkg.asset === 'cruise' || head.pkg.asset === 'fighter' ? 5000 : 0;
+        : head.pkg.asset === 'heavy' ? 6000
+        : head.pkg.asset === 'cruise' || head.pkg.asset === 'fighter' ||
+          head.pkg.asset === 'f35' ? 5000 : 0;
       const runDur = FLIGHT_DUR[head.pkg.sub ? 'sub' : head.pkg.asset] || 1000;
       setTimeout(finishBatch, runDur + launchClip + 3500);
     };
