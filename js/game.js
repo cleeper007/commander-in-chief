@@ -2219,6 +2219,14 @@ const Game = (() => {
     if (G.over || busy()) return;
     const armed = briefPending;
     briefPending = false;      // clearing first is what puts END TURN back
+    // `armed` is the READY FOR OPTIONS press and only that press: the two
+    // buttons are never both live (see syncBriefButton), so BRIEF ME can only
+    // arrive here with it already false. That is also what gates the clip to
+    // easy without a difficulty test — briefPending is written by openBrief,
+    // which returns early unless popup('brief'), and easy is the only level
+    // that carries it. The G.over/busy() gate above stands in front of both,
+    // so a press the game refuses does not get a voice either.
+    if (armed) AudioSys.play('briefReady');
     // briefOptions, not coaOptions: pressing BRIEF ME after the night is signed
     // is the other door to the surge, and it must show the same slate the folder
     // would have walked into (see surgeOption).

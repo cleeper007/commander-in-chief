@@ -26,6 +26,15 @@ const AudioSys = (() => {
     hormuzClosure: 'hormuz-closure.mp3',        // the strait slams shut
     targetMarked: 'target-marked.mp3',          // a package is authorized onto a target
     bdaReport: 'bda-report.mp3',                // the damage assessment lands on the table
+    // The staff at the door of the folder, on the one level that has a folder:
+    // played off READY FOR OPTIONS and nowhere else. Deliberately NOT in VOICE
+    // below, and it is the first spoken clip that isn't — the watch card is
+    // drawn on the map, and the dialog this announces covers the map a beat
+    // later, so a card raised here would be a caption behind the thing it is
+    // captioning. What it says is also the only thing in the game already
+    // written on the control that fired it, which is the other half of why the
+    // transcript rule exists at all. ~2.2 s.
+    briefReady: 'brief-ready.mp3',
     // Rotor wash and interphone under the JSOC infil. ~28s, which is the length
     // of the infil sequence in specops.js — it runs out on its own as the team
     // hits the ramp, so the branch beats after the objective play into silence.
