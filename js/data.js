@@ -2376,12 +2376,26 @@ const STATECRAFT = {
     // folder is not worth reading. It stays BRIEFABLE while shut — sanctions
     // build the leverage it eventually spends, and a president who wants to
     // probe should be able to — it simply stops leading.
-    backchannel: { answers: ['stall', 'vote', 'home'], weight: 1.0, scale: 1.0, ready: 2.6, unready: 0.3 },
+    // `deal` was added at v2.05 and it is the concern this order was always
+    // arguing from — it simply did not exist, so the ranker reached past it to
+    // the next-worst thing the order touches. Measured over 337 window-open
+    // nights on easy, the backchannel led TRACK ONE 100% of the time (the
+    // multipliers below do that on their own) under a read line that said
+    // "29 turns in, 2 of 3 gates closed, the navy lagging at 42%" — `stall`,
+    // which is the war being STUCK, printed over the one order that ends it.
+    // The ranking was never the bug; the sentence under it was.
+    backchannel: { answers: ['deal', 'stall', 'vote', 'home'], weight: 1.0, scale: 1.0, ready: 2.6, unready: 0.3 },
 
     // Standing abroad is the master variable and both basing tiers hang off it,
     // so the order that buys it back is priced against the ramps folding.
     un:          { answers: ['basing'], weight: 0.95, scale: 1.3 },
-    sanctions:   { answers: ['stall'], weight: 0.6, scale: 0.8 },
+    // Sanctions answer `deal` under the "what it FIXES" rule and not by
+    // association: G.sanctions is a term in dealOdds() worth three points of
+    // probability each, so a president stacking them is doing the one thing
+    // that makes the channel land other than killing more of the war machine.
+    // It is the right thing for the staff to brief on the nights the program is
+    // finished and the arms are still above the bar.
+    sanctions:   { answers: ['deal', 'stall'], weight: 0.6, scale: 0.8 },
 
     // `home` and NOT `strait`, though a reserve draw is obviously about oil.
     // There is no "the barrel is high" concern — the closest is `strait`, whose

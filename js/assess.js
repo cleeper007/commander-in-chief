@@ -237,6 +237,14 @@ const Assess = (() => {
         .filter(e => !e.known && e.hi - e.lo >= 30).length,
       boxes: Game.suspectedBoxes().length,
 
+      // ---- the other way this ends ----
+      // Read through Game.dealProgress() for the same reason `gate` goes
+      // through warMachine(): it is scored exactly as negotiationReady() scores
+      // it, so nothing in here can tell the president they are closer to the
+      // table than the gate thinks they are. Rule 1 — the president sees this
+      // number, because the clauses below are where it is displayed.
+      deal: G.dealProgress(),
+
       // ---- is this working ----
       gate, gateDone: gate.filter(g => g.done).length,
       gateLag: gate.slice().sort((a, b) => a.pct - b.pct)[0],
@@ -401,6 +409,50 @@ const Assess = (() => {
       left: b => 'the Red Sea coast goes unanswered for another night',
     },
     {
+      // ---- THE OTHER WAY THIS ENDS (v2.05) ----
+      // Two arms, the way `strait` has two, and they are two different pieces
+      // of news rather than one on a dial. Before the window: the war the
+      // president is still flying has a stated destination and a number on it.
+      // After it opens: the war can simply be ended tonight.
+      //
+      // DOCTRINE IS DYNAMIC, and that is the point of putting this here rather
+      // than writing it into the diplomatic panel. With the window OPEN there is
+      // no doctrine at all — no package opens a channel, and a course of action
+      // offered as the answer to this would be selling a target list on the one
+      // night the war does not need one. Before it opens the doctrine is
+      // whichever arm is still holding the gate shut, so the staff starts
+      // briefing the thing that actually opens it. Measured over 40 shared seeds
+      // on easy, that re-sort alone is 65% → 75% win and the window on turn
+      // 28 → 25; expert never makes it, because until now nothing said to.
+      id: 'deal', doctrine: b => (b.deal.open ? null : b.deal.doctrine),
+      // The program is the price of admission and there is no partial credit for
+      // it: negotiationReady() is an AND, so a war 90% through the halls is at
+      // zero on this concern however broken Tehran's navy is.
+      when: b => b.deal.program.done,
+      // OPEN sits above `home` (0.94) and below a launcher fix, and it is
+      // perishable in the same sense `telfix` is — they repair, the sum climbs
+      // back over the bar and the window shuts again. The approaching arm tops
+      // out at 0.70, the ruler's own "decides the campaign" anchor and
+      // deliberately under the 0.8 the read cell paints amber at: this is the
+      // last third of the war having a purpose, not an alarm.
+      sev: b => (b.deal.open ? 0.95 : clamp(0.32 + 0.38 * b.deal.machine.pct / 100, 0, 0.70)),
+      // BOTH CLAUSES ARE WRITTEN TO A WIDTH. The read cell is a fixed two-line
+      // box (v1.83) sized against a rendered `phase — clause` that has never
+      // exceeded 122 characters, and every cell in that flex row is as tall as
+      // the tallest, so a third line steps the whole bottom bar and the map's
+      // edge with it. The longest phase this concern can appear under is
+      // GAINING AIR SUPERIORITY at 23, which leaves 96: the first draft of these
+      // two ran to 113 and 108 and took the measured maximum to 137.
+      now: b => b.deal.open
+        ? `Tehran is ready to talk — the channel ends this at about ` +
+          `${pc(Game.G.dealOdds())}%, and it shuts as they repair.`
+        : `Halls finished. A signed end needs their war machine at 100% — ` +
+          `${b.deal.machine.pct}%, the ${b.deal.arm} lagging.`,
+      left: b => b.deal.open
+        ? 'the channel stays shut on a night Tehran would have taken the call'
+        : `the ${b.deal.arm} keeps Tehran ${Txt.plural(100 - b.deal.machine.pct, 'point')} off the table`,
+    },
+    {
       id: 'stall', doctrine: 'pressure',
       // the argument for the other kind of target: the war has run long, the
       // gate has not moved, and what is left is the regime's own machinery
@@ -456,7 +508,12 @@ const Assess = (() => {
       if (!c.when(b)) continue;
       const sev = clamp(c.sev(b), 0, 1);
       if (sev <= 0.02) continue;
-      out.push({ id: c.id, doctrine: c.doctrine, sev, now: c.now(b), left: c.left(b) });
+      // `doctrine` may be a function of the board, because one concern's answer
+      // genuinely changes with it: which arm is holding the negotiation gate
+      // shut is whichever of the two is larger tonight, and once the window is
+      // open no tasking order answers it at all. Everything else is a literal.
+      const doctrine = typeof c.doctrine === 'function' ? c.doctrine(b) : c.doctrine;
+      out.push({ id: c.id, doctrine, sev, now: c.now(b), left: c.left(b) });
     }
     return out.sort((x, y) => y.sev - x.sev);
   }
@@ -481,6 +538,14 @@ const Assess = (() => {
     { id: 'collapse', name: 'HOLDING THE PRESIDENCY',
       when: b => b.runway !== null && b.runway <= 4,
       line: 'The war ends at home before it ends in Iran unless something visible changes tonight.' },
+    // Above `race` and below `collapse` — and it can never actually contend
+    // with `race`, because the window requires the program at 100% and that
+    // phase requires it under. It sits this high because it is the only frame
+    // in the list under which the correct night may involve no strike at all.
+    // 20 characters, inside the 23 the read cell's label slot is sized for.
+    { id: 'deal', name: 'A SIGNED END IS OPEN',
+      when: b => b.deal.open,
+      line: 'Tehran is broken enough to take the call. The channel is the shortest road left to a win.' },
     { id: 'race', name: 'RACING THE CENTRIFUGES',
       when: b => !b.brk.halted && b.brk.hi <= 6 && b.deg < 100,
       line: 'The breakout estimate is now inside the time it takes to do anything else on the list.' },

@@ -484,6 +484,61 @@ const Game = (() => {
       const warStr = IranAI.missileStrength() + IranAI.navalStrength(); // 0..4
       return this.nukeDegraded() >= 100 && warStr <= 1.5;
     },
+    // ---- HOW FAR TEHRAN IS FROM THE TABLE (v2.05) ----
+    // The negotiation gate, component by component, scored exactly the way
+    // negotiationReady() above scores it. Same invariant warMachine() carries
+    // for the military victory and for the same reason: anything that displays
+    // progress toward a signed end reads THIS, so the read line, the brief and
+    // the gate cannot drift.
+    //
+    // It exists because this game has two victory conditions and only one of
+    // them had a progress display. ARMISTICE is the most common win in the game
+    // by a factor of five — 223 of 270 in the v2.04 sweep — and it is the only
+    // ending a president has to ASK for; every other one arrives on its own.
+    // Measured in `.claude/betatest/deal.js` over 120 easy campaigns: the
+    // enrichment program finishes on turn 15 and this gate opens on turn 29,
+    // and for the fourteen turns in between nothing on the board said the war
+    // had a signable end or how far off it was. The order that ends it is
+    // ranked correctly — `backchannel` leads TRACK ONE on 100% of the nights
+    // the window is open — it simply opens after the campaign is over.
+    //
+    // So the deliverable was never the ranking. It is that the LAST THIRD OF
+    // THE WAR HAS A STATED PURPOSE: the program is finished, and what is left
+    // to do is a number with an arm's name on it.
+    dealProgress() {
+      const m = IranAI.missileStrength(), n = IranAI.navalStrength(); // each 0..2
+      const deg = this.nukeDegraded();
+      // Same "how far to the bar" shape warMachine() uses, so a percentage here
+      // and a percentage in the objectives panel mean the same thing.
+      const pct = Math.max(0, Math.min(100, Math.round(100 * (4 - (m + n)) / (4 - 1.5))));
+      return {
+        open: this.negotiationReady(),
+        program: { done: deg >= 100, pct: Math.min(100, Math.round(deg)) },
+        machine: { done: m + n <= 1.5, pct },
+        // The arm with the most left in it, because the bar is on the SUM of two
+        // weighted means and there is no per-arm bar to clear — only the larger
+        // of the two numbers to bring down. Measured over 40 shared seeds on
+        // easy, a bot that re-sorts onto this the night the program finishes
+        // opens the window on turn 25 against 28 and wins 75% against 65%.
+        arm: m >= n ? 'missile force' : 'navy',
+        doctrine: m >= n ? 'counterforce' : 'maritime',
+      };
+    },
+    // The odds the Omani channel closes tonight, as `doDiplo` rolls them. One
+    // home, because the panel quotes this number and the resolver spends it:
+    // `current` on a diplomatic order is documented as "the odds, the price, the
+    // countdown", and the backchannel was the only order in the game that named
+    // none of the three on the night it mattered. Pure — no draw, no write —
+    // because it is called during a render (see the purity section of
+    // `.claude/betatest/state.js`).
+    dealOdds() {
+      const warStr = IranAI.missileStrength() + IranAI.navalStrength(); // 0..4
+      const irgcDown = TARGETS.find(t => t.id === 'irgc-hq').status === 'destroyed';
+      return clamp(0.08 + (1.5 - warStr) * 0.12 + (irgcDown ? 0.08 : 0) +
+        this.sanctions * 0.03 + this.negotiationMomentum +
+        (this.raidDecapitated() && !this.regimeErratic ? 0.10 : 0) +
+        (this.regimeChaosTurns > 0 ? 0.15 : 0) - (this.regimeErratic ? 0.15 : 0), 0.03, 0.65);
+    },
   };
 
   // ---- save / continue (localStorage) ----
@@ -4972,16 +5027,13 @@ const Game = (() => {
       case 'backchannel': {
         G.stats.backchannels++;
         if (G.negotiationReady()) {
-          // odds are driven by how badly Iran is losing, not by how calm things are
-          const warStr = IranAI.missileStrength() + IranAI.navalStrength(); // 0..4
-          const irgcDown = TARGETS.find(t => t.id === 'irgc-hq').status === 'destroyed';
-          // A dead leadership is leverage at the table rather than a shortcut to
-          // it: a lasting bonus while the pragmatists hold on, plus the sharper
+          // Odds are driven by how badly Iran is losing, not by how calm things
+          // are, and they live on G.dealOdds() rather than here because the
+          // panel quotes them before the president spends the slot. A dead
+          // leadership is leverage at the table rather than a shortcut to it: a
+          // lasting bonus while the pragmatists hold on, plus the sharper
           // temporary one during the immediate power vacuum.
-          const p = clamp(0.08 + (1.5 - warStr) * 0.12 + (irgcDown ? 0.08 : 0) +
-            G.sanctions * 0.03 + G.negotiationMomentum +
-            (G.raidDecapitated() && !G.regimeErratic ? 0.10 : 0) +
-            (G.regimeChaosTurns > 0 ? 0.15 : 0) - (G.regimeErratic ? 0.15 : 0), 0.03, 0.65);
+          const p = G.dealOdds();
           if (Math.random() < p) {
             G.negotiationsAccepted = true;
             G.diploUsed = true;

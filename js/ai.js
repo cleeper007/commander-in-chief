@@ -969,9 +969,30 @@ const IranAI = (() => {
       sev: () => 0.88,
       make: () => ({
         urgent: true,
-        line: 'Tehran might sign. Authorize the Omani channel.',
-        text: 'Tehran is broken — this is the rare moment a backchannel might actually close. If you want the ' +
-          'win signed instead of just shattered, authorize the Omani channel now.',
+        line: `Tehran might sign — about ${Math.round(Game.G.dealOdds() * 100)}%. Authorize the channel.`,
+        text: 'Tehran is broken — this is the rare moment a backchannel might actually close. My read is ' +
+          `about ${Math.round(Game.G.dealOdds() * 100)}% tonight, and a rebuff is not a closed door: the ` +
+          'channel stays warm and every attempt after one leaves them likelier to take the call. If you want ' +
+          'the win signed instead of just shattered, authorize the Omani channel now.',
+      }),
+    },
+    {
+      // THE ON-RAMP, and it is the half that was missing. The line above fires
+      // on the nights the window is open — median turn 29 of a campaign that
+      // ends on 29, which is a recommendation arriving after the decision. This
+      // one fires from the night the program finishes, median turn 15, and says
+      // what the remaining fourteen turns are FOR. Not urgent and not held: it
+      // is a standing condition and the damper is supposed to rotate it out.
+      id: 'talks-coming',
+      when: b => b.deal.program.done && !b.deal.open,
+      sev: b => 0.44 + 0.22 * b.deal.machine.pct / 100,
+      make: (b) => ({
+        line: `A signed end is ${plural(100 - b.deal.machine.pct, 'point')} off — the ${b.deal.arm} is holding it.`,
+        text: 'The halls are finished, which means the only thing between this war and a signature is how ' +
+          `much of their war machine is still standing. We are at ${b.deal.machine.pct}% of what Tehran needs ` +
+          `to lose before the pragmatists can move, and the ${b.deal.arm} is the heavier half of what is left. ` +
+          'Service that and I can put something in front of them. Sanctions in the meantime — leverage is ' +
+          'what the channel spends when it opens.',
       }),
     },
     {

@@ -522,7 +522,15 @@ const UI = (() => {
   // and a breakout band inside single digits is the war closing. None of those
   // is a condition the president has heard before — each is new every evening
   // until it resolves — so none of them is damped for being said twice.
+  // An OPEN negotiation window belongs on the same list and is the clearest case
+  // on it: the war can be ended tonight, the odds under it move every night as
+  // leverage accrues, and it stops being true the moment Tehran repairs back
+  // over the bar. Damping it would be the room getting tired of saying the war
+  // is winnable. The approaching arm is NOT exempt — that one is a standing
+  // condition for the last third of the campaign and is exactly what the damper
+  // is for — which is why this asks `b.deal.open` rather than the id alone.
   const readHold = (c, b) => c.id === 'telfix' || c.id === 'vote' ||
+    (c.id === 'deal' && b.deal.open) ||
     (c.id === 'breakout' && b.brk.hi <= 8);
 
   // The counter is committed at the TURN BOUNDARY and never on a render, for
@@ -2570,11 +2578,24 @@ const UI = (() => {
     return [
       {
         id: 'backchannel', name: 'Omani backchannel',
+        // No `moves` badge, deliberately: every other one names a gauge the
+        // player can go and look at in THE WORLD, and this order moves none of
+        // them — it ends the campaign. A badge here would teach a gauge that
+        // does not exist.
+        // `current` is documented at the top of this function as "the odds, the
+        // price, the countdown", and until v2.05 the one order in the game that
+        // can END the war was the only one that named none of them: "a deal is
+        // possible" on a night that might be 9% or might be 65%, with no way to
+        // tell which and no way to learn that sanctions and a dead IRGC are what
+        // move it. Off Game.dealOdds(), which is what doDiplo actually rolls.
         current: negReady
-          ? 'Tehran is breaking — a deal is possible.'
+          ? `About ${Math.round(Game.G.dealOdds() * 100)}% tonight, and rising as they break.`
           : 'Tehran will not talk while it can still fight.',
         desc: negReady
-          ? 'Far from certain, but this is the moment an overture can land. Attempt to bring them to the table.'
+          ? 'Far from certain, but this is the moment an overture can land. A rebuff is not the end of it — ' +
+            'the channel stays warm, and every brigade and hull serviced afterwards lifts the next attempt. ' +
+            'What raises the odds is leverage: sanctions stacked, the IRGC command gone, the war machine ' +
+            'under the bar.'
           : 'An overture now will be rebuffed and read as weakness at home.',
       },
       {
