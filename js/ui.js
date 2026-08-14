@@ -4149,6 +4149,14 @@ const UI = (() => {
     $('lc-effect').classList.add('hidden');
     $('lc-footer').innerHTML = '';
 
+    // The room goes quiet for the whole popup — the ring, the line, and the
+    // beat after the leader stops talking. Both beds down to silence rather
+    // than to their duck, anything already in flight stopped where it stands,
+    // and anything that tries to start refused: see the secure line in
+    // audio.js. It has to bracket all three states rather than the ring alone,
+    // because the gap between hanging up the bell and opening the line is
+    // exactly where a queued clip would land.
+    AudioSys.lineOpen(V.clip);
     // The switchboard rings until somebody does something about it. Both
     // buttons stop it, and so does closing the popup — a bell still going after
     // the call has been dealt with is the one bug this is worth guarding.
@@ -4156,6 +4164,7 @@ const UI = (() => {
 
     const close = () => {
       AudioSys.ringStop();
+      AudioSys.lineClose();   // the only door out of this popup — see lineOpen
       $('leader-call-modal').classList.add('hidden');
       if (onDone) onDone();
     };

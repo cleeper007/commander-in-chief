@@ -439,10 +439,10 @@ const AudioSys = (() => {
   // site can't leave one of them up. Named musicLevel still because that is
   // what every duckAdd/duckDrop in the file calls.
   function musicLevel() {
-    if (music && !musicOff && !muted) bedLevel(music, MUSIC_VOLUME, MUSIC_DUCK, ducked(false), () => !!music);
+    if (music && !musicOff && !muted) bedLevel(music, MUSIC_VOLUME, musicDuck(), ducked(false), () => !!music);
     if (missionCur) {
       const cur = missionCur;
-      bedLevel(cur, MISSION_VOLUME, MISSION_DUCK, ducked(true), () => missionCur === cur);
+      bedLevel(cur, MISSION_VOLUME, missionDuck(), ducked(true), () => missionCur === cur);
     }
   }
 
@@ -480,7 +480,7 @@ const AudioSys = (() => {
     // Opens at whichever level the room is already at: a scope card that comes
     // up while the watch floor is mid-sentence must not start at full and ramp
     // down over the end of the sentence.
-    setLevel(missionCur, ducked(true) ? MISSION_DUCK : MISSION_VOLUME);
+    setLevel(missionCur, ducked(true) ? missionDuck() : MISSION_VOLUME);
     // On the pause-path the bed cannot open quietly, so it does not open at
     // all until the room is clear; bedLevel's resume branch picks it up when
     // the last hold drops, which is where every other bed comes back too.
@@ -525,6 +525,14 @@ const AudioSys = (() => {
     const go = () => {
       const c = clips[name];
       if (!c) return;
+      // Tested here rather than at the top so a delayed clip is judged against
+      // the room it would actually land in — play('hormuzClosure', 400) queued
+      // a beat before the switchboard rings must not arrive on top of the call.
+      // A refused clip is DROPPED, not deferred: everything in here is an event
+      // that has already happened and is already written down on the screen
+      // behind the popup, and a klaxon replayed ninety seconds late reports a
+      // strait that closed before the president picked up the phone.
+      if (onLine && !lineAudio(name)) return;
       try {
         c.currentTime = 0;
         const p = c.play();
@@ -552,7 +560,11 @@ const AudioSys = (() => {
   // wedge a turn behind a sound effect.
   function playThen(name, cb) {
     const go = typeof cb === 'function' ? cb : () => {};
-    if (muted || !unlocked || !clips[name]) { go(); return; }
+    // The secure line joins the four reasons a clip can't play at all, and takes
+    // the same exit: `cb` runs immediately, so a chain waiting on a voice that
+    // is not allowed to speak over the call hands straight on rather than
+    // stalling behind a sound nobody is going to hear.
+    if (muted || !unlocked || !clips[name] || (onLine && !lineAudio(name))) { go(); return; }
     const c = clips[name];
     let done = false;
     const finish = () => {
@@ -641,6 +653,86 @@ const AudioSys = (() => {
     if (!c) return;
     if (ringOnEnd) { c.removeEventListener('ended', ringOnEnd); ringOnEnd = null; }
     try { c.pause(); c.currentTime = 0; } catch (e) { /* silent */ }
+  }
+
+  // ---- the secure line ----
+  // A head of government on the phone is the one sound in this game that is not
+  // an event in the mix — it is the room going quiet so the president can take a
+  // call. Everything else in here ducks: the bed steps down to MUSIC_DUCK, a
+  // clip already in flight keeps running, and the next klaxon or watch-floor
+  // call comes in over the top at full gain. That is right for a strike and
+  // wrong for a telephone, and it is what a call arriving mid-sequence sounds
+  // like — the switchboard ringing underneath the rotors, or the Prime Minister
+  // talking against a BDA report.
+  //
+  // So the popup takes an EXCLUSIVE hold rather than a duck, for the whole time
+  // it is up: incoming, line open, and the beat after the leader stops talking.
+  // The duck stops being a duck (both beds go to silence rather than out of the
+  // way — see musicDuck/missionDuck), everything already making a noise is
+  // silenced, and everything that tries to start is refused.
+  //
+  // Held across all three states of the popup and not just the ring, because
+  // the gap between hanging up the bell and opening the line is exactly where a
+  // queued clip would land. openLeaderCall in ui.js owns both ends of it, and
+  // that popup has no Escape and no close button — `close` is the only door out
+  // of it, which is what makes one hold safe to leave standing.
+  let onLine = false;    // the secure-line popup is up, in any of its states
+  let lineClip = null;   // the one clip that IS the call, named by the caller
+
+  // The switchboard and the leader's own recording. Nothing else, and the
+  // caller names the clip rather than this file keeping a second copy of the
+  // list in WORLD_LEADERS — a fifth head of government is then a data change.
+  function lineAudio(name) { return name === 'phoneRing' || (!!lineClip && name === lineClip); }
+
+  // On the line the duck is not a duck. Zero on the ramp path; the pause path
+  // (canLevel false — see bedLevel) is already silence and needs nothing.
+  function musicDuck() { return onLine ? 0 : MUSIC_DUCK; }
+  function missionDuck() { return onLine ? 0 : MISSION_DUCK; }
+
+  // Everything audible when the phone starts ringing. A clip mid-sentence is
+  // precisely what the call is being talked over by, so it stops where it
+  // stands rather than being left to run out.
+  //
+  // A GATING clip is silenced and NOT cut. cut() hands its continuation on
+  // early, and the continuation of the clip that gates the night is the night
+  // resolving — a call arriving inside the three-second switchboard pause after
+  // END TURN would then resolve the turn behind the popup, sooner than it
+  // otherwise would have. playThen's own watchdog still fires finish() on the
+  // clip's own schedule, so the chain keeps its cadence and only the sound goes.
+  function silenceRoom() {
+    for (const name of Object.keys(clips)) {
+      if (lineAudio(name)) continue;
+      const c = clips[name];
+      if (!c || c.paused) continue;
+      try { c.pause(); c.currentTime = 0; } catch (e) { /* silent */ }
+      voiceLower(name, true);   // nobody is talking; the card goes with the voice
+      if (!pendingThen[name]) duckClipDrop(name);
+    }
+    // The strike footage is the one audible thing this file does not own — the
+    // same reach setMuted makes, and one direction only for the same reason:
+    // a clip that fell back to muted to get past autoplay is only playing
+    // BECAUSE it is muted, and handing it an unmute afterwards asks the browser
+    // to re-authorize a video already in flight.
+    try {
+      document.querySelectorAll('.scope-hit-video').forEach(v => { v.muted = true; });
+    } catch (e) { /* silent */ }
+  }
+
+  // `clip` is the leader's recording for this call — the only thing besides the
+  // bell allowed to make a noise until lineClose.
+  function lineOpen(clip) {
+    if (onLine) return;
+    onLine = true;         // before silenceRoom: a finisher that runs in there
+    lineClip = clip || null;   // must be refused too, not allowed one last word
+    silenceRoom();
+    duckAdd('line');       // and the beds go to zero, not to the duck
+  }
+
+  function lineClose() {
+    if (!onLine) return;
+    onLine = false;
+    lineClip = null;
+    duckDrop('line');      // musicLevel is inside duckDrop; the beds ramp back
   }
 
   // Klaxon on the moments that change the war: the strait slams shut, or
@@ -756,5 +848,5 @@ const AudioSys = (() => {
   // strike footage in map.js plays its own audio and has to take a hold like
   // everything else, or the bed sits on top of it. Named keys, dropped by the
   // caller; see the ducks set for why it is a set and not a counter.
-  return { init, play, playThen, cut, ringStart, ringStop, alertCheck, isMuted, setMuted, isMusicOff, setMusicOff, missionMusicStart, missionMusicStop, missionMusicStopAll, duckHold: duckAdd, duckRelease: duckDrop };
+  return { init, play, playThen, cut, ringStart, ringStop, lineOpen, lineClose, alertCheck, isMuted, setMuted, isMusicOff, setMusicOff, missionMusicStart, missionMusicStop, missionMusicStopAll, duckHold: duckAdd, duckRelease: duckDrop };
 })();
