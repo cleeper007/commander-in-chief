@@ -1074,7 +1074,9 @@ const UI = (() => {
       if (G.fatigue) alerts.push(['warn', `${plural(G.fatigue, 'package')} held back for crew rest.`]);
     }
     if (!G.basing.gulf) alerts.push(['crit', 'Gulf ramps closed — nothing deep is reachable.']);
-    else if (!G.basing.nato) alerts.push(['warn', 'NATO and Saudi tanker tracks withdrawn.']);
+    else if (!G.basing.nato) alerts.push(['warn', showAto
+      ? 'NATO and Saudi tanker tracks withdrawn.'
+      : 'NATO and Saudi ramps withdrawn — the theater refuels from fewer places.']);
     // The depots, where anyone is counting them. Phrased in NIGHTS rather than
     // rounds for the same reason the Aegis line is tiered: "412 weapons" is a
     // number a player cannot price, and "three nights of fighting" is a
@@ -1099,9 +1101,15 @@ const UI = (() => {
         : `<p>CENTCOM writes tonight's tasking order and sizes the course of action to it — the ` +
           `packages in the option you sign are the packages the theater can actually fly tonight. ` +
           `It grows as the force flow lands.</p>`) +
-      `<p>Tanker charges — fighters: littoral unrefuelled · interior 1 · deep 2. Bombers tank at ` +
-      `every depth: B-1/B-52 littoral 2 · interior 3 · deep 4 · B-2 mission 4. Tomahawks fly ` +
-      `unrefuelled.</p>`;
+      // The charge table prices a bill that is paid package by package on the
+      // map. With the tanker plan off the face of the box it has nothing to
+      // price, and a disclosure explaining a cost the body never states is the
+      // badge quoting a tasking order all over again.
+      (showAto
+        ? `<p>Tanker charges — fighters: littoral unrefuelled · interior 1 · deep 2. Bombers tank at ` +
+          `every depth: B-1/B-52 littoral 2 · interior 3 · deep 4 · B-2 mission 4. Tomahawks fly ` +
+          `unrefuelled.</p>`
+        : '');
 
     const atoCls = closed ? ' crit' : flown >= slots ? ' warn' : '';
     const tkCls = tk <= 1 ? ' crit' : tk <= 3 ? ' warn' : '';
@@ -1112,9 +1120,17 @@ const UI = (() => {
           `<span class="ton-val${atoCls}">${flown} / ${slots}</span></div>` +
           slotGauge(flown, slots, ATO.ceiling)
         : '') +
-      `<div class="ton-row"><span>TANKER TRACKS</span>` +
-      `<span class="ton-val${tkCls}">${tk} / ${cap}</span></div>` +
-      trackGauge(tk, cap) +
+      // ...and the tanker plan goes with the tasking order, for the same reason.
+      // It is the second half of the same arithmetic: a fighter costs one track
+      // interior and two deep, and the only place that fraction is ever spent is
+      // the strike dialog easy does not open. CENTCOM sizes the option to the
+      // fuel it has, so on this level a short tanker plan is felt as a narrower
+      // option and never read as "4 / 10".
+      (showAto
+        ? `<div class="ton-row"><span>TANKER TRACKS</span>` +
+          `<span class="ton-val${tkCls}">${tk} / ${cap}</span></div>` +
+          trackGauge(tk, cap)
+        : '') +
       (Game.pgmLedger()
         ? `<div class="ton-row"><span>PRECISION MUNITIONS</span>` +
           `<span class="ton-val${Game.pgmNights() < 3 ? ' crit' : Game.pgmNights() < 6 ? ' warn' : ''}">` +

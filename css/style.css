@@ -756,6 +756,29 @@ button { font-family: var(--mono); }
   color: var(--dim); font-size: 10px; letter-spacing: 0.04em;
 }
 .action.off .il-read { opacity: 0.6; }
+
+/* ...but NOT in the room, AT ANY SIZE. Everything above is written against the
+   sidebar's scroll pane, where three rows stacked vertically genuinely do not
+   fit unclamped. The evening brief is a different box — three or four columns
+   ACROSS a dialog rather than rows down a drawer — so its budget is horizontal
+   and there is room to finish the sentence.
+
+   This lived inside the `max-height: 540px` block until it was measured, which
+   made it exactly backwards: the clamp came off on a landscape phone and stayed
+   on at 1280x720, so the only screens that finished the sentence were the ones
+   with no room for it. Caught on turn 1 of a first-time-player pass — the SURGE
+   card is the worst case and it is the card that matters most, because it is
+   the only one that appears AFTER the night is signed. That takes the grid from
+   three columns to four, so every card is at its narrowest exactly when the
+   longest read is on screen: 85px of argument in a 43px box, cut to "...there
+   are still 2 aimpoints the wing can." A president being asked to borrow
+   against tomorrow was being shown half the sentence explaining the loan. */
+#brief-modal-buttons .il-current,
+#brief-modal-buttons .il-read,
+#brief-modal-buttons .coa-defers {
+  -webkit-line-clamp: unset; display: block; overflow: visible;
+}
+
 /* the doctrine's own thesis, at the head of its argument. It used to be the
    collapsed line; behind the caret it reads as what the option is FOR, which
    is what it always was. */
@@ -1489,10 +1512,29 @@ button { font-family: var(--mono); }
 /* ============================================================
    TACTICAL SCOPE — every outbound strike is flown in this panel
    ============================================================ */
+/* THE STACK IS BOUNDED, AND THE NEWEST CARD IS THE ONE THAT SURVIVES.
+   `#map-container` is `overflow: hidden`, so an unbounded stack here does not
+   spill onto the status bar — it does something worse and quieter: the cards
+   past the fold are simply never drawn, with nothing on screen saying a strike
+   is in the air. Measured on a 844x390 landscape phone, which is the form
+   factor the mobile rules in this file are written against: three packages in
+   flight put the stack 558px down a 390px viewport, one card is 313px against
+   307px of map, and the second and third were invisible for their whole flight.
+   A desktop at 720px loses the third the same way. The surge (see coaSurge in
+   data.js) makes it likelier by adding packages to the night.
+
+   `justify-content: flex-end` is what picks the survivor. Cards are appended,
+   so the newest is the last child; anchoring the column to the bottom of the
+   capped box makes the overflow run off the TOP, which retires the oldest
+   flight — the one already reading 100% — and keeps the one still being flown
+   in view. Anchoring stays at the top edge so nothing moves on a desktop that
+   was never over the cap. The panel is `pointer-events: none`, so there is no
+   scrollbar to lose. */
 #flight-status {
   position: absolute; top: 10px; left: 10px; z-index: 15;
-  display: flex; flex-direction: column; gap: 8px;
-  max-width: 260px; pointer-events: none;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 8px;
+  max-width: 260px; max-height: calc(100% - 20px); overflow: hidden;
+  pointer-events: none;
 }
 .fs-stack { display: flex; flex-direction: column; gap: 8px; }
 .flight-entry {
@@ -2782,20 +2824,12 @@ body.mobile-ui #session-buttons button::after { inset: -4px -2px; }
   }
   .coa-chip { font-size: 8.5px; padding: 1px 4px; }
 
-  /* ...but NOT in the room. Everything above is written against the 189px the
-     sidebar's scroll pane gives TONIGHT'S OPTIONS, where three rows stacked
-     vertically genuinely do not fit unclamped — that argument is intact and it
-     is why the compression is here and not in shorter sentences. The evening
-     brief is a different box: three columns across a dialog, not three rows down
-     a drawer, so the budget is horizontal and there is room to finish the
-     sentence. A clamped read is the worst of both — the president is being asked
-     to choose between three arguments and shown two thirds of each, with the
-     rest behind a caret they have to open three times. */
-  #brief-modal-buttons .il-current,
-  #brief-modal-buttons .il-read,
-  #brief-modal-buttons .coa-defers {
-    -webkit-line-clamp: unset; display: block; overflow: visible;
-  }
+  /* The room's unclamp used to live HERE, which meant it only ever fired on a
+     screen under 540px tall — the clamp came off the phone and stayed on the
+     desktop, which is the opposite of the argument for it. It is now global,
+     next to the base clamp it undoes (search `#brief-modal-buttons .il-current`).
+     Nothing is needed in this block: the compression above is scoped to the
+     sidebar rows, and the global rule already beats it inside the room. */
 
   /* On a short screen the scope stops being a width problem and becomes a
      height one: the radar is square, so the card's WIDTH is what decides how
