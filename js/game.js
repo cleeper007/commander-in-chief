@@ -4405,6 +4405,36 @@ const Game = (() => {
     };
   }
 
+  // ...and the same offer as the president is shown it BEFORE it exists (v2.07).
+  // The surge was the one decision in this game that arrived AFTER a click: it
+  // does not exist until the signature that creates it, so the folder answered
+  // the night's question by putting a fourth card on the table. A decision that
+  // materialises on top of the one just made reads as a pop-up rather than as
+  // part of the night. The room now draws it as a bar under the options from the
+  // moment it opens, and this is what that bar says on the nights it cannot be
+  // taken yet.
+  //
+  // Null means this LEVEL has no surge (normal and hard frag past the plan on
+  // the map instead), which is the only state in which nothing is drawn at all.
+  // Every other answer is a sentence, because an affordance the president cannot
+  // see is one they do not know they are holding — and "sign the plan first" is
+  // the rhythm of the mechanic rather than an error message.
+  //
+  // The gates are surgeOption's own, read in a different order: the states that
+  // answer something the president DID come first, so a night already surged
+  // says so rather than reporting the crew rest that surge booked.
+  function surgeState() {
+    if (!diff().coa || G.over || !coaSurgeMax()) return null;
+    const opt = surgeOption();
+    if (opt) return { ready: true, opt };
+    return { ready: false, why:
+      coaFlown().has(SURGE_ID) ? 'FLOWN TONIGHT — the wing is already up on top of the plan'
+      : atoWall() ? 'NOT TONIGHT — no rested crews left to brief'
+      : (G.fatigue || 0) > 0 ? 'NOT TONIGHT — the crews are owed rest from last night'
+      : coaSignsLeft() > 0 ? 'SIGN TONIGHT\'S PLAN FIRST'
+      : 'NOTHING LEFT the wing can reach before dawn' };
+  }
+
   // The three doctrines plus the surge, which is what the folder, the panel and
   // the walkthrough all actually brief. One call so those three can never show
   // different slates.
@@ -7046,7 +7076,7 @@ const Game = (() => {
     // and whether the president is writing orders on the map at all. takeCoa is
     // the only way in — every leg still goes through executeStrike.
     coaOptions, coaFlown, takeCoa, coaSignsLeft, freeTargeting,
-    surgeOption, briefOptions,
+    surgeOption, surgeState, briefOptions,
     // the precision-munitions stock. pgmBlock is the one sentence for "we
     // cannot build this package up", the same contract pkgBlock has.
     pgmLedger, pgmBlock, pgmCost, pgmNights,

@@ -1798,6 +1798,40 @@ const UI = (() => {
   // that pops it. Extracted for that reason and no other: two copies of this
   // markup is two places for a bill row or a `defers` line to go missing from,
   // and the whole argument for `defers` is that the player sees it every time.
+  // THE SURGE IS A BAR, NOT A FOURTH CARD (v2.07). It is the only option in the
+  // game that does not exist until the president has already answered the room —
+  // signing the night is what creates it — so as a card it arrived on top of the
+  // decision just made, in the shape of the three cards that decision was
+  // between. That reads as a pop-up: the same box asking the same kind of
+  // question again, one click after it was answered.
+  //
+  // Drawn across the bottom of the room instead, under a rule, from the moment
+  // the folder opens — greyed and saying what it is waiting for (Game.surgeState),
+  // live once the plan is signed. Nothing appears and nothing moves; one line
+  // changes state in a place the president has already looked at.
+  //
+  // The button keeps `action-do` so both homes' existing wiring fires it — the
+  // panel and the room each already bind every `.action-do` in their container to
+  // takeCoa — and adds `surge-do` so it is not one of the three cards to anything
+  // reading this markup.
+  function surgeBar() {
+    const st = Game.surgeState();
+    if (!st) return '';                       // normal and hard have no surge
+    const c = st.opt;
+    return `<div class="coa-surge${st.ready ? '' : ' off'}">` +
+      `<button class="action-do surge-do" data-coa="surge"${st.ready ? '' : ' disabled'}>` +
+      `<span class="surge-head"><span class="coa-slot">SURGE</span>` +
+      `<span class="surge-line">Fly extra sorties tonight.</span>` +
+      `<span class="surge-cost">${st.ready
+        ? `${plural(c.legs.length, 'package')}${c.shape ? ` · ${c.shape}` : ''}`
+        : st.why}</span></span>` +
+      // The price, on the face of it, exactly as a card carries it: this is a
+      // loan against tomorrow's plan and it is the whole reason the bar is a
+      // decision rather than a bonus.
+      (st.ready && c.defers ? `<span class="coa-defers">LEAVES — ${c.defers}</span>` : '') +
+      `</button></div>`;
+  }
+
   function coaRows(G, list) {
     const flown = Game.coaFlown();
     const spent = Game.atoSlots() - G.strikesThisTurn;
@@ -1807,15 +1841,11 @@ const UI = (() => {
     // night went to instead. Removing them would answer the one question a
     // president asks after signing, which is what they gave up.
     const spare = Game.coaSignsLeft();
-    return list.map((c) => {
+    // The surge comes out of the card stack here and is drawn as the bar below
+    // it — same slate, same object, one renderer, per surgeBar above.
+    return list.filter((c) => !c.surge).map((c) => {
       const done = flown.has(c.id);
-      // The surge is exempt from the signature budget for the same reason
-      // takeCoa exempts it: it is gated on that budget being SPENT (see
-      // surgeOption), so measuring it against the cap would grey out the one
-      // card that only exists once the cap is reached, and it would grey it out
-      // with "NOT TONIGHT — THE NIGHT IS SIGNED" — which is precisely the state
-      // it is offered in.
-      const shut = !done && !c.surge && spare <= 0;
+      const shut = !done && spare <= 0;
       const open = actOpen.has(`coa-${c.id}`);
       const main = c.legs.filter(l => l.main), supp = c.legs.filter(l => !l.main);
       const nameOf = (l) => {
@@ -1851,7 +1881,7 @@ const UI = (() => {
         (bill ? `<div class="coa-bill">${bill}</div>` : '') +
         `<div class="coa-legs">${legList(main, 'MAIN EFFORT')}${legList(supp, 'AND WITH THE REMAINING CAPACITY')}</div>` +
         `</div></div>`;
-    }).join('');
+    }).join('') + surgeBar();
   }
 
   // An empty brief is a real state — everything reachable is serviced, or the
@@ -1873,7 +1903,9 @@ const UI = (() => {
       ? `— ${flown.size} SIGNED`
       : list.length ? `— ${plural(list.length, 'option')}` : '— NONE TONIGHT';
 
-    $('coa-buttons').innerHTML = list.length ? coaRows(G, list) : COA_EMPTY;
+    // COA_EMPTY still carries the bar: a night the staff cannot brief is a night
+    // the surge line is the only thing in the panel with an answer in it.
+    $('coa-buttons').innerHTML = list.length ? coaRows(G, list) : COA_EMPTY + surgeBar();
     if (!list.length) return;
     for (const btn of document.querySelectorAll('#coa-buttons .action-do')) {
       btn.addEventListener('click', () => Game.takeCoa(btn.dataset.coa));
@@ -1977,7 +2009,7 @@ const UI = (() => {
           ? `${plural(opts.length, 'option').toUpperCase()} — SIGN ONE`
           : plural(opts.length, 'option').toUpperCase();
       },
-      body: (G, opts) => ({ head: '', rows: opts.length ? coaRows(G, opts) : COA_EMPTY }),
+      body: (G, opts) => ({ head: '', rows: opts.length ? coaRows(G, opts) : COA_EMPTY + surgeBar() }),
     },
     {
       key: 'diplo', room: 'DIPLOMATIC ACTIONS', seal: 'icons/seal-state.png?v=1.91',

@@ -640,7 +640,10 @@ button { font-family: var(--mono); }
 #brief-modal-buttons > .action:first-child { border-left: 0; padding-left: 0; }
 /* An empty room still says why it is empty, and it says it across the whole
    width rather than in the first column. */
-#brief-modal-buttons > .coa-empty, #brief-modal-buttons > .dim { grid-column: 1 / -1; }
+#brief-modal-buttons > .coa-empty, #brief-modal-buttons > .dim,
+/* ...and so does the surge, which is the point of it: it is not a fourth column
+   the president chooses between, it is the line under all of them. */
+#brief-modal-buttons > .coa-surge { grid-column: 1 / -1; }
 
 /* The collection picture, above the columns. Bottom rule is the same fold the
    free-action slots used to draw: everything under it is a decision. Laid out
@@ -732,6 +735,35 @@ button { font-family: var(--mono); }
   color: var(--amber, var(--dim)); font-size: 9.5px; line-height: 1.35;
   letter-spacing: 0.02em; text-transform: none;
 }
+/* ---- THE SURGE, AS A BAR ----
+   Everything above this line is a CARD: a column in the room, a row in the
+   drawer, one of the things the night is chosen between. The surge is not one of
+   those and drawing it as one is what made it read as a pop-up — it arrives
+   after the choice, on top of the choice, wearing the choice's clothes. So it is
+   a full-width bar under a rule instead: present from the moment the folder
+   opens, greyed with what it is waiting for, and lit in place once the plan is
+   signed. Nothing enters and nothing reflows; one line changes state.
+
+   The button itself needs no styling — it is a `…-buttons` container child and
+   inherits the panel background, the border, the hover and the disabled opacity
+   from the shape rule near the top of this file, which is the same bargain every
+   other order in both homes makes. */
+.coa-surge { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line); }
+/* The head is one line at any width the dialog can be: slot chip, what it does,
+   and what it costs pushed to the far edge. It wraps rather than truncating on a
+   portrait phone, where the cost drops under the description instead of being
+   cut in half — the price is the half of this bar that makes it a decision. */
+.surge-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; }
+.surge-line { font-size: 11.5px; letter-spacing: 0.02em; }
+.surge-cost {
+  margin-left: auto; color: var(--dim);
+  font-size: 10px; letter-spacing: 0.04em;
+}
+/* Waiting on the signature is not the same as disabled-and-done: the row keeps
+   its rule and its chip goes grey, exactly as an off course of action does. */
+.coa-surge.off .coa-slot { background: var(--dim); }
+.coa-surge .coa-defers { margin-top: 4px; }
+
 /* A STAFFED order — one of State's three tracks (stateOptions in ui.js). It
    wears the course-of-action row on purpose: the president is comparing pitches
    that each carry a reason and a cost, and the two halves of one folder must
@@ -766,13 +798,14 @@ button { font-family: var(--mono); }
    This lived inside the `max-height: 540px` block until it was measured, which
    made it exactly backwards: the clamp came off on a landscape phone and stayed
    on at 1280x720, so the only screens that finished the sentence were the ones
-   with no room for it. Caught on turn 1 of a first-time-player pass — the SURGE
-   card is the worst case and it is the card that matters most, because it is
-   the only one that appears AFTER the night is signed. That takes the grid from
-   three columns to four, so every card is at its narrowest exactly when the
-   longest read is on screen: 85px of argument in a 43px box, cut to "...there
-   are still 2 aimpoints the wing can." A president being asked to borrow
-   against tomorrow was being shown half the sentence explaining the loan. */
+   with no room for it. Caught on turn 1 of a first-time-player pass — the surge
+   was a fourth card then, which took the grid from three columns to four, so
+   every card was at its narrowest exactly when the longest read was on screen:
+   85px of argument in a 43px box, cut to "...there are still 2 aimpoints the
+   wing can." A president being asked to borrow against tomorrow was being shown
+   half the sentence explaining the loan. The surge is a full-width bar as of
+   v2.07 and is no longer that worst case, but the rule stands on its own — the
+   room's budget is horizontal at every column count. */
 #brief-modal-buttons .il-current,
 #brief-modal-buttons .il-read,
 #brief-modal-buttons .coa-defers {
