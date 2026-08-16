@@ -238,19 +238,62 @@ const MapView = (() => {
     for (const c of world.querySelectorAll('circle.tgt-hit')) c.setAttribute('r', hitR);
   }
 
+  // ---- the marker is a statement, not a measurement ----
+  // The drawn icon was in map units, so it grew with the zoom by exactly the
+  // factor that pushed the sites apart. Kharg, Nav Bushehr and Bushehr NPP sit
+  // 20 and 25 units from each other against an 18-unit ring, and from the
+  // opening view to k=10 that cluster rendered IDENTICALLY — three touching
+  // icons, larger. Zooming in is the one gesture a player reaches for when a
+  // cluster is unreadable, and on this chart it did nothing for them.
+  //
+  // So past the opening zoom the icon is counter-scaled to hold its k=1 size on
+  // screen: the gap grows with the zoom and the glyph does not. That is the hit
+  // disc's rule above applied to the part of the marker that is visible, and
+  // for the same reason — a 9-unit ring is how big "there is a site here" is
+  // drawn, not how big the refinery is.
+  //
+  // Clamped at 1 rather than run both ways. Below the opening zoom a constant
+  // screen size would make every icon BIGGER than it is today, on the widest
+  // and most crowded view there is, to fix crowding that zooming out cannot fix
+  // anyway. And nothing on this plot with a real EXTENT is in here: a covert
+  // box is an area of uncertainty and the carrier's escort screen is a
+  // formation at its true spacing. Those mean something in map units and have
+  // to keep scaling with them.
+  let iconK = 1;
+
+  function syncIconScale() {
+    if (!world) return;
+    const k = Math.min(1, 1 / view.k);
+    if (k === iconK) return;   // panning does not move it; only zoom does
+    iconK = k;
+    for (const g of world.querySelectorAll('g.tgt-icon'))
+      g.setAttribute('transform', `scale(${k})`);
+  }
+
   function targetIcon(t) {
     const g = el('g', { class: `target ${t.status || 'intact'}`,
       id: `tgt-${t.id}`, transform: `translate(${t.x},${t.y})` });
-    // invisible filled circle so the whole icon (not just strokes) is clickable
+    // Invisible filled circle so the whole icon (not just strokes) is clickable.
+    // It stays OUTSIDE the counter-scaled group below: it carries its own
+    // screen-pixel rule, and its radius is the one targetsUnder compares world
+    // distances against, so it has to stay in world units.
     g.appendChild(el('circle', { class: 'tgt-hit', r: hitR, fill: 'transparent' }));
-    g.appendChild(el('circle', { class: 'tgt-ring', r: 9 }));
-    g.appendChild(targetCore(t.type));
+    // Everything drawn hangs off one group counter-scaled by syncIconScale.
+    const icon = el('g', { class: 'tgt-icon', transform: `scale(${iconK})` });
+    icon.appendChild(el('circle', { class: 'tgt-ring', r: 9 }));
+    icon.appendChild(targetCore(t.type));
     // Labels sit centred under the icon unless the target carries a `label`
     // offset. Iran's coast puts three and four sites inside 40 map units of
     // each other — Kharg/Bushehr, the two at Bandar Abbas, Chabahar next to the
     // Toledo's patrol box — and a centred label there lands on top of the
     // neighbour's icon. The offsets in data.js walk those clusters apart; the
     // coordinates themselves are projected and must not be moved to fix text.
+    //
+    // The name rides INSIDE the scaled group with its icon, which is what keeps
+    // those offsets true: left in world units the text would grow while the
+    // glyph it names shrank, and it would walk further from the site every
+    // click of the zoom — the crowding this whole block exists to relieve,
+    // re-created in the labels.
     const lab = t.label || {};
     const label = el('text', {
       x: lab.dx || 0,
@@ -258,7 +301,8 @@ const MapView = (() => {
       ...(lab.anchor ? { 'text-anchor': lab.anchor } : {}),
     });
     label.textContent = t.short;
-    g.appendChild(label);
+    icon.appendChild(label);
+    g.appendChild(icon);
     return g;
   }
 
@@ -885,9 +929,11 @@ const MapView = (() => {
     // small/touch screens hide the site names until the chart is open enough
     // for them not to overlap — see .map-far-zoom in the stylesheet
     svg.classList.toggle('map-far-zoom', view.k < 1.7);
-    // the touch discs are sized in screen pixels, so they are re-derived here:
-    // this is the one choke point every gesture already goes through
+    // the touch discs and the drawn icons are both sized in screen pixels, so
+    // they are re-derived here: this is the one choke point every gesture
+    // already goes through
     syncHitDiscs();
+    syncIconScale();
     syncSouthCue();
   }
 
