@@ -7,11 +7,21 @@
 // makes a loss land is not the obituary — it is having watched a sortie count
 // climb on somebody the president has already seen on three tasking orders.
 //
-// So the roster is not a data model with a display bolted on. The display IS
-// the mechanism, and the data model exists to feed it: thirteen aviators,
-// created at kickoff, drawn onto every package that flies, and READ IN THE
-// SIDEBAR BEFORE ANYTHING GOES WRONG. By the time csar.js needs a name it is
-// asking for one the player already knows.
+// So the roster is not a data model with a display bolted on: fourteen
+// aviators, created at kickoff, drawn onto every package that flies, and named
+// the moment one of them does not come back.
+//
+// v2.09 TOOK THE SIDEBAR PANEL OFF, AND THAT IS A REAL COST, PAID KNOWINGLY.
+// This file used to argue that the display WAS the mechanism — that a name only
+// lands if the president watched its sortie count climb for nine nights first,
+// which the SQUADRON drawer was there to let them do. Easy never had that drawer
+// (DIFFICULTY.railPanels), so the argument was already only true of two levels,
+// and on those two it was a readout with no order in it, opened once and
+// scrolled past thereafter. What remains is where a name is unavoidable rather
+// than available: the downed-crew card, PERSONNEL RECOVERY, and the after-action
+// roster with everyone's sortie count on it. `tonight()` is kept — it is what
+// .claude/betatest/squadron.js measures "was this name readable first" against,
+// and it is the seam a future panel would draw from.
 //
 // THIS SUBSYSTEM DOES NOT SIMULATE.
 // It never gates a sortie, never shrinks a magazine, never touches approval and
@@ -24,7 +34,7 @@
 // a seeded campaign replays differently against this build than the one before.
 //
 // ASSIGNMENT IS DETERMINISTIC — fewest sorties first, ties by roster order.
-// Two reasons. It spreads the count so every name on the panel is climbing
+// Two reasons. It spreads the count so every name on the roster is climbing
 // rather than one hero and twelve spectators; and it keeps the hot path (every
 // package, every night) out of the RNG stream entirely, so the only randomness
 // this file adds to a campaign is the one shuffle at kickoff.
@@ -357,74 +367,6 @@ const Aircrew = (() => {
   const lost = (G) => ensure(G).filter((a) => a.status !== 'active' && a.status !== 'recovering');
   const onStatus = (G) => ensure(G).filter((a) => a.status === 'active');
 
-  function crewRow(a, flying) {
-    const s = STATUS[a.status] || STATUS.active;
-    return `<div class="ac-row${flying ? ' ac-flying' : ''}">` +
-      `<span class="ac-cs">${a.cs}</span>` +
-      `<span class="ac-name">${a.name}</span>` +
-      `<span class="ac-air">${a.short}</span>` +
-      `<span class="ac-sorties ${s.cls}">${a.sorties}</span>` +
-    `</div>`;
-  }
-
-  function renderPanel(G) {
-    const panel = document.getElementById('squadron-panel');
-    if (!panel) return;
-    const list = ensure(G);
-    const meta = document.getElementById('squadron-status');
-    const box = document.getElementById('squadron-list');
-    if (!box) return;
-
-    const up = onStatus(G).length;
-    const gone = lost(G);
-    if (meta) {
-      // The head reads while the panel is shut, so it carries the one number
-      // that changes the player's night: how many are still on the schedule,
-      // and — only once it is true — how many are not.
-      meta.textContent = gone.length
-        ? `${up} on status · ${gone.length} lost`
-        : `${up} on status`;
-      meta.style.color = gone.length ? 'var(--amber)' : '';
-    }
-
-    const { order, airborne } = tonight(G);
-    const flying = new Set();
-    for (const g of order.concat(airborne)) for (const a of g.crew) flying.add(a.id);
-
-    let html = '';
-    const block = (title, groups) => {
-      if (!groups.length) return '';
-      let h = `<div class="ac-head">${title}</div>`;
-      for (const g of groups) {
-        h += `<div class="ac-pkg"><div class="ac-pkg-head">${g.flight} · ` +
-          `${Txt.plural(g.jets, 'aircraft')} — ${g.target}</div>` +
-          g.crew.map((a) => crewRow(a, true)).join('') + `</div>`;
-      }
-      return h;
-    };
-    html += block("ON TONIGHT'S ORDER", order);
-    html += block('AIRBORNE NOW', airborne);
-    if (!order.length && !airborne.length) {
-      html += `<div class="dim ac-quiet">Nothing fragged. The squadron is on the ramp.</div>`;
-    }
-
-    // The full roster underneath, so the sortie counts are readable as a column
-    // rather than only in whatever tonight happens to have tasked.
-    html += `<div class="ac-head">SQUADRON — ${Txt.plural(list.length, 'aviator')}</div>`;
-    html += `<div class="ac-legend"><span>CALLSIGN</span><span>NAME</span><span>TYPE</span><span>SORTIES</span></div>`;
-    for (const a of list) {
-      if (a.status === 'active') { html += crewRow(a, flying.has(a.id)); continue; }
-      const s = STATUS[a.status] || STATUS.active;
-      html += `<div class="ac-row ac-out">` +
-        `<span class="ac-cs">${a.cs}</span>` +
-        `<span class="ac-name">${a.name}</span>` +
-        `<span class="ac-air ${s.cls}">${s.label}</span>` +
-        `<span class="ac-sorties ${s.cls}">${a.sorties}</span>` +
-      `</div>`;
-    }
-    box.innerHTML = html;
-  }
-
   // ============================================================
   // THE AFTER-ACTION ROSTER
   // ============================================================
@@ -461,7 +403,7 @@ const Aircrew = (() => {
   return {
     newRoster, ensure, roster, byId, label, shortLabel, names,
     frag, unfrag, crews, crewLost, setStatus, turnTick,
-    tonight, onStatus, lost, renderPanel, endgameHtml,
+    tonight, onStatus, lost, endgameHtml,
     REST,
   };
 })();

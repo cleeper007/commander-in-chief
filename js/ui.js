@@ -84,11 +84,10 @@ const UI = (() => {
     { key: 'recovery', label: 'RESCUE',  urgent: true, panels: ['csar'] },
     { key: 'tonight',  label: 'TONIGHT', panels: ['coa', 'specops'] },
     { key: 'mission',  label: 'MISSION', panels: ['objectives', 'intel'] },
-    // SQUADRON rides with FORCES rather than taking a seventh chip: seven
-    // labels across a 268px sidebar is ~38px each, which is below the seven
-    // characters the constraint above is written against. It also belongs here
-    // — the squadron is what STRIKE ASSETS is a count of.
-    { key: 'forces',   label: 'FORCES',  panels: ['resources', 'fleet', 'squadron'] },
+    // SQUADRON used to ride with FORCES rather than take a seventh chip. The
+    // panel came off at v2.09 and the roster did not — see aircrew.js and the
+    // note where the markup used to be in index.html.
+    { key: 'forces',   label: 'FORCES',  panels: ['resources', 'fleet'] },
     { key: 'advisors', label: 'STAFF',   panels: ['advisors'] },
     // `slot` says this group's orders share ONE budget, so its chip must not be
     // a count of rows. See railBadge — this is the flag that stops the tab
@@ -3328,10 +3327,6 @@ const UI = (() => {
     renderCoa(G);          // first in the sidebar; absent entirely on hard
     renderObjectives(G);
     renderResources(G);
-    // Immediately under STRIKE ASSETS on purpose. That panel counts sorties;
-    // this one says whose they are, and the roster only does its job if it is
-    // read on the nights nothing has gone wrong (see aircrew.js).
-    Aircrew.renderPanel(G);
     renderFleet(G);
     renderAdvisors(G);
     renderWorld(G);        // the board, then the one order against it
