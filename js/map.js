@@ -53,6 +53,43 @@ const MapView = (() => {
     { name: 'CASPIAN SEA', x: 423, y: 38 },
   ];
 
+  // ---- islands below the 50m cutoff ----
+  // Natural Earth 50m carries Bahrain (570 km2) and Qeshm (1,500) and drops
+  // everything much under a hundred. Kharg is 22 km2 — so the terminal that
+  // loads ~90% of Iranian crude, the single most consequential aimpoint on the
+  // oil list, was a marker floating on open water with no land under it at any
+  // zoom. The one place on this chart where a player would go looking for the
+  // island is the one place it was not.
+  //
+  // Hand-carried rather than added to geodata.js, which says at the top of
+  // itself that it is generated: a regeneration from Natural Earth would drop
+  // this again, silently, because 50m is exactly what does not have it. The
+  // outline is OSM coastline way 13237968 (ODbL) run through geodata.js's own
+  // projection — x = (lon - 38.5) * 1000/30, y = (39.5 - lat) * 1000/30 /
+  // cos(28) — which lands the ring around TARGETS' hand-placed kharg at
+  // (394, 387) with the marker inside it. That is the check that this is the
+  // right island in the right place, and it is not a coincidence worth
+  // trusting twice: anything added here gets the same test.
+  //
+  // Two decimals, not geodata's one. A country quantised to 0.1 units (~300 m)
+  // loses nothing; an island 1.80 x 2.57 units across quantised to 0.1 is an
+  // eighteen-step staircase. Douglas-Peucker at 0.02 units (~59 m) — the finest
+  // detail MAX_ZOOM can put on a pixel — takes 699 points to 94 and holds the
+  // area at 21.96 km2 against the source's 21.92.
+  //
+  // Drawn in MAP UNITS and deliberately not in the counter-scaled group with
+  // the icons: per the note above syncIconScale, a symbol is a statement about
+  // a place and an island is a measurement of one. Measured on a 1600px window,
+  // that is a 2 x 3 px speck under the marker at the opening view and 21 x 30 px
+  // at k=10, against a ring counter-scaled to a constant 21 — so zooming in
+  // walks the coast out from under its own icon, north and south tips first.
+  // Small either way, and correctly so: five kilometres on a chart three
+  // thousand across. Kharku, 1.6 units northeast, is still absent — same
+  // cutoff, and no aimpoint on it.
+  const ISLANDS = [
+    { name: 'Iran', cls: 'iran', d: 'M393.6,388.37L393.68,388.54L393.83,388.54L393.88,388.6L394.03,388.55L394.04,388.57L394.12,388.52L394.14,388.54L394.12,388.5L394.19,388.47L394.36,388.26L394.47,388.3L394.47,388.2L394.45,388.25L394.35,388.21L394.37,388.11L394.44,388.12L394.44,388.04L394.41,388.02L394.42,388.1L394.33,388.1L394.37,388.02L394.31,388.07L394.25,387.85L394.27,387.85L394.25,387.73L394.29,387.68L394.38,387.69L394.39,387.64L394.34,387.53L394.36,387.66L394.27,387.66L394.28,387.56L394.21,387.43L394.28,387.12L394.36,387.13L394.39,387.07L394.36,387.12L394.28,387.09L394.32,387.06L394.32,386.98L394.37,386.88L394.42,386.9L394.47,386.83L394.43,386.79L394.54,386.58L394.31,386.44L394.28,386.36L394.26,386.44L394.23,386.43L394.26,386.41L394.16,386.38L394.17,386.35L394.14,386.37L394.18,386.32L394.27,386.34L394.25,386.31L393.99,386.38L393.77,386.22L393.73,386.25L393.74,386.33L393.71,386.33L393.42,386.13L393.33,386.12L393.31,386.09L393.2,386.1L393.13,386.03L392.8,386.14L392.74,386.24L392.89,386.47L393.01,386.53L393.03,386.58L392.93,386.65L393.04,386.6L393.06,386.64L392.98,386.7L393.08,386.69L393.02,386.74L393.11,386.72L393.17,387.04L393.16,387.22L393.12,387.24L393.23,387.31L393.25,387.5L393.31,387.56L393.35,387.72L393.35,387.76L393.31,387.79L393.36,387.77L393.39,387.82L393.48,388.24L393.51,388.29L393.52,388.27L393.55,388.29Z' },
+  ];
+
   function el(tag, attrs = {}) {
     const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
     for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
@@ -560,7 +597,13 @@ const MapView = (() => {
     // "Doha and Riyadh have gone amber and Kuwait has gone blue" is a glance, and
     // the same fact in the sidebar is two gauges and a roster the player has to
     // open a panel to reach.
-    for (const c of COUNTRY_PATHS) {
+    //
+    // ISLANDS goes through the same loop rather than a layer of its own, which
+    // is the point of it: an island is not a different kind of thing from the
+    // coast it sits off. It gets the same class, the same data-country contract
+    // (so Kharg colours with the mainland the day Iran has a mood) and the same
+    // seat in measureWorld's bbox.
+    for (const c of COUNTRY_PATHS.concat(ISLANDS)) {
       const p = el('path', { class: `country ${c.cls || ''}`, d: c.d, 'fill-rule': 'evenodd' });
       p.dataset.country = c.name;
       world.appendChild(p);
