@@ -6970,18 +6970,26 @@ const Game = (() => {
   // because it is a recommendation about WHO should pick this and not a fact
   // about the war it produces — a player scanning three headings should be able
   // to take it without reading a paragraph, which is the whole point of it.
+  // A level marked `soon` is drawn but not offered: the radio is `disabled`, so
+  // it cannot be clicked, cannot be arrowed onto out of the radio group, and
+  // cannot be the `:checked` one `btn-start` reads — the greyed look is the
+  // consequence of that rather than a decoration over a live control. It is
+  // never handed the `checked` attribute even if it is the default, which is
+  // the one way this could ship a title screen whose START button reads null.
   function buildDifficultyOptions() {
     const box = document.getElementById('difficulty-select');
     if (!box) return;
     for (const key of ['easy', 'normal', 'hard']) {
       const d = DIFFICULTY[key];
       const label = document.createElement('label');
-      label.className = 'diff-option';
+      label.className = 'diff-option' + (d.soon ? ' diff-soon' : '');
       label.innerHTML =
         `<input type="radio" name="difficulty" value="${key}"` +
-        `${key === DIFFICULTY_DEFAULT ? ' checked' : ''}>` +
+        `${d.soon ? ' disabled' : ''}` +
+        `${key === DIFFICULTY_DEFAULT && !d.soon ? ' checked' : ''}>` +
         `<span class="diff-name">${d.name}` +
-        (d.tag ? `<span class="diff-tag">${d.tag}</span>` : '') + `</span>` +
+        (d.soon ? `<span class="diff-tag soon">COMING SOON</span>`
+                : d.tag ? `<span class="diff-tag">${d.tag}</span>` : '') + `</span>` +
         `<span class="diff-desc">${d.desc}</span>`;
       box.appendChild(label);
     }

@@ -2763,6 +2763,13 @@ const DIFFICULTY = {
     coa: 2, coaFill: 'half', freeTargeting: true, recommend: false, pgm: 0,
     coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0, dealBar: 1.5,
     railPanels: null, popups: [], autoTheater: false,
+    // Held off the title screen. The level is complete and every knob above is
+    // live — a save written at this level still restores and plays it — but the
+    // radio button is greyed and refuses the click, so `soon` is a statement
+    // about the DOOR and not about the war behind it. Nothing in the resolver
+    // reads it; `buildDifficultyOptions` is its one consumer. Delete this line
+    // to open the level, and delete nothing else.
+    soon: true,
     desc: 'A staff you can overrule. Two options are briefed each night and neither one fills the tasking order — what is left over you frag yourself, off the map, against whatever you think they have missed. The war as designed.' },
   hard:   { name: 'HARD', casualties: 190, repair: 1.25, coord: 1.15, breakout: 0.85, israel: 1.3, bmd: 0.7, covert: 0.75, retaliation: 1, softGate: true,
     coa: 0, coaFill: 'full', freeTargeting: true, recommend: false, pgm: 440,

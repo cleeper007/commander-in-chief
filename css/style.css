@@ -2053,6 +2053,24 @@ button { font-family: var(--mono); }
 .diff-desc { display: block; font-size: 10.5px; color: var(--dim); margin: 3px 0 0 20px; }
 .diff-option:has(input:checked) { border-color: var(--blue); background: rgba(90,150,220,.1); }
 
+/* A level held back (DIFFICULTY[key].soon). The radio underneath is `disabled`,
+   which is what actually refuses the click — this is only the row saying so, so
+   the two can never disagree. Greyed with `filter` on the whole row rather than
+   by restating each colour: the row has four of them (name, tag, description,
+   the accent on the radio itself) and a per-colour version drifts the first time
+   one of them is retuned above. The hover rule is cancelled explicitly, because
+   a border that lights up under the cursor reads as a control that works. */
+.diff-option.diff-soon {
+  filter: grayscale(1); opacity: .5; cursor: not-allowed;
+}
+.diff-option.diff-soon:hover { border-color: var(--line); background: none; }
+/* The chip is the one thing in the greyed row that still has to be READ — it is
+   the whole explanation for why the row is dead — so it is written in --text and
+   dimmed down to about --dim by the row's own opacity, rather than starting at
+   --dim and arriving at unreadable. Opacity on a parent cannot be undone by a
+   child, which is why the contrast is spent here and not there. */
+.diff-tag.soon { color: var(--text); border-color: var(--text); }
+
 /* ============ the breakout clock ============ */
 /* Deliberately the loudest thing in the objectives panel: it is the only clock
    in the game the player cannot read exactly, and the band is the message. */
