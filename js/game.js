@@ -5428,6 +5428,26 @@ const Game = (() => {
     }
 
     if (isIntel) G.intelUsed = true; else G.diploUsed = true;
+    // TONIGHT'S BRIEF IS RESTAGED, because the answer to a slot order is the one
+    // thing the rest of the folder should have been argued from. coaOptions() is
+    // cached by turn (see coaCache) so the menu cannot rewrite itself under a
+    // president who is reading it — but that rule was written about their own
+    // STRIKE orders, which move the magazine and nothing else. A slot order moves
+    // the BOARD: a hunt fixes a launcher group that was not an aimpoint an hour
+    // ago and whose own prose promises it "can be serviced — tonight", a worked
+    // folder puts a covert box on the plot, and coordinating with Jerusalem
+    // re-arms the joint deep-strike package against the buried halls. Without
+    // this the staff briefs the pre-tasking night, which makes the intelligence
+    // room coming first in the folder (v1.91) decorative — resumeBrief already
+    // re-reads the slate for exactly this reason and was being handed the cached
+    // one back.
+    //
+    // Unconditional, and safe to be: the brief is PURE, so a tasking that moved
+    // nothing rebuilds the identical three options and the president sees no
+    // rewrite at all. And it lands behind a dialog either way — the product or
+    // the cable is on screen, and on easy the folder has stood itself down and
+    // walks back in through resumeBrief once that is read.
+    coaCache = { turn: -1, list: null };
     G.stats.peakOil = Math.max(G.stats.peakOil, G.oil);
     AudioSys.play('cable');
     UI.renderAll(G);
