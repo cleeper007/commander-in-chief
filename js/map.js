@@ -547,6 +547,118 @@ const MapView = (() => {
     return g;
   }
 
+  // ---- friendly installations ----
+  // Every American and allied base on this chart used to be a primitive: a
+  // triangle for an airfield, a square for a depot, a diamond for the Fifth
+  // Fleet's headquarters. Iran's sites are drawn as the things they are — a
+  // trefoil, a launcher, a hull under way — and the asymmetry showed. The enemy
+  // looked authored and our own order of battle looked like placeholder shapes
+  // somebody meant to come back to.
+  //
+  // Two rules shape everything below. An ALLIED base renders hollow (see
+  // .us-asset.ally in the stylesheet), so each silhouette is ONE closed contour
+  // that still reads as itself in outline — no stack of overlapping subpaths
+  // whose internal seams would surface the moment the fill came off. And the
+  // fittings hang off a `.base-detail` group, held back until .map-deep-zoom for
+  // the same reason the carrier's deck fittings are: a 0.6-unit stripe below
+  // that zoom is not detail, it is dirt.
+
+  // Air base: a control tower over a runway, piano keys at both thresholds. The
+  // tower is what an airfield is recognised by from any angle and it is nothing
+  // else — the obvious alternative, a swept-wing planform, is already the glyph
+  // on every IRANIAN airbase, and the ramp a package launches from should not
+  // wear the same mark as the ramp it is flying at. Mast, roof, cab, shaft and
+  // runway are one path: an allied base outlines a single silhouette rather than
+  // five parts with their joins showing.
+  function airbaseIcon() {
+    const g = el('g', { class: 'asset-icon' });
+    g.appendChild(el('path', { d:
+      'M-0.38,-6.35 L0.38,-6.35 L0.38,-4.65 L3.80,-4.65 L3.80,-3.78 L3.24,-3.78 ' +
+      'L2.05,-0.60 L1.32,-0.60 L1.92,3.70 L7.00,3.70 L7.00,5.10 ' +
+      'L-7.00,5.10 L-7.00,3.70 L-1.92,3.70 L-1.32,-0.60 L-2.05,-0.60 ' +
+      'L-3.24,-3.78 L-3.80,-3.78 L-3.80,-4.65 L-0.38,-4.65 Z' }));
+    const d = el('g', { class: 'base-detail' });
+    // the threshold markings, which are the whole difference between a runway
+    // and a plinth for the tower to stand on
+    for (const x of [-6.85, -5.80, -4.75, -3.70, 3.10, 4.15, 5.20, 6.25])
+      d.appendChild(el('rect', { class: 'base-cut', x, y: 4.05, width: 0.6, height: 0.68 }));
+    // the cab glass, canted out over the shaft the way a real one is
+    d.appendChild(el('path', { class: 'base-cut',
+      d: 'M-2.90,-3.55 L2.90,-3.55 L2.10,-1.35 L-2.10,-1.35 Z' }));
+    g.appendChild(d);
+    return g;
+  }
+
+  // Logistics hub: containers stacked on a hardstand. Arifjan and Buehring are
+  // where the theater's sustainment lives — the fuel, the rounds and the rations
+  // every sortie on this map is spending — and a yard of boxes is what that
+  // looks like from the air. The gaps between the containers are real gaps in
+  // the silhouette rather than cut lines, so the stack still reads as three
+  // boxes and not one block when the fill comes off for an ally.
+  function logisticsIcon() {
+    const g = el('g', { class: 'asset-icon', transform: 'scale(0.88)' });
+    const box = (x, y, w, h) => g.appendChild(el('rect', { x, y, width: w, height: h }));
+    box(-6.50, 3.55, 13.00, 1.25);      // hardstand
+    box(-6.00, 0.05, 5.60, 3.20);       // bottom row: two forty-footers
+    box(0.40, 0.05, 5.60, 3.20);
+    box(-3.35, -3.40, 5.60, 3.20);      // and one more across the seam, as a yard stacks
+    // corrugation — the one marking that says shipping container and not crate
+    const d = el('g', { class: 'base-detail' });
+    for (const [bx, by] of [[-6.00, 0.05], [0.40, 0.05], [-3.35, -3.40]])
+      for (let i = 1; i <= 4; i++)
+        d.appendChild(el('rect', { class: 'base-cut',
+          x: bx + i * 1.12, y: by + 0.50, width: 0.26, height: 2.20 }));
+    g.appendChild(d);
+    return g;
+  }
+
+  // Naval Support Activity Bahrain: an anchor. Fifth Fleet's headquarters is not
+  // a hull, and drawing it as one would put the command node in the same
+  // language as the ships it commands — and in the same language as the Iranian
+  // naval bases across the Gulf, which already wear a hull in profile. An anchor
+  // means shore establishment and nothing else.
+  //
+  // The head is an arc inside the contour rather than a circle laid over the
+  // shank, so the outline never draws a chord across itself; the eye is a cut,
+  // which at chart scale is half a pixel and simply isn't there, and at zoom
+  // turns the head into a ring.
+  function navalIcon() {
+    // 1.05, not 1: an anchor is a tall, narrow, thin-limbed mark next to a
+    // 14-unit runway and an 11-unit container stack, and drawn at its authored
+    // size the Fifth Fleet's headquarters was the faintest thing on the plot.
+    const g = el('g', { class: 'asset-icon', transform: 'scale(1.05)' });
+    g.appendChild(el('path', { d:
+      'M-0.62,-3.33 A1.15,1.15 0 1 1 0.62,-3.33 L0.62,-2.75 L3.35,-2.75 L3.35,-1.75 ' +
+      'L0.62,-1.75 L0.62,1.35 C1.22,2.70 2.02,3.48 3.02,3.86 L4.58,1.48 L4.02,4.34 ' +
+      'C2.68,5.02 1.36,5.38 0,5.42 C-1.36,5.38 -2.68,5.02 -4.02,4.34 L-4.58,1.48 ' +
+      'L-3.02,3.86 C-2.02,3.48 -1.22,2.70 -0.62,1.35 L-0.62,-1.75 L-3.35,-1.75 ' +
+      'L-3.35,-2.75 L-0.62,-2.75 Z' }));
+    g.appendChild(el('circle', { class: 'base-cut', cy: -4.30, r: 0.52 }));
+    return g;
+  }
+
+  // The B-2 ramp at Diego Garcia. A flying wing is one of the few airframes a
+  // silhouette can name outright — nothing else has that trailing edge — so the
+  // double-W is drawn to the real planform: leading edge swept back a shade over
+  // 30 degrees, two notches a side, and the centre spike between the exhausts
+  // running further aft than any other point on the aircraft. Nose up, because
+  // the long leg from the atoll to Iran is flown north.
+  function bomberIcon() {
+    const g = el('g', { class: 'asset-icon' });
+    g.appendChild(el('path', { d:
+      'M0,-3.15 L8.00,1.45 L8.00,2.25 L5.05,1.30 L3.25,2.80 L1.65,1.95 L0,3.45 ' +
+      'L-1.65,1.95 L-3.25,2.80 L-5.05,1.30 L-8.00,2.25 L-8.00,1.45 Z' }));
+    // cockpit, and the two intake fairings that ride on top of the wing
+    const d = el('g', { class: 'base-detail' });
+    d.appendChild(el('path', { class: 'base-cut',
+      d: 'M-0.62,-1.55 L-0.42,-2.30 L0.42,-2.30 L0.62,-1.55 Z' }));
+    for (const s of [-1, 1])
+      d.appendChild(el('path', { class: 'base-cut',
+        d: `M${s * 1.05},-1.15 L${s * 2.25},-1.15 L${s * 2.95},-0.35 L${s * 1.05},-0.35 Z` }));
+    g.appendChild(d);
+    return g;
+  }
+
   function assetIcon(a) {
     // active === false is a unit not yet in theater (the second CSG, mid-ocean)
     // `cv-asset`/`label-above` are hooks for the one thing the escort screen
@@ -563,15 +675,15 @@ const MapView = (() => {
     if (a.kind === 'carrier') {
       icon = carrierGroup();
     } else if (a.kind === 'bomber') {
-      icon = el('path', { class: 'asset-icon', d: 'M0,-4 L8,3 L2,2 L0,5 L-2,2 L-8,3 Z' });
+      icon = bomberIcon();
     } else if (a.kind === 'logistics') {
-      icon = el('path', { class: 'asset-icon', d: 'M-4.5,-4.5 L4.5,-4.5 L4.5,4.5 L-4.5,4.5 Z M-4.5,-1 L4.5,-1 L4.5,1 L-4.5,1 Z' });
+      icon = logisticsIcon();
     } else if (a.kind === 'naval') {
-      icon = el('path', { class: 'asset-icon', d: 'M0,-5.5 L4.5,0 L0,5.5 L-4.5,0 Z' });
+      icon = navalIcon();
     } else if (a.kind === 'submarine') {
       icon = submarineIcon();
     } else {
-      icon = el('path', { class: 'asset-icon', d: 'M-5,4 L0,-5 L5,4 Z M-7,4 L7,4 L7,5.5 L-7,5.5 Z' });
+      icon = airbaseIcon();
     }
     g.appendChild(icon);
     // labelAbove keeps neighbouring bases (Nevatim/Hatzerim) from colliding

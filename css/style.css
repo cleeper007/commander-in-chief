@@ -1438,6 +1438,17 @@ button { font-family: var(--mono); }
 }
 .us-asset.under-attack .asset-icon { fill: var(--red); }
 
+/* The fittings on a base glyph — runway thresholds, container corrugation, the
+   anchor's eye, a bomber's intakes. Cut in the map's own dark so they read out
+   of one blue fill, exactly the way the carrier's deck openings do, which also
+   means they follow a base into red without a rule of their own. */
+.us-asset .base-cut { fill: #0b1a2e; }
+/* ...and the ones that are only ever detail wait for a zoom that can show them,
+   on the same reveal as the strike group's escort screen. A 0.6-unit stripe at
+   chart scale is half a pixel: not a marking, just a dirty icon. */
+.us-asset .base-detail { opacity: 0; transition: opacity 0.25s ease; pointer-events: none; }
+.map-deep-zoom .us-asset .base-detail { opacity: 1; }
+
 /* aircraft carrier — reads as a flat-top at map scale, resolves into a full
    strike group (carrier + escort screen) once zoomed way in */
 .carrier-hull { fill: var(--blue); }
@@ -1521,8 +1532,19 @@ button { font-family: var(--mono); }
 .us-asset .asset-submerged + text,
 .us-asset:has(.asset-submerged) text { opacity: 0.8; }
 
-/* allied bases that are not under US command (Israel) — amber, hollow */
-.us-asset.ally .asset-icon { fill: none; stroke: var(--amber); stroke-width: 1.4; }
+/* Allied bases that are not under US command (Israel, Saudi Arabia) — amber,
+   hollow. The stroke came down from 1.4 when the glyphs stopped being triangles:
+   a control tower's shaft is 2.7 units across at the waist and a 1.4 outline
+   closed it up into a solid bar. Round joins because an outline meeting itself
+   at the roof line and the fluke of an anchor will otherwise throw a miter spike
+   longer than the fitting it belongs to. */
+.us-asset.ally .asset-icon {
+  fill: none; stroke: var(--amber); stroke-width: 1.05; stroke-linejoin: round;
+}
+/* A cut is a hole in a fill, and there is no fill here: left dark it would be a
+   navy shape sitting on navy water. Drawn as a hairline instead, which is what
+   the marking looked like from the start. */
+.us-asset.ally .base-cut { fill: none; stroke: var(--amber); stroke-width: 0.55; }
 .us-asset.ally text { fill: var(--amber); opacity: 0.85; }
 
 /* Both straits, and the selector covers both by id because there are two now.
