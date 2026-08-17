@@ -424,19 +424,23 @@ const SpecOps = (() => {
   const OUTCOMES = {
     clean(G, events) {
       G.raid = 'success';
-      G.approval = clamp(G.approval + 8, 0, 100);
+      // A decapitation raid happens once. No habituation class anywhere in this
+      // file, for the same reason csar.js passes none: there is nothing here
+      // the country could have got bored of, because there is nothing here it
+      // has seen before.
+      const cleanGain = Game.movePublic(8);
       G.regimeChaosTurns = 2;
       events.push({
         cls: 'friendly', title: 'OBJECTIVE SECURED — LEADERSHIP TARGET ELIMINATED',
         text: 'The task force is feet-dry, feet-wet, and aboard the recovery ship before Tehran state media finishes denying it. Not one American was hurt. The top of the regime\'s command chain is gone, and retaliation orders are not being issued — no one is sure who has the authority to issue them. CENTCOM\'s caution is in the last line of the assessment: this buys a window and a weaker Tehran at the table. It does not destroy a single centrifuge.',
-        dApproval: 8,
+        dApproval: cleanGain,
       });
       successAftermath(G, events);
     },
 
     heloDown(G, events) {
       G.raid = 'success';
-      G.approval = clamp(G.approval + 6, 0, 100);
+      const heloGain = Game.movePublic(6);
       G.world = clamp(G.world - 3, 0, 100);
       G.casualties.us += 1;
       G.stats.aircraftLost++;
@@ -444,14 +448,14 @@ const SpecOps = (() => {
       events.push({
         cls: 'friendly', title: 'OBJECTIVE SECURED — ONE AIRFRAME LOST ON THE OBJECTIVE',
         text: 'The overwatch helicopter went in inside the compound wall and the assault went anyway. The target is dead, the exploitation material is aboard the recovery ship, and one operator is coming home in a transfer case. The airframe was destroyed in place — badly enough to deny the technology, publicly enough that Tehran has wreckage to photograph.',
-        casualties: 1, dApproval: 6, dWorld: -3,
+        casualties: 1, dApproval: heloGain, dWorld: -3,
       });
       successAftermath(G, events);
     },
 
     mixed(G, events) {
       G.raid = 'pyrrhic';
-      G.approval = clamp(G.approval - 3, 0, 100);
+      const mixedCost = Game.movePublic(-3);
       G.world = clamp(G.world - 5, 0, 100);
       const c = rand(10, 16);
       G.casualties.us += c;
@@ -461,7 +465,7 @@ const SpecOps = (() => {
       events.push({
         cls: 'iran', title: 'TARGET ELIMINATED — TASK FORCE DID NOT COME OUT',
         text: `They killed him. Positive identification was passed before the net went quiet. Then both helicopters were destroyed, the assault element was surrounded in the main house, and it ended the way it was always going to end without a ride home. ${c} Americans are dead; the survivors are in IRGC custody. The Supreme Leader is dead and so is the task force, and the country will spend a generation arguing about whether that was a trade worth making.`,
-        casualties: c, dApproval: -3, dWorld: -5,
+        casualties: c, dApproval: mixedCost, dWorld: -5,
       });
       if (Math.random() < 0.55) {
         G.regimeErratic = true;
@@ -480,7 +484,12 @@ const SpecOps = (() => {
 
     failure(G, events) {
       G.raid = 'failed';
-      G.approval = clamp(G.approval - 9, 0, 100);
+      // A task force sent in on the president's signature that did not come
+      // out. One of the four catastrophes that reach the base itself — the
+      // objection is not to the war going badly, it is to this specific
+      // decision, and it is the president's alone. See APPROVAL.erode.
+      const failCost = Game.movePublic(-9);
+      Game.erodeBase(APPROVAL.erode.raidLost);
       G.world = clamp(G.world - 7, 0, 100);
       const c = rand(9, 14);
       G.casualties.us += c;
@@ -489,7 +498,7 @@ const SpecOps = (() => {
       events.push({
         cls: 'iran', title: 'RAID COMPROMISED — TASK FORCE DESTROYED',
         text: `The compound was dressed and the ambush was laid. The assault helicopter was shot down on short final, the overwatch bird followed it, and the house was empty — no target, no family, no papers. ${c} Americans are dead and the survivors are in IRGC custody. Within hours Iranian state television is airing footage of captured Americans and burning stealth helicopters. It is the worst night for American special operations since Desert One, the pattern-of-life picture was wrong or leaked, and now Tehran holds hostages.`,
-        casualties: c, dApproval: -9, dWorld: -7,
+        casualties: c, dApproval: failCost, dWorld: -7,
       });
     },
   };

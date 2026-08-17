@@ -627,7 +627,11 @@ const CSAR = (() => {
       // back on the flight schedule after REST turns, which is the only good
       // news this subsystem ever posts to the squadron panel
       Aircrew.setStatus(G, aboardOf(G, d), 'recovering', G.turn);
-      G.approval = clamp(G.approval + 8, 0, 100);
+      // No habituation class on any outcome in this file. A recovery is not a
+      // repetition of anything — the whole subsystem fires a handful of times
+      // in a campaign at most — and a country that got bored of rescued
+      // aircrew would be a country this game has no business modelling.
+      const cleanGain = Game.movePublic(8);
       G.world = clamp(G.world + 3, 0, 100);
       events.push({
         cls: 'friendly', title: `RECOVERY COMPLETE — ${d.callsign} IS OUT`,
@@ -636,7 +640,7 @@ const CSAR = (() => {
           `Nobody in the rescue package was hurt. The footage Tehran was preparing to run tonight does ` +
           `not exist, and the picture the country gets instead is a flight suit walking off a ramp under ` +
           `its own power. There is no target on that map worth what this is worth at home.`,
-        dApproval: 8, dWorld: 3,
+        dApproval: cleanGain, dWorld: 3,
       });
     },
 
@@ -644,7 +648,7 @@ const CSAR = (() => {
       G.stats.aircrewRescued += d.crew;
       Aircrew.setStatus(G, aboardOf(G, d), 'recovering', G.turn);
       G.casualties.us += 1;
-      G.approval = clamp(G.approval + 5, 0, 100);
+      const costlyGain = Game.movePublic(5);
       events.push({
         cls: 'friendly', title: `RECOVERY COMPLETE — ONE PARARESCUEMAN KILLED`,
         text: `${crewPhrase(d, true)} ${Txt.are(d.crew)} out. It cost a pararescueman, ` +
@@ -652,7 +656,7 @@ const CSAR = (() => {
           `depot. The aircraft came off the objective heavy, on one good engine, trailing fuel, and put ` +
           `down on a destroyer with the survivors alive in the back. Everyone in that squadron would ` +
           `fly it again tomorrow. That is the part that is hard to explain to the family.`,
-        casualties: 1, dApproval: 5,
+        casualties: 1, dApproval: costlyGain,
       });
     },
 
@@ -669,7 +673,18 @@ const CSAR = (() => {
       const on = aboardOf(G, d);
       Aircrew.setStatus(G, on.slice(0, saved), 'recovering', G.turn);
       Aircrew.setStatus(G, on.slice(saved), 'pow', G.turn);
-      G.approval = clamp(G.approval - (saved ? 6 : 9), 0, 100);
+      // An American in IRGC custody is one of the four things in this game that
+      // reaches past the persuadable middle and cracks the president's own
+      // base. It is not that the news is bad — plenty of news is bad — it is
+      // that a prisoner on television is the specific image that makes people
+      // who voted for you stop defending you. See APPROVAL.erode.
+      //
+      // Charged even when one crew came home: `saved` softens the push on the
+      // middle, because half a recovery is half a story, and does not soften
+      // the erosion at all, because the half that is on television is the half
+      // that does this.
+      const partialCost = Game.movePublic(saved ? -6 : -9);
+      Game.erodeBase(APPROVAL.erode.aircrewTaken);
       G.world = clamp(G.world - 3, 0, 100);
       const out = on[0], left = on[1];
       events.push({
@@ -688,7 +703,7 @@ const CSAR = (() => {
             `${out ? Aircrew.label(out) : d.callsign} is in IRGC custody, on television by morning, ` +
             `and the aircraft that went in came back shot up and empty. ` +
             `Nothing about this reads as anything but a failure, because it was one.`,
-        dApproval: saved ? -6 : -9, dWorld: -3,
+        dApproval: partialCost, dWorld: -3,
       });
     },
 
@@ -699,7 +714,13 @@ const CSAR = (() => {
       G.stats.aircraftLost += 2;
       const c = rand(4, 9);
       G.casualties.us += c;
-      G.approval = clamp(G.approval - 15, 0, 100);
+      // The worst single event in the game, and the only one that cracks the
+      // base twice over: prisoners on television AND a task force that did not
+      // come out. Both are charged, because they are two different failures and
+      // the country is told about both — the rescue was a decision the
+      // president made, on top of the shootdown that was not.
+      const disasterCost = Game.movePublic(-15);
+      Game.erodeBase(APPROVAL.erode.hostages + APPROVAL.erode.raidLost);
       G.world = clamp(G.world - 8, 0, 100);
       events.push({
         cls: 'iran', title: 'RECOVERY FORCE DESTROYED — THE RESCUE IS NOW THE STORY',
@@ -711,7 +732,7 @@ const CSAR = (() => {
           `operation launched to prevent it. Iranian state television is running the wreckage on a loop ` +
           `with the prisoners intercut. Every network at home is running it too, and the question under ` +
           `it is who ordered the rescue.`,
-        casualties: c, dApproval: -15, dWorld: -8,
+        casualties: c, dApproval: disasterCost, dWorld: -8,
       });
     },
   };

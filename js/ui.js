@@ -604,15 +604,26 @@ const UI = (() => {
     // approval finishes the overwhelming majority of campaigns, so it was the
     // single most important number on the screen with no denominator on it.
     const ap = $('approval-value');
+    // The bands are derived, not literal, because as of v2.13 there is no
+    // single scale left to write a literal against: the floor is 32 on easy and
+    // 24 on hard, so a fixed `< 30 = crit` opened every hard war amber and
+    // could not go red on easy until the presidency was already over. Red is
+    // "within a bad week of the collapse line", amber is "in the bottom third
+    // of what this country will ever give you" — both relative to the same
+    // blocs the number itself is made of. See APPROVAL in data.js.
+    const floor = Game.collapseAt();
+    const apClass = G.approval <= floor + 8 ? 'crit'
+      : G.approval <= G.base + G.middleSize * 0.35 ? 'warn'
+      : 'good';
     ap.textContent = `${Math.round(G.approval)}%`;
-    ap.className = 'stat-value big ' + (G.approval < 30 ? 'crit' : G.approval < 45 ? 'warn' : 'good');
+    ap.className = 'stat-value big ' + apClass;
     // The threshold rides in its own span so a phone can hold it back until it
     // is worth the width: seven readouts across a 390px screen leaves ~95px a
     // column, and "APPROVAL — FALLS AT 20%" does not go in 95px. The stylesheet
     // brings it back the moment this readout goes amber, which is when the line
     // stops being trivia and starts being the thing about to end the war.
     $('approval-label').innerHTML =
-      'APPROVAL<span class="stat-sub"> — FALLS AT 20%</span>';
+      `APPROVAL<span class="stat-sub"> — FALLS AT ${floor}%</span>`;
 
     // Oil defeats the war outright at $240; pulse the number once it is close
     // enough that the next spike could end it, so the loss never arrives unseen.
@@ -720,7 +731,7 @@ const UI = (() => {
       { text: `Break Iran's war machine (${wm.map(c => `${c.label} ${c.pct}%`).join(' · ')})`,
         done: G.iranBroken() },
       { text: `Limit US casualties (${G.casualties.us} / ${Game.casualtyLimit()} tolerated)`, done: null },
-      { text: `Hold approval above 20% (now ${Math.round(G.approval)}%)`, done: null },
+      { text: `Hold approval above ${Game.collapseAt()}% (now ${Math.round(G.approval)}%)`, done: null },
       { text: `Keep crude under $240 (now $${Math.round(G.oil)})`, done: null },
       { text: `Keep Strait of Hormuz open`, done: null },
     ];

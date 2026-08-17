@@ -94,34 +94,305 @@ const Game = (() => {
   // events would be noise a player learns to skip past, which is exactly the
   // habit this one cannot afford. The poll number is in the headline so no two
   // nights read the same on the ticker.
-  function wearinessEvent(cost) {
+  // ---- THE POLL ----
+  // The one place the country explains itself, and the surface that teaches the
+  // whole bloc model. It replaces wearinessEvent outright rather than standing
+  // beside it: two separate events reporting on the same public, one of them
+  // firing only past turn 30, is how the old build managed to run 540 campaigns
+  // in which almost nobody was ever told what approval was made of.
+  //
+  // Two cadences, one builder. Every APPROVAL.pollEvery turns normally, and
+  // EVERY turn once the campaign is past softCap — because that is when the
+  // drain is accelerating and tonight's number is genuinely new information
+  // rather than a restatement of the last one.
+  //
+  // `cost` is the weariness charge, already spent against the middle by the
+  // caller. This event reports it and never carries it, exactly as the Hill's
+  // vote does, so it must not reach applyEvent with a dApproval on it.
+  function pollEvent(cost) {
     const over = G.turn - G.softCap;
-    if (over < 1) return null;
-    const text = over <= 3
-      ? 'The networks have started running a day count in the corner of the screen. The war ' +
-        'was sold as a fortnight and it is past a fortnight, and the coverage has quietly ' +
-        'changed tense — this is no longer an operation with an end date, it is a situation. ' +
-        'Nothing in particular happened today to cause any of it. That is the story.'
-      : over <= 8
-      ? 'Members of your own party are booking the Sunday shows to ask what winning looks like, ' +
-        'and the answer coming back from the podium has not changed in a week. The country has ' +
-        'stopped following the target list and started following the calendar. Every further ' +
-        'night of this costs more than the night before it did, and the slope is steepening.'
-      : 'There is no constituency left for this war. The coverage is wall to wall and uniformly ' +
-        'hostile, the leadership has stopped returning calls, and the numbers are falling faster ' +
-        'each night now on their own momentum. Whatever is going to be finished has to be ' +
-        'finished with what is already in theater, and it has to be finished immediately.';
+    const due = over >= 1 || G.turn % APPROVAL.pollEvery === 0;
+    if (!due || G.turn < 2) return null;
+
+    const prev = G.lastPoll;
+    const now = { base: G.base, middle: G.middleWith, opposed: G.opposed, approval: G.approval };
+    G.lastPoll = now;
+
+    // Past the plan the war itself is the story and the old weariness prose is
+    // still the right prose for it — it is about a country following the
+    // calendar rather than the target list, which is exactly what the blocs are
+    // doing by then.
+    let text;
+    if (over >= 1) {
+      text = over <= 3
+        ? 'The networks have started running a day count in the corner of the screen. The war ' +
+          'was sold as a fortnight and it is past a fortnight, and the coverage has quietly ' +
+          'changed tense — this is no longer an operation with an end date, it is a situation. ' +
+          'Nothing in particular happened today to cause any of it. That is the story.'
+        : over <= 8
+        ? 'Members of your own party are booking the Sunday shows to ask what winning looks like, ' +
+          'and the answer coming back from the podium has not changed in a week. The country has ' +
+          'stopped following the target list and started following the calendar. Every further ' +
+          'night of this costs more than the night before it did, and the slope is steepening.'
+        : 'There is no constituency left for this war. The coverage is wall to wall and uniformly ' +
+          'hostile, the leadership has stopped returning calls, and the numbers are falling faster ' +
+          'each night now on their own momentum. Whatever is going to be finished has to be ' +
+          'finished with what is already in theater, and it has to be finished immediately.';
+    } else {
+      text = diff().pollDetail ? pollDetail(prev, now) : pollPlain(prev, now);
+    }
+
     return {
       cls: 'world',
-      title: `POLL: APPROVAL AT ${Math.round(G.approval)}% AS THE WAR PASSES DAY ${Math.ceil(G.turn / 2)}`,
+      title: `POLL: APPROVAL AT ${Math.round(G.approval)}% ON DAY ${Math.ceil(G.turn / 2)}`,
       text,
-      sum: `Public patience: ${Txt.signed(-(Math.round(cost * 10) / 10))} approval`,
-      dApproval: -cost,
+      sum: cost
+        ? `Public patience: ${Txt.signed(-(Math.round(cost * 10) / 10))} approval`
+        : `The country: ${Math.round(G.approval)}% approve`,
+      // Deliberately no dApproval. Everything this reports has already been
+      // charged by the caller — see the note above.
+      internal: false,
     };
+  }
+
+  // What the split is doing, for the levels that are shown it. Three sentences
+  // in a fixed order — the base, the middle, the opposition — because the order
+  // is the argument: the first and last never move and the one in between is
+  // the entire war.
+  function pollDetail(prev, now) {
+    const size = G.middleSize;
+    const cracked = prev && now.base < prev.base;
+    const moved = prev ? Math.round(now.middle - prev.middle) : 0;
+
+    // The two fixed camps are stated in FULL the first time and then only when
+    // they move, which for the base means a catastrophe and for the opposition
+    // means the same catastrophe seen from the other end. Everything below was
+    // written as three unconditional sentences first, and read as three
+    // unconditional sentences: identical base and opposition lines under every
+    // poll of every campaign, which is the "noise a player learns to skip past"
+    // the old weariness event's own comment warns about — on the one event in
+    // the game that cannot afford to be skipped, because it is the only place
+    // the model is ever explained.
+    const baseLine = cracked
+      ? `Your own base moved — ${prev.base}% down to ${now.base}%, and the people who left are not ` +
+        `undecided, they are gone. That is your floor falling, and your ceiling with it.`
+      : !prev
+        ? `Your base is ${now.base}% and it is not going to move, short of a catastrophe. That is your ` +
+          `floor and it is the reason you are still here.`
+        : '';
+
+    const midLine = !prev
+      ? `Of the ${size}% of the country that was ever going to decide this, ` +
+        `${Txt.plural(Math.round(now.middle), 'point')} ${Txt.are(Math.round(now.middle))} ` +
+        `with you tonight.`
+      : moved === 0
+        ? `The ${size}% in the middle has not moved since the last poll — ` +
+          `${Txt.plural(Math.round(now.middle), 'point')} with you, ` +
+          `and nothing this week shifted any of it either way.`
+        : `The ${size}% in the middle is what moved: ` +
+          `${Txt.plural(Math.round(prev.middle), 'point')} with you at the last poll, ` +
+          `${Math.round(now.middle)} tonight.`;
+
+    // Running out of country is a real state and the player is told about it
+    // rather than watching gains silently vanish into a bound. This is the
+    // sentence that makes the ceiling information instead of a bug.
+    const roomLine = now.middle >= size - 0.5
+      ? ' There is nobody left to persuade. Everyone in this country who can be brought to support this war ' +
+        'already does, and further good news from the theater has nowhere to go.'
+      : now.middle <= 0.5
+        ? ' The middle is gone in its entirety. What is left on the board is your base and nothing else, and ' +
+          'there is no further down that does not mean losing people who voted for you.'
+        : '';
+
+    const oppLine = !prev
+      ? ` The ${now.opposed}% against you were against you on the first night and will be against you on ` +
+        `the last; nothing in the theater has ever moved them and nothing will.`
+      : cracked
+        ? ` The bloc against you is ${now.opposed}% now, and it grew by taking people from your own side.`
+        : '';
+
+    return [baseLine, midLine].filter(Boolean).join(' ') + roomLine + oppLine;
+  }
+
+  // The same country, without the arithmetic. Easy runs the identical
+  // simulation — see DIFFICULTY.pollDetail — and is told what it means rather
+  // than what it is made of.
+  function pollPlain(prev, now) {
+    const moved = prev ? now.middle - prev.middle : 0;
+    const frac = now.middle / G.middleSize;
+    const where = frac >= 0.85
+      ? 'The country is behind you about as far as a country gets behind a war.'
+      : frac >= 0.6
+        ? 'The country is still with you.'
+        : frac >= 0.35
+          ? 'The country is split, and the part that is wavering is the part that decides this.'
+          : frac > 0.1
+            ? 'You have lost most of the people who were ever persuadable. What is left is the people who would ' +
+              'have stayed whatever you did.'
+            : 'There is nobody left but your own base, and they are holding because they are your base.';
+    const trend = !prev
+      ? ''
+      : moved > 1.5 ? ' It moved your way this week, and it moved on something specific you did.'
+      : moved > 0 ? ' It drifted very slightly your way.'
+      : moved < -3 ? ' It fell hard this week.'
+      : moved < 0 ? ' It slipped a little.'
+      : ' It has not moved since the last poll.';
+    // Said once, and then only when it stops being true — same rule as
+    // pollDetail's fixed camps, and the same reason. A closing sentence
+    // identical under all eleven polls of a campaign is a sentence that trains
+    // the player to stop reading the poll.
+    const floor = !prev
+      ? ` Roughly ${now.base} in a hundred will approve of you whatever this war does, and about ` +
+        `${now.opposed} will not. Everything either side does is a fight over the rest.`
+      : now.base < prev.base
+        ? ` And something worse happened underneath it: people who were never going to leave you have ` +
+          `left. That has not happened before in this war.`
+        : '';
+    return where + trend + floor;
   }
 
   const diff = () => DIFFICULTY[G.difficulty] || DIFFICULTY.normal;
   const casualtyLimit = () => diff().casualties;
+  // Where the presidency falls. Derived from the country this level has
+  // rather than being the flat 20 it was through v2.12 — see
+  // APPROVAL.collapseErosion. Exported, because the objectives panel quotes
+  // it to the player and must not carry a second copy of the number.
+  const collapseAt = () => (diff().public || APPROVAL).base - APPROVAL.collapseErosion;
+
+  // ============================================================
+  // MOVING THE COUNTRY
+  // ------------------------------------------------------------
+  // Every write to approval in the game goes through one of the two functions
+  // below, and there are no others. See APPROVAL in data.js for the model.
+  // ============================================================
+
+  // Push the persuadable middle. `n` is in points of the middle, which is to
+  // say points of approval — the mapping is 1:1 until a bound is reached, so
+  // every retuned literal in this codebase still means what it reads as.
+  //
+  // What it does NOT do is scale the push by remaining headroom. A saturating
+  // curve was the obvious alternative and it is the wrong one: it makes every
+  // hand-set number in six files mean something other than what it says, to
+  // buy a softness the bounds are supposed to provide honestly. Running out of
+  // country to persuade is a real thing that happens to real presidents, and
+  // the poll SAYS so when it happens (see pollEvent) rather than hiding it in
+  // a multiplier. A ceiling the player is told about is information; a ceiling
+  // that silently eats two thirds of a gain is the bug the old clamp was.
+  //
+  // `cls` names the news story this is a repetition OF, and habituation applies
+  // to it in whichever direction it runs. Passing one is opt-in and most
+  // callers do not: an address, the Hill's vote, an objective met, a carrier on
+  // the bottom are all singular events, and a thing that happens once has
+  // nothing to habituate to.
+  //
+  // The direction rule was measured rather than assumed, and it is the one
+  // thing in this rewrite that changed after the first sweep. Habituating good
+  // news alone read as principled — people stop cheering victories long before
+  // they stop counting the dead — and it broke the game: `CONGRESS CUTS OFF`
+  // went from a minority ending to 41.7% of all campaigns, because the charged
+  // bill is dominated by a DRUMBEAT. Measured over 60 campaigns, the militia
+  // attack alone is -16.6 a campaign across ten firings of the identical
+  // headline, and six recurring events together are -45 of a -60 bill.
+  //
+  // A country does habituate to that. The ninth rocket attack on the same base
+  // genuinely is less news than the first, in a way the ninth dead American is
+  // not — and the two are separate here, because casualties are counted in
+  // `G.casualties` and crack the base through the erosion bands no matter how
+  // bored the coverage gets. So the asymmetry survives exactly where it was
+  // argued for: the war going badly still costs, and the specific complaint
+  // "another rocket landed at Ain al-Asad" stops being front-page news around
+  // the fifth time it is filed. See APPROVAL.habitBad.
+  function movePublic(n, cls) {
+    if (!n) return 0;
+    // The unit conversion, applied once and in one place — see
+    // APPROVAL.sensitivity. A caller's number is a push on a fully-fluid
+    // country; what lands is that push against the share still in play.
+    n *= APPROVAL.sensitivity;
+    if (cls) {
+      n *= habitMult(cls);
+      G.habit[cls] = (G.habit[cls] || 0) + 1;
+    }
+    const before = G.middleWith;
+    G.middleWith = clamp(G.middleWith + n, 0, G.middleSize);
+    return G.middleWith - before;   // what actually landed, after the bounds
+  }
+
+  // How much of a payout against this class still registers. Falls with every
+  // payout already collected and recovers on the nights the class is left
+  // alone (see habitTick), never below APPROVAL.habitFloor.
+  function habitMult(cls) {
+    const n = G.habit[cls] || 0;
+    return Math.max(APPROVAL.habitFloor, 1 - APPROVAL.habitStep * n);
+  }
+
+  // The country's attention coming back, one turn at a time, for every class at
+  // once. A class struck tonight has just been incremented by movePublic and so
+  // nets out ahead; a class left alone walks back toward full interest.
+  function habitTick() {
+    for (const k of Object.keys(G.habit)) {
+      G.habit[k] = Math.max(0, G.habit[k] - APPROVAL.habitRecover / APPROVAL.habitStep);
+      if (!G.habit[k]) delete G.habit[k];
+    }
+  }
+
+  // A catastrophe cracking the loyal base. Those people do not become
+  // persuadable — they move to `opposed`, so the ceiling comes down with the
+  // floor. That is the only thing in the game that can lower either.
+  //
+  // Scaled by DIFFICULTY.public.erode, and floored at 1 for the same reason
+  // `bite()` floors its charge: a carrier is on the bottom, and no setting
+  // makes that cost nothing. `base` cannot go below zero, but long before it
+  // gets there the campaign has ended on the collapse threshold, which is the
+  // intended relationship between the two — the floor retreats toward the
+  // losing line rather than the losing line being moved to meet it.
+  // `whole` rounds to a legible integer and refuses to charge less than a
+  // point, which is right for a catastrophe — a carrier sinks or it does not,
+  // and "your base fell by 0.3" is not a thing to tell a president. The
+  // overtime drain passes false, because that one is a slow leak and rounding
+  // it up to 1 a turn would crack a base twice as fast as the table says.
+  function erodeBase(n, whole = true) {
+    if (!n) return 0;
+    const e = (diff().public || APPROVAL).erode;
+    const raw = n * (e == null ? 1 : e);
+    const hit = Math.min(G.base, whole ? Math.max(1, Math.round(raw)) : raw);
+    G.base -= hit;
+    G.opposed += hit;
+    // The middle cannot be wider than the country left over. It never is —
+    // erosion moves base and opposed by the same amount and middleSize is
+    // unchanged — but middleWith is clamped anyway so that a future edit to
+    // this function cannot leave approval reading above its own ceiling.
+    G.middleWith = clamp(G.middleWith, 0, G.middleSize);
+    return hit;
+  }
+
+  // The rally expiring. Unconditional and on a fixed schedule: this is the
+  // country getting over the attack, not an opinion about the campaign, so it
+  // is charged on the nights it is charged whatever the president did with
+  // them. It stops dead at APPROVAL.rallyTurns and never runs again.
+  //
+  // Deliberately NOT floored at the war-justified level — a president who has
+  // already lost the middle by turn 4 does not get the rally back to spend.
+  function rallyDecay() {
+    if (G.rally <= 0) return 0;
+    const before = G.rally;
+    G.rally = Math.max(0, G.rally - APPROVAL.rallyPer);
+    return G.rally - before;
+  }
+
+  // The news cycle forgetting, in both directions. Runs every turn, after the
+  // night's events have been charged — see APPROVAL.revert for why this is the
+  // load-bearing number in the whole model and why it is symmetric.
+  //
+  // Deliberately NOT routed through movePublic: this is not news, it is the
+  // absence of news, and passing it through the habituation door would let a
+  // stray class argument make the country forget at a rate that depended on
+  // what was bombed last night.
+  function revertTick() {
+    const neutral = G.middleSize * APPROVAL.revertTo;
+    const before = G.middleWith;
+    G.middleWith = clamp(G.middleWith + (neutral - G.middleWith) * APPROVAL.revert, 0, G.middleSize);
+    return G.middleWith - before;
+  }
 
   // Does this decision arrive as a dialog rather than as a drawer in the
   // sidebar? One reader for DIFFICULTY.popups, exported, so that the four
@@ -149,7 +420,28 @@ const Game = (() => {
     // `softCap` is where the plan ends, not where the war does: past it the
     // country's patience drains on an accelerating curve (see warWeariness).
     turn: 1, softCap: 30,
-    approval: 58,          // %
+    // ---- the country ----
+    // Three blocs, of which the war can move exactly one. See APPROVAL in
+    // data.js for what each is and why. These are overwritten at kickoff from
+    // DIFFICULTY.public — the literals here are normal's, so that a G inspected
+    // before a level has been chosen reads as a country and not as zeroes.
+    //
+    // `approval` itself is DERIVED (below) and is not a field. It was one for
+    // twelve versions and that is the whole bug: a running total that anything
+    // could add to had no reason to stop at any particular number, so it was
+    // clamped into 0..100 by force and nothing on the board explained either
+    // end. Nothing may assign it now; `movePublic` is the one door.
+    base: 28, opposed: 30, middleWith: APPROVAL.openMiddle,
+    // The rally-round-the-flag term, which sits OUTSIDE the three blocs and
+    // decays to nothing over the first week. See APPROVAL.rallyAt.
+    rally: APPROVAL.rallyAt,
+    // Payouts already collected against each target class, which is what dulls
+    // the next one. Keyed on the target's own `type`. Good news only — see
+    // APPROVAL.habitBad for why the bad half never fades.
+    habit: {},
+    // The last poll's split, so the next one can report what MOVED rather than
+    // restating the same three numbers. Null until the first poll runs.
+    lastPoll: null,
     oil: 84,               // $/bbl Brent
     world: 60,             // world opinion 0–100
     hormuz: 'OPEN', hormuzClosedTurns: 0,
@@ -265,7 +557,12 @@ const Game = (() => {
     // wrong (see aircrew.js). Built in newWar; nothing in here simulates.
     aircrew: [],
     stats: { strikes: 0, destroyed: 0, aircraftLost: 0, peakOil: 84, backchannels: 0, carriersLost: 0,
-      downedCrews: 0, aircrewRescued: 0, aircrewCaptured: 0, telsKilled: 0 },
+      downedCrews: 0, aircrewRescued: 0, aircrewCaptured: 0, telsKilled: 0,
+      // How many bands of the casualty ceiling the dead have already crossed.
+      // Lives here rather than beside the blocs because `stats` is on FIELDS
+      // and is the one bag of per-war counters that already round-trips; it is
+      // a counter of something that happened, which is what stats are for.
+      casualtyBands: 0 },
 
     // ---- what THIS war is ----
     // Set once at kickoff and never during. Difficulty scales the three numbers
@@ -359,6 +656,27 @@ const Game = (() => {
     // against each. See IranAI.adaptPenalty.
     adapt: { cruise: 0, f35: 0, fighter: 0, stealth: 0, heavy: 0 },
     adaptSeen: { cruise: 0, f35: 0, fighter: 0, stealth: 0, heavy: 0 },
+
+    // ---- approval, which is the sum of the blocs and never a number of its own ----
+    // The floor is `base` and the ceiling is `base + middleSize`, and neither is
+    // a clamp — they are what the arithmetic can produce. That is the whole
+    // point: through v2.12 this was a running total held inside 0..100 by a
+    // clamp at every one of thirty write sites, so the model's answer to "why
+    // can't approval be 100" was "because we said so at each till".
+    //
+    // Read everywhere and written nowhere. The setter throws rather than being
+    // omitted, because these modules are not in strict mode and a getter-only
+    // property would swallow a stray `G.approval = …` in silence — which is
+    // exactly the drift this rewrite exists to make impossible. Anything that
+    // moves the country goes through movePublic() or erodeBase().
+    get approval() { return this.base + this.middleWith + this.rally; },
+    set approval(v) {
+      throw new Error('G.approval is derived from the blocs — use movePublic()/erodeBase()');
+    },
+    // The share actually in play, which is whatever the two fixed camps leave.
+    // Never stored, so a difficulty cannot state three numbers that fail to add
+    // up to a country.
+    get middleSize() { return 100 - this.base - this.opposed; },
 
     // Is the flagship out of the anti-ship envelope? Derived rather than stored:
     // with two independently-stationed decks there is no single fleet posture,
@@ -675,9 +993,19 @@ const Game = (() => {
     // 28: the escort screen shoots at ships now, so `nsmPool` is new state and a
     // v27 save restores with an undefined NSM magazine — which reads as zero and
     // silently refuses a package the war is supposed to offer.
-    const VERSION = 28;
+    // 29: approval is no longer a field. It is derived from three bloc counts
+    // that a v28 save does not carry, so a restored v28 war would come back
+    // with an undefined base and an undefined middle — which reads as NaN
+    // approval, and NaN fails every comparison, so the collapse check, the
+    // Hill's vote and the grade all quietly stop firing. Nothing on screen
+    // would say why.
+    const VERSION = 29;
     const FIELDS = [
-      'turn', 'softCap', 'approval', 'oil', 'world',
+      // `approval` is absent on purpose and must stay absent — it is a getter
+      // with a throwing setter, and read() assigns every name in this list
+      // straight back onto G.
+      'turn', 'softCap', 'base', 'opposed', 'middleWith', 'rally', 'habit', 'lastPoll',
+      'oil', 'world',
       'hormuz', 'hormuzClosedTurns', 'casualties', 'res', 'caps',
       'strikesThisTurn', 'struckThisTurn', 'fatigue', 'atoPlan',
       'missions', 'sanctions', 'coalition', 'leaderCalls',
@@ -1529,8 +1857,12 @@ const Game = (() => {
       };
       if (!G.milestones.degraded) {
         G.milestones.degraded = true;
-        G.approval = clamp(G.approval + 4, 0, 100);
-        ev.dApproval = 4;
+        // No habituation class on any of the four milestones, and that is the
+        // rule rather than an omission: these fire ONCE per campaign and the
+        // flag above is what guarantees it. Habituation exists to stop the
+        // twentieth repetition of a thing paying like the first, and something
+        // that cannot repeat has nothing to habituate to.
+        ev.dApproval = movePublic(4);
       }
       return [ev];
     }
@@ -1544,8 +1876,7 @@ const Game = (() => {
       };
       if (!G.milestones.superiority) {
         G.milestones.superiority = true;
-        G.approval = clamp(G.approval + 7, 0, 100);
-        ev.dApproval = 7;
+        ev.dApproval = movePublic(7);
       }
       return [ev];
     }
@@ -1574,7 +1905,7 @@ const Game = (() => {
     const out = [];
     if (!G.milestones.nukeGutted && G.nukeDegraded() >= 100) {
       G.milestones.nukeGutted = true;
-      G.approval = clamp(G.approval + 8, 0, 100);
+      const nukeBump = movePublic(8);
       // The nuclear sites cost nothing to strike, and finishing them pays: the
       // capitals that spent a decade failing to negotiate this away are not
       // going to condemn the country that did it. This +5 is the entire
@@ -1586,18 +1917,18 @@ const Game = (() => {
           'centrifuge halls are collapsed and the breakout timeline is gone. The reason the country went to ' +
           'war has been achieved, and the country knows it. The capitals that spent twenty years failing to ' +
           'negotiate this away are not going to say so out loud, but the condemnations have stopped.',
-        dApproval: 8, dWorld: 5,
+        dApproval: nukeBump, dWorld: 5,
       });
     }
     if (!G.milestones.iranBroken && G.iranBroken()) {
       G.milestones.iranBroken = true;
-      G.approval = clamp(G.approval + 6, 0, 100);
+      const brokenBump = movePublic(6);
       out.push({
         cls: 'friendly', title: 'OBJECTIVE MET — IRAN\'S WAR MACHINE BROKEN',
         text: 'The missile force is spent, the navy is on the bottom, and the IRGC command structure is rubble. ' +
           'Iran can no longer wage the war it started. The threat to the Gulf and to American forces in theater ' +
           'has been dismantled.',
-        dApproval: 6,
+        dApproval: brokenBump,
       });
     }
     return out;
@@ -2562,6 +2893,12 @@ const Game = (() => {
         cls: 'iran', title: `${cvName(cv).toUpperCase()} LOST`,
         text: `A coordinated Iranian salvo — anti-ship ballistic missiles from the coast, cruise missiles from the islands, and small craft coming in underneath the engagement envelope — saturated the strike group's defenses and put multiple weapons into ${cvName(cv)}. Flooding was uncontrolled. The order to abandon ship was given four hours later and her escorts recovered the great majority of her ship's company; the rest are dead or unaccounted for. The United States has lost a nuclear aircraft carrier for the first time in its history, on television, and Tehran is claiming the largest naval victory since the age of sail.`,
         casualties: rand(45, 85), dApproval: -20, dOil: 16, dWorld: -3,
+        // A supercarrier on the bottom, on television, for the first time in
+        // the country's history. This is the largest single erosion in the
+        // game and the only one that is not about Americans in enemy hands:
+        // what it costs the president is not sympathy, it is the assumption
+        // that they know what they are doing. See APPROVAL.erode.
+        erode: APPROVAL.erode.carrierLost,
         flashAsset: cv.id, attack: { kind: 'missile', base: cv.id, count: 6 },
       };
     }
@@ -2574,7 +2911,11 @@ const Game = (() => {
     return {
       cls: 'iran', title: `${cvShort(cv)} STRUCK — WITHDRAWING TO STANDOFF`,
       text: `An Iranian anti-ship missile got through the screen and hit ${cvName(cv)} above the waterline, starting fires on the hangar deck. Damage control has the ship, but her flight deck is fouled and her catapults are down. She is retiring south out of the Gulf of Oman into open water and will fly at a fraction of her rate for the rest of this war. Fifth Fleet did not order the withdrawal — the damage did.`,
-      casualties: rand(8, 25), dApproval: -7, dOil: 6,
+      // -7 to -5: a damaged carrier is a real event and not a catastrophe —
+      // she is afloat, under way and still flying — and it fires in a third of
+      // campaigns. The SUNK branch above is the one that keeps its full weight
+      // and takes the base with it.
+      casualties: rand(8, 25), dApproval: -5, dOil: 6,
       flashAsset: cv.id, attack: { kind: 'missile', base: cv.id, count: 4 },
     };
   }
@@ -4568,9 +4909,27 @@ const Game = (() => {
       target.killedOnce = true;
       if (firstKill) G.stats.destroyed++;
       if (target.type === 'tel') G.stats.telsKilled++;
+      // The number is unchanged from v2.12 and the mechanic around it is not.
+      // A flat +3 for a destroyed target was right for the first SAM site and
+      // absurd for the ninth: it said the country reacts to the twentieth night
+      // of a bombing campaign exactly as it reacted to the first. It now pays
+      // against APPROVAL's habituation, keyed on the target's own class — so
+      // the first battery is news, the ninth is a Tuesday, and a class left
+      // alone for four nights is news again. The `firstKill` halving below is a
+      // different and narrower rule that stays: it stops SAM reconstitution
+      // being an approval farm even when the country HAS lost interest.
+      // Charged HERE and not via applyEvent — battle damage is a self-applying
+      // event, as it was before this change, so `ev.dApproval` is the receipt
+      // and never a second instruction. `approvalClass` is deliberately not set
+      // on these for that reason: it is applyEvent's parameter, and a field
+      // that looks like one on an event nothing hands to applyEvent is an
+      // invitation to charge this twice.
+      //
+      // The value recorded is what LANDED, not what was asked for, so the
+      // report chip cannot claim +3 on a night the middle had two points left
+      // in it. Same rule aegisIntercept follows when it rescales a salvo.
       const bump = firstKill ? 3 : 1;
-      G.approval = clamp(G.approval + bump, 0, 100);
-      ev.dApproval = bump;
+      ev.dApproval = movePublic(bump, target.type);
       text = est.oneShot
         ? `Battle damage assessment confirms ${target.name.split(' — ')[0]} is sunk. She broke up and went down inside ` +
           'twenty minutes; the P-8 on station counted survivors in the water and Iranian craft recovering them. ' +
@@ -4606,16 +4965,18 @@ const Game = (() => {
         ev.disperseFrac = (typeof atDusk === 'number' ? atDusk : beforeHp) / 100;
       }
     } else if (outcome === 'damaged') {
-      G.approval = clamp(G.approval + 1, 0, 100);
-      ev.dApproval = 1;
+      ev.dApproval = movePublic(1, target.type);
       text = est.gradual
         ? `Partial effects on target. BDA assesses the site at ${condition(target)} — down from ` +
           `${beforeBand}, and both of those are estimates with real error in them. It is damaged, not ` +
           'finished, and it is still fighting. Every night it is left alone, crews put some of that back.'
         : 'Partial effects on target. Significant damage, but the site retains residual capability. A follow-up strike would likely finish it.';
     } else {
-      G.approval = clamp(G.approval - 2, 0, 100);
-      ev.dApproval = -2;
+      // A wasted package, and it does NOT habituate — no class is passed. The
+      // country never gets bored of the war going badly, which is APPROVAL's
+      // central asymmetry and the reason a long campaign is a losing one: the
+      // good nights fade into wallpaper and the bad nights all still count.
+      ev.dApproval = movePublic(-2);
       text = pkg.sub
         ? TORPEDO_MISS_REASONS[Math.floor(Math.random() * TORPEDO_MISS_REASONS.length)]
         : est.oneShot
@@ -4630,8 +4991,7 @@ const Game = (() => {
     // or puts living Americans on the ground belongs to csar.js.
     if (est.lossRisk > 0 && Math.random() < est.lossRisk) {
       G.stats.aircraftLost++;
-      G.approval = clamp(G.approval - 4, 0, 100);
-      ev.dApproval = (ev.dApproval || 0) - 4;
+      ev.dApproval = (ev.dApproval || 0) + movePublic(-4);
       ev.aircraftLost = true;   // reported as a chip on the report line, not in the summary
       const loss = CSAR.aircraftDown(target, mission);
       text += ' ' + loss.text;
@@ -4949,7 +5309,7 @@ const Game = (() => {
     // defeat, and two ways to lose to the same number is one too many.
     if (score >= 62) {
       G.warPowers.result = 'authorized';
-      G.approval = clamp(G.approval + 8, 0, 100);
+      movePublic(8);
       return {
         cls: 'friendly', title: 'CONGRESS AUTHORIZES THE USE OF FORCE',
         text: 'The joint resolution passed both chambers with votes to spare. The campaign has a legal ' +
@@ -4967,7 +5327,7 @@ const Game = (() => {
       G.warPowers.result = 'restricted';
       G.warPowers.noOil = true;
       G.warPowers.noDeep = G.world < 45;
-      G.approval = clamp(G.approval - 3, 0, 100);
+      movePublic(-3);
       return {
         cls: 'world', title: 'CONGRESS AUTHORIZES — WITH CONDITIONS',
         text: 'The resolution passed, narrowly, with the amendments that were the price of passage. ' +
@@ -5099,7 +5459,7 @@ const Game = (() => {
           });
         } else {
           // Tehran can still fight — the overture reads as American hesitation
-          G.approval = clamp(G.approval - 2, 0, 100);
+          movePublic(-2);
           events.push({
             cls: 'world', title: 'Backchannel rebuffed',
             text: 'Muscat relays Tehran\'s answer: no talks while the Islamic Republic can still fight. The overture is spun as American weakness on state TV, and hardliners at home ask why you\'re suing for peace mid-war.',
@@ -5204,7 +5564,7 @@ const Game = (() => {
         G.israelHolds++;
         G.israelHold = ISRAEL.holdTurns;
         G.israelPressure = clamp(G.israelPressure - cost.relief, 0, ISRAEL.fly);
-        G.approval = clamp(G.approval - cost.approval, 0, 100);
+        movePublic(-cost.approval);
         events.push({
           cls: 'friendly', title: 'Jerusalem agrees to hold',
           text: `You call the Prime Minister and ask for time. You get it — ${Txt.turns(ISRAEL.holdTurns)} of it, ` +
@@ -5233,7 +5593,7 @@ const Game = (() => {
         if (cost.left <= 0) return;
         G.gulf.summits++;
         G.gulf.strain = clamp(G.gulf.strain - cost.relief, 0, GULF.fly);
-        G.approval = clamp(G.approval - cost.approval, 0, 100);
+        movePublic(-cost.approval);
         events.push({
           cls: 'friendly', title: 'GCC summit — the council is held together',
           text: `You fly to Riyadh and sit through two days of it. What you get is real: the caveat papers ` +
@@ -5284,7 +5644,7 @@ const Game = (() => {
         if (G.gulf.corridor || G.gulf.resolve < GULF.corridorAt) return;
         G.gulf.corridor = true;
         G.gulf.resolve = 0;
-        G.approval = clamp(G.approval + GULF.corridorApproval, 0, 100);
+        movePublic(GULF.corridorApproval);
         events.push({
           cls: 'friendly', title: 'Amman and Kuwait City guarantee the northern corridor',
           text: 'Jordan and Kuwait have signed a bilateral arrangement outside the council: the ' +
@@ -5303,13 +5663,38 @@ const Game = (() => {
         if (G.addressCooldown > 0) return;
         G.addressCooldown = 2;
         G.addresses++;
-        G.approval = clamp(G.approval + 6, 0, 100);
+        // THE COUNTRY STOPS TUNING IN, and this was the single largest hole in
+        // the old model. A flat +6 on a two-turn cooldown, unlimited, made the
+        // Oval Office address worth +23.2 a campaign measured over 200 — more
+        // than four times what destroying the entire Iranian nuclear program
+        // paid, and about a third of everything a president earned all war. It
+        // was not a decision, it was a button, and the optimal line in a game
+        // about running a war was to go on television every other night.
+        //
+        // The ladder is steep on purpose: the first address is a real event and
+        // the fifth is a president with nothing new to say, which is the thing
+        // the networks notice first. It never reaches zero — there is always
+        // somebody watching — but at 1 it has stopped being a strategy.
+        //
+        // It stays worth giving for two reasons that are not approval at all:
+        // `G.addresses` is +5 apiece in the War Powers score, and the after-
+        // action grade scores the case made to the country on its own row.
+        const ADDRESS_LADDER = [6, 4, 2, 1];
+        const gain = ADDRESS_LADDER[Math.min(G.addresses - 1, ADDRESS_LADDER.length - 1)];
+        const landed = movePublic(gain);
         events.push({
           cls: 'friendly', title: 'Oval Office address',
           text: 'You lay out the stakes to the American people: the attack, the objectives, and what victory ' +
-            'requires. The rally effect is real, for now — and every one of these is a vote on the floor ' +
-            'when the authorization comes up.',
-          dApproval: 6,
+            'requires. ' + (G.addresses === 1
+              ? 'The networks carried it live and the country watched. The rally effect is real, for now — ' +
+                'and every one of these is a vote on the floor when the authorization comes up.'
+              : G.addresses <= 3
+                ? 'The audience is smaller than last time and the coverage afterwards is shorter. It still ' +
+                  'moves people, and it is still a vote on the floor when the authorization comes up.'
+                : 'Two networks took it live and the third stayed with its schedule. There is nothing in the ' +
+                  'speech the country has not already heard from you, and the panels afterwards say so. It ' +
+                  'is a vote on the floor when the authorization comes up, which is now most of what it is for.'),
+          dApproval: landed,
         });
         break;
       }
@@ -5322,7 +5707,7 @@ const Game = (() => {
         G.sprReleases++;
         const drop = G.sprReleases === 1 ? 20 : 12; // the second draw moves less
         G.oil = Math.max(60, G.oil - drop);
-        G.approval = clamp(G.approval + 2, 0, 100);
+        movePublic(2);
         G.stats.peakOil = Math.max(G.stats.peakOil, G.oil);
         events.push({
           cls: 'friendly', title: 'Strategic Petroleum Reserve released',
@@ -5524,7 +5909,7 @@ const Game = (() => {
         // the phone costs the same on every setting.
         const s = (L.stakes && L.stakes[accepted ? 'accept' : 'decline']) || {};
         if (s.world) G.world = clamp(G.world + s.world, 0, 100);
-        if (s.approval) G.approval = clamp(G.approval + s.approval, 0, 100);
+        if (s.approval) movePublic(s.approval);
         UI.renderAll(G);
         Save.write();
       },
@@ -5754,7 +6139,20 @@ const Game = (() => {
       const r = diff().retaliation;
       if (r != null && r !== 1) ev.dApproval = -Math.max(1, Math.round(Math.abs(ev.dApproval) * r));
     }
-    if (ev.dApproval) G.approval = clamp(G.approval + ev.dApproval, 0, 100);
+    // The middle, and then — for the handful of events that are catastrophes
+    // rather than setbacks — the base underneath it. `ev.erode` is opt-in and
+    // rare by design: if ordinary bad news could reach the base there would be
+    // no floor, and the floor is the whole model. It is applied AFTER the
+    // charge so the night's push lands against the country that was there when
+    // the news broke, not against the one it leaves behind.
+    // REWRITTEN to what actually landed, for the same reason the retaliation
+    // scaling above rewrites rather than scaling on the way past: the report
+    // chips and any prose function read this field. Habituation and the bounds
+    // both make the real move smaller than the asking price, and an event that
+    // showed -2 on the line while taking -0.5 off the bar is precisely the bug
+    // aegisIntercept's rescale exists to prevent.
+    if (ev.dApproval) ev.dApproval = movePublic(ev.dApproval, ev.approvalClass);
+    if (ev.erode) ev.erodedBase = erodeBase(ev.erode);
     if (ev.dOil) G.oil = Math.max(60, G.oil + ev.dOil);
     if (ev.dWorld) G.world = clamp(G.world + ev.dWorld, 0, 100);
     // An Iranian salvo that landed on Israel is an argument in Jerusalem, and
@@ -6151,15 +6549,53 @@ const Game = (() => {
           // approval from $125 was charging the president for the war existing
           // rather than for letting the economy get away from them. These mark a
           // genuine shock instead of the baseline.
-          if (G.oil >= 165) G.approval = clamp(G.approval - 2, 0, 100);
-          else if (G.oil >= 135) G.approval = clamp(G.approval - 1, 0, 100);
-          else if (G.oil <= 95) G.approval = clamp(G.approval + 1, 0, 100);
+          if (G.oil >= 165) movePublic(-2);
+          else if (G.oil >= 135) movePublic(-1);
+          else if (G.oil <= 95) movePublic(1);
           const weary = warWeariness();
-          if (weary) G.approval = clamp(G.approval - weary, 0, 100);
+          if (weary) movePublic(-weary);
+          // ...and past the plan it takes the president's own coalition with
+          // it, which is the bound that keeps a floor from making a do-nothing
+          // war immortal. See APPROVAL.overtimeBase.
+          // Linear in turns-over, so the base lost is quadratic — exactly the
+          // shape OVERTIME_STEP gives the middle, and for the same reason. A
+          // flat rate here was measured and is not enough: at 0.4 a turn an
+          // easy war needs twenty turns past its plan to crack a 32-point base
+          // down to the collapse threshold, so 9.4% of campaigns still simply
+          // ran out of turns. Accelerating it puts the end at roughly turn 40
+          // on easy, 36 on normal and 33 on hard, in that order, always.
+          if (G.turn > G.softCap) {
+            erodeBase(APPROVAL.overtimeBase * (G.turn - G.softCap), false);
+          }
+
+          // The rally expiring, and the country's attention coming back to the
+          // classes the campaign left alone tonight. Both are unconditional and
+          // both run AFTER the night's events have been charged — habitTick in
+          // particular has to, or a class struck tonight would have its own
+          // payout discounted by a recovery that has not happened yet.
+          rallyDecay();
+          revertTick();
+          habitTick();
+
+          // The dead crossing a band of what the country said it would bear.
+          // This is the one erosion that is not a single televised catastrophe
+          // — it is the cumulative one, and it is charged once per band rather
+          // than per casualty so that a war which has already crossed a line
+          // does not go on paying for crossing it. `casualtyBands` records
+          // which bands are spent; it is per-war state and rides in `stats`,
+          // which is already on FIELDS and already cleared by newWar.
+          const deadFrac = G.casualties.us / casualtyLimit();
+          G.stats.casualtyBands = G.stats.casualtyBands || 0;
+          while (G.stats.casualtyBands < APPROVAL.erodeBands.length &&
+                 deadFrac >= APPROVAL.erodeBands[G.stats.casualtyBands]) {
+            G.stats.casualtyBands++;
+            erodeBase(APPROVAL.erode.casualtyBand);
+          }
+
           // built after the drain lands so the headline quotes tonight's number,
           // and self-applied like the Hill's vote — it reports a cost already
           // charged rather than carrying one, so it never reaches applyEvent
-          const wearyEv = wearinessEvent(weary);
+          const wearyEv = pollEvent(weary);
 
           // the centrifuges ran again tonight, whatever else happened
           breakoutTick();
@@ -6402,7 +6838,7 @@ const Game = (() => {
     // Past the plan it simply outlasted the country's patience, which is what
     // the old turn-30 wall used to model, so the wall's two endings live here
     // now: culminated for nothing, or frozen with the program mostly gone.
-    if (G.approval <= 20) {
+    if (G.approval <= collapseAt()) {
       if (G.turn <= G.softCap) return buildResult('defeat', 'impeachment');
       return G.nukeDegraded() < 50
         ? buildResult('defeat', 'exhaustion')
@@ -6559,7 +6995,21 @@ const Game = (() => {
     // a ladder rather than a curve: the interesting step is the first one, from
     // a president who never explained the war to one who did it once
     const addrScore = [0, 55, 78, 92, 100][Math.min(G.addresses, 4)];
-    const homeScore = 0.60 * bandScoreUp(G.approval, [55, 45, 35, 25], 100) +
+    // The approval cuts are expressed as a FRACTION OF THE MIDDLE the president
+    // still held, not as raw points, for the same reason the HUD's colour bands
+    // are (see renderHUD). Raw cuts of [55,45,35,25] were written against a
+    // 0..100 accumulator; against blocs they grade three different countries on
+    // one ruler — a hard war whose ceiling is 66 could not reach the A band at
+    // all while holding every persuadable voter in it, and an easy war starts
+    // 8 points closer to every cut. What is being graded is how much of the
+    // country that could be held WAS held, which is the same question on every
+    // level.
+    //
+    // The cuts are the old ones re-expressed: 55 of 100 against a normal war's
+    // 28..70 band is 0.64 of the middle, and 25 is 0. They land in the same
+    // place for normal and are now reachable on hard and honest on easy.
+    const heldFrac = G.middleSize ? G.middleWith / G.middleSize : 0;
+    const homeScore = 0.60 * bandScoreUp(heldFrac, [0.64, 0.45, 0.26, 0.10], 1) +
       0.25 * wpScore + 0.15 * addrScore;
 
     const titles = {
@@ -6855,6 +7305,23 @@ const Game = (() => {
   function newWar(difficulty) {
     G.difficulty = DIFFICULTY[difficulty] ? difficulty : DIFFICULTY_DEFAULT;
 
+    // The country this president has, which is the first thing a level decides
+    // and the only place the blocs are ever set. Same leak class as the TARGETS
+    // loop below: `habit` and `lastPoll` are per-war and G outlives a campaign
+    // in every harness, so a second campaign would otherwise open with the last
+    // one's boredom already accrued and a poll comparing against another war.
+    //
+    // The middle opens at APPROVAL.rallyAt rather than at half, because the war
+    // opens four days after Iran killed seven Americans at Al Asad. It is spent
+    // by turn 7 whatever happens — see rallyDecay.
+    const pub = diff().public || APPROVAL;
+    G.base = pub.base;
+    G.opposed = pub.opposed;
+    G.middleWith = Math.min(APPROVAL.openMiddle, 100 - pub.base - pub.opposed);
+    G.rally = APPROVAL.rallyAt;
+    G.habit = {};
+    G.lastPoll = null;
+
     // launcher groups start off the board entirely. TARGETS is a module-level
     // constant that outlives a war, so every per-war field on it is cleared
     // here or it leaks into the next campaign.
@@ -7068,6 +7535,13 @@ const Game = (() => {
   // airDefenseWeight is exported read-only for the tactical scope's threat ring —
   // the scope dramatizes the number, it never feeds back into the strike math.
   return { computeStrike, executeStrike, recallMission, doDiplo, endTurn, afterAction,
+    // The country, and the only two doors into it. csar.js and specops.js both
+    // write approval and both live in their own IIFE, so without these they
+    // would each need a private copy of the bloc arithmetic — which is how the
+    // old model came to have thirty independent clamps and no single answer to
+    // what approval was allowed to be. `G.approval` is a getter that throws on
+    // assignment; these are what it throws you toward.
+    movePublic, erodeBase, habitMult, collapseAt,
     // the turn lock, read-only: anything that reaches for the board — the
     // walkthrough, the primer — has to answer to it (see Tour.start)
     busy,

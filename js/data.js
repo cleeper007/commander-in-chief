@@ -1674,7 +1674,13 @@ const ISRAEL = {
   wildcard: 0.45,
   wildcardAimpoints: 2,   // civil sites serviced on such a night
   wildcardWorld: -10,
-  wildcardApproval: -6,
+  // -6 to -4 at v2.13. Unchanged in what it MEANS — this is still the
+  // steepest single ally charge in the game and still the largest term in a
+  // coordinated night's bill — but the country it is charged against is now
+  // 42 points wide rather than 100, so the old number was a tenth of every
+  // persuadable voter for one night's photographs. Measured, it was -5.27 a
+  // campaign against a total charged bill of -56.
+  wildcardApproval: -4,
   wildcardOil: 6,
 
   // ...and the nights they simply do not wait. Only once they are in the war —
@@ -2750,11 +2756,30 @@ const INTEL_SLATE = {
 // still the wall, and the point is reach, not a second plan. Read the measured
 // coaTop/coaBlind gap in `.claude/betatest/coa.js` after touching this — that
 // gap is the whole bar, and this knob is the one most likely to close it.
+//
+// v2.13 — THE COUNTRY, AND WHAT A LEVEL IS ALLOWED TO CHANGE ABOUT IT.
+//
+//   public      { base, opposed, erode } — the two fixed camps and how fast a
+//               catastrophe cracks the loyal one. See APPROVAL.
+//   pollDetail  does the poll report the split, or say it in words?
+//
+// Difficulty has scaled the war since v1.72 and scaled the domestic BILL since
+// the `retaliation` knob, but never the country paying it. `public` is where a
+// level says what temper the electorate has, and it is the natural home for
+// recalibrating this rewrite: a bigger base is a longer fuse at home without
+// making a single Iranian salvo cheaper.
+//
+// `pollDetail` is the other half, and it is display and nothing else. Easy runs
+// the IDENTICAL simulation — same blocs, same habituation, same erosion — and
+// is simply not shown the arithmetic, exactly as `railPanels` trims drawers off
+// a war that is otherwise the same war. A level that quietly simulated less
+// would break the one claim that makes this table testable.
 const DIFFICULTY = {
   easy:   { name: 'EASY', casualties: 320, repair: 0.75, coord: 0.85, breakout: 1.25, israel: 0.75, bmd: 1.35, covert: 1.3, retaliation: 0.55, softGate: false,
     coa: 3, coaFill: 'full', freeTargeting: false, recommend: true, pgm: 0,
     coaSigns: 1, coaSurge: 2, strike: { base: 1.30, perFlow: 0.08, edge: 0.03 }, dealBar: 2.5,
     plainAssets: true, intelSlate: 3,
+    public: { base: 32, opposed: 26, erode: 0.6 }, pollDetail: false,
     railPanels: ['advisors', 'resources', 'specops'],
     popups: ['brief', 'recovery', 'diplo', 'intel'], autoTheater: true,
     tag: 'RECOMMENDED FOR FIRST-TIME PLAYERS',
@@ -2763,6 +2788,7 @@ const DIFFICULTY = {
     coa: 2, coaFill: 'half', freeTargeting: true, recommend: false, pgm: 0,
     coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0, dealBar: 1.5,
     railPanels: null, popups: [], autoTheater: false,
+    public: { base: 28, opposed: 30, erode: 1 }, pollDetail: true,
     // Held off the title screen. The level is complete and every knob above is
     // live — a save written at this level still restores and plays it — but the
     // radio button is greyed and refuses the click, so `soon` is a statement
@@ -2775,6 +2801,7 @@ const DIFFICULTY = {
     coa: 0, coaFill: 'full', freeTargeting: true, recommend: false, pgm: 440,
     coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0, dealBar: 1.5,
     railPanels: null, popups: [], autoTheater: false,
+    public: { base: 24, opposed: 34, erode: 1.4 }, pollDetail: true,
     desc: 'You are the air component commander and nobody is drafting anything for you. Every package by hand, a finite stock of precision weapons that only the munitions ships replace, less patience at home, faster Iranian repair, a light interceptor magazine and no patience at all in Jerusalem. The staff will fly any plan you sign and hand you the casualty list afterwards.' },
 };
 
@@ -2790,6 +2817,258 @@ const DIFFICULTY_ALIAS = { advisor: 'easy', general: 'normal', president: 'hard'
 // the same argument said out loud on the radio button. Restoring a save reads
 // the level it was played at and never comes here.
 const DIFFICULTY_DEFAULT = 'easy';
+
+// ============================================================
+// THE COUNTRY — THREE BLOCS, AND ONLY ONE OF THEM IS LISTENING
+// ------------------------------------------------------------
+// Approval decides more of this game than any other number: 64% of campaigns
+// end on DEFEAT — PRESIDENCY COLLAPSES. Through v2.12 it was an accumulator
+// with clamps bolted on either end — one running total that started at 58,
+// took a flat +3 for every target destroyed and a flat -2 for every miss, on
+// turn 2 and on turn 27 alike, and was clamped into 0..100 because nothing
+// else stopped it. Three things were wrong with that and they are all the
+// same thing: it was arithmetic, not a public.
+//
+// A country has people in it who are not persuadable. Roughly a quarter will
+// approve of a wartime president whatever the war does, and roughly a third
+// will not whatever it does, and both of those facts are true before the first
+// package launches. So 100% is not merely unlikely, it is unreachable — and so
+// is 0. What actually moves is the share in the middle, and every event in
+// this game now competes for exactly that share.
+//
+//   base      the floor. Approval cannot go below it without a catastrophe
+//             cracking the base itself (see `erode`).
+//   middle    the only thing the war can move. base + middle is the ceiling.
+//   opposed   against from night one. Grows when the base cracks, because
+//             somebody who abandons a president they voted for does not become
+//             persuadable again — they are gone.
+//
+// The measurement this replaces, over 540 scripted campaigns at v2.12: median
+// peak approval 58–76, p99 across all 11,314 turns 80, absolute max 98, and
+// zero turns at 100. So the old ceiling was not being HIT — the bug was never
+// that the number reached 100, it was that nothing in the model said why it
+// shouldn't, and a human addressing the nation every other turn found the hole
+// the bots never looked for. What this buys is not a lower number. It is a
+// number with a shape: a hard floor to fight from, a ceiling you can run out
+// of country against, and a middle that has to be won every night.
+const APPROVAL = {
+  // Night-one shares. `middle` is never written down — it is 100 - base -
+  // opposed, so a difficulty writes the two fixed camps and can never state an
+  // arithmetic that does not add up. DIFFICULTY.public overrides both.
+  base: 28,
+  opposed: 30,
+
+  // Where the persuadable middle stands on night one — a little over two
+  // thirds with the president, which leaves real headroom for the opening
+  // week's wins to land in.
+  openMiddle: 30,
+
+  // ---- the rally, which is BORROWED and sits OUTSIDE the blocs ----
+  // Iran killed seven Americans at Al Asad before turn 1, and a country that
+  // has just been attacked rallies to its president. `approval` is therefore
+  // base + middle + rally, and during the first week it can and should read
+  // ABOVE the structural ceiling the rest of this table describes. That is not
+  // a leak in the model, it is the thing rallies actually do: a president is
+  // briefly more popular than their country's arithmetic allows, and then they
+  // are not.
+  //
+  // THIS IS A SEPARATE TERM AND NOT A FULL MIDDLE, and that distinction was a
+  // bug first. The first cut opened the middle at 38 of 42 to represent the
+  // rally, which meant the war spent its first five nights with four points of
+  // headroom: every kill the president earned was clipped at the ceiling while
+  // every Iranian salvo landed in full. Measured, approval at turn 10 fell from
+  // 46 to 31 on normal and 43 to 24 on hard, and `DEFEAT — CONGRESS CUTS OFF`
+  // went to 38% of all campaigns — a president who was at their persuasion
+  // limit on night one and could only ever go down. A rally is people
+  // temporarily approving, not people permanently persuaded, and the two
+  // cannot share a counter.
+  //
+  // It bleeds on a fixed schedule whatever the president does with the week,
+  // which is the whole point of modelling it: a rally is an opinion about the
+  // attack, not about the campaign, and it expires on its own. 8 - 6 × 1.2 =
+  // 0.8, so the war opens at 66 on normal and is running on its own merits by
+  // turn 7 at 58 — which is exactly the flat number the old model started at,
+  // and is the calibration anchor for this whole rewrite.
+  rallyAt: 8,
+  rallyTurns: 7,
+  rallyPer: 1.2,
+
+  // ---- what a dApproval literal MEANS, now that the country has a shape ----
+  // Every `dApproval` in this codebase — sixty-odd of them across five files —
+  // was written against a running total on a 0..100 scale where, in principle,
+  // the whole country could be moved. It cannot. Only `middle` can, and that
+  // is 42 points, so the identical event pushing the identical literal moves a
+  // far larger FRACTION of what is actually in play than its author intended.
+  //
+  // This is the one honest place to say that once. A literal is a push in
+  // points of the old, fully-fluid country; `sensitivity` is what that is
+  // worth against a country where three fifths of the electorate has already
+  // decided. It is a unit conversion and it is not a difficulty knob — every
+  // level converts identically, and what a level changes is the shape of the
+  // country (DIFFICULTY.public) and Iran's bill (DIFFICULTY.retaliation).
+  //
+  // It is deliberately NOT the derived 0.42. Habituation already took the
+  // recurring events down by roughly a third on its own, and stacking a full
+  // structural conversion on top double-counted: measured, the whole bill
+  // wants about 0.55 to put approval at the War Powers vote back where v2.12
+  // had it. Do not "fix" this to 0.42 on principle — the principle is already
+  // spent in habitStep, and the two together are what was measured.
+  //
+  // The hand-set relative weights sit ON TOP of this and are the real content:
+  // a militia rocket attack is -1 and a supercarrier on the bottom is -20
+  // because those are judgements about what each event is worth, and no global
+  // constant can express the difference between them.
+  sensitivity: 0.55,
+
+  // ---- mean reversion: the news cycle forgets in both directions ----
+  // The middle drifts back toward the middle of itself, a little every night.
+  // This is the single most important number in the table and it was missing
+  // from the first cut, which is why that cut did not work: with a 42-point
+  // band and a charged bill of -56 a campaign, the middle simply emptied and
+  // STAYED empty. Measured, hard sat at exactly its own base — 24.0 — by turn
+  // 10 of every campaign, which means a president three turns into a bad week
+  // was politically dead with nineteen turns left to play and no path back
+  // however well they fought. That is not a hard difficulty, it is an ending
+  // with a long epilogue.
+  //
+  // It cuts both ways on purpose, and the symmetry is the honest part: a
+  // president running at the top of their band is dragged down by it exactly
+  // as one at the bottom is lifted. Sustained approval is hard to hold for the
+  // same reason a collapse is survivable — public attention returns to
+  // baseline, and holding it away from baseline is what the war is for.
+  //
+  // 0.06 of the gap a night is about a five-point pull at the extremes, which
+  // is roughly a week to recover half of a catastrophe. Anything much larger
+  // and the war stops mattering; much smaller and the floor becomes a trap
+  // again. `world` has had exactly this mechanic since v1.31 and for exactly
+  // this reason — see the news-cycle block in endTurn.
+  revert: 0.04,
+  revertTo: 0.5,     // fraction of the middle it pulls toward
+
+  // ---- habituation: the ninth SAM site is not news ----
+  // Keyed on the target's own `type`, so a target class added later gets this
+  // for free and there is no second table to keep in step. Each payout against
+  // a class dulls the next one; every turn the class is left alone recovers
+  // some of it.
+  //
+  // `recover` is a quarter of `step`, so four quiet nights against a class
+  // restore one full payout's worth of interest. That number is not arbitrary:
+  // AD_RECONSTITUTION.quiet is 4, so a SAM belt that has been ignored long
+  // enough to come back out of the national reserve is also, exactly, a belt
+  // the country has become interested in again. Killing a reconstituted
+  // battery is news a second time because it was news enough to rebuild.
+  //
+  // `floor` is 0.25 and not 0: the country never stops caring completely, it
+  // just stops leading with it. A floor of zero would make late-war strikes
+  // free of political meaning in either direction, which is a worse lie than
+  // the flat rate this replaces.
+  habitStep: 0.18,
+  habitRecover: 0.045,
+  habitFloor: 0.25,
+
+  // THE ASYMMETRY, and it is not the one this table was first written with.
+  //
+  // The rule started as "habituation applies to GOOD news only" — people stop
+  // cheering victories long before they stop counting the dead. That is a true
+  // sentence about casualties and it was the wrong rule for the game, and one
+  // sweep said so: `DEFEAT — CONGRESS CUTS OFF THE WAR` went from a minority
+  // ending to 41.7% of all campaigns, because what actually charges a
+  // president here is a DRUMBEAT. Measured over 60 campaigns, the militia
+  // attack in Iraq alone is -16.6 a campaign across ten firings of an
+  // identical headline, and six recurring events are -45 of a -60 bill.
+  //
+  // So habituation is direction-agnostic and OPT-IN, and what opts in is
+  // repetition rather than valence. The recurring salvos carry an
+  // `approvalClass` (see the `news:` keys in ai.js); the singular catastrophes
+  // — a carrier on the bottom, aircrew in IRGC custody, a task force that did
+  // not come out — carry none and never will.
+  //
+  // The asymmetry survives exactly where it was argued for, because the thing
+  // it was really about was never routed through approval in the first place:
+  // the dead are counted in `G.casualties`, they crack the base through
+  // `erodeBands` below, and no amount of press boredom touches either. The
+  // country stops leading its bulletins with "another rocket landed at Ain
+  // al-Asad" around the fifth time it files it. It does not stop counting.
+  habitBad: 'opt-in',
+
+  // ---- erosion: what it takes to crack the base ----
+  // Ordinary bad news cannot reach the floor — that is what makes it a floor.
+  // A catastrophe can, and moves people out of `base` and into `opposed`,
+  // which lowers the ceiling and the floor together. Both, because a president
+  // who loses part of their own coalition has lost the argument at both ends.
+  //
+  // Sized so that the collapse ending stays reachable but has to be EARNED by
+  // disaster rather than arrived at by attrition: normal opens with a floor of
+  // 28 against a collapse threshold of 20, so a campaign needs roughly nine
+  // points of catastrophe before losing at home is even on the board.
+  erode: {
+    hostages: 3,      // Americans held, or shown on Iranian television
+    carrierLost: 4,   // a supercarrier on the bottom
+    aircrewTaken: 2,  // a downed crew in IRGC custody rather than recovered
+    raidLost: 2,      // a task force that did not come out
+    casualtyBand: 2,  // per band of the casualty ceiling crossed — see erodeBands
+  },
+  // Fractions of casualtyLimit() at which the base gives way again. The country
+  // absorbing its own dead is not linear: the first hundred is a war, and the
+  // number that matches what was promised is where a coalition starts leaving.
+  erodeBands: [0.5, 0.75, 1.0],
+
+  // ---- and a war with no end cracks the base on its own ----
+  // Points of base lost per turn past softCap, fractional and accumulating.
+  //
+  // This is the bound that makes the whole model safe, and it is here because
+  // the first build without it re-created the exact failure the softCap note in
+  // game.js was written to prevent. A floor the president cannot fall through
+  // is a floor a PASSIVE president cannot fall through either: with few
+  // casualties there is no erosion, with no erosion the base never moves, and
+  // `DEFEAT — PRESIDENCY COLLAPSES` fires at 20 against a floor of 32. Measured
+  // over 720 campaigns, the personas that do nothing ran to turn 61 and 14.7%
+  // of all campaigns simply ran out of the harness's turn cap, against 0%
+  // before. Doing nothing had become immortal.
+  //
+  // Draining the middle harder cannot fix that — the middle is already empty in
+  // those campaigns and mean reversion keeps refilling it. What has to give is
+  // the base, and it is the honest thing to give: the overtime prose already
+  // says "there is no constituency left for this war" and "the leadership has
+  // stopped returning calls", which is a description of a president's own
+  // coalition leaving. It was being narrated and not modelled.
+  //
+  // 0.4 a turn compounds with the middle drain rather than replacing it, so a
+  // war ten turns past its plan has lost four points of floor and roughly
+  // twenty of middle — the collapse threshold becomes reachable around fifteen
+  // turns over, which is where OVERTIME_STEP's own quadratic was aimed.
+  overtimeBase: 0.4,
+
+  // ---- when the presidency actually falls ----
+  // How far the base has to be cracked before the collapse ending fires. The
+  // threshold was a flat `approval <= 20` for the whole history of this game,
+  // which was right when approval started at 58 and could reach zero, and is
+  // wrong the moment the floor is a difficulty knob: against bases of 32/28/24
+  // a fixed 20 asks easy for twelve points of catastrophe and hard for four.
+  // That is not a more forgiving country, it is a three-times-longer losing
+  // sequence — measured, easy's hopeless personas ran to turn 40 against hard's
+  // turn 10, all of them already politically dead and none of them told so.
+  //
+  // Expressed against the base instead, the ending means the same thing on
+  // every level: a president collapses when they have lost eight points of the
+  // people who were supposed to be unloseable. Normal works out at exactly 20,
+  // which is the number that has always been there — the other two levels are
+  // what this fixes.
+  collapseErosion: 8,
+
+  // ---- the poll ----
+  // Every third turn, which is about a poll every day and a half of war. The
+  // cadence is the point: this is the surface that teaches the model, and the
+  // existing war-weariness event's own comment is the argument against running
+  // it more often — sixteen identical events are "noise a player learns to skip
+  // past", and this is the one event that cannot afford that habit.
+  //
+  // Past softCap it fires EVERY turn instead, because that is when the drain is
+  // accelerating and each night's number is genuinely new information. One
+  // builder, two cadences; the old wearinessEvent folds into it entirely rather
+  // than standing beside it as a second poll about the same country.
+  pollEvery: 3,
+};
 
 // ============================================================
 // THE TOTAL WAR GRADE

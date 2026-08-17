@@ -154,7 +154,7 @@ const IranAI = (() => {
     cyber: () => ({
       title: 'Iranian cyber attack on US financial sector',
       text: 'IRGC-linked hackers briefly disrupted several regional banks and a pipeline operator. Damage contained, but markets noticed.',
-      dApproval: -1, dOil: 2,
+      dApproval: -1, dOil: 2, approvalClass: 'news:cyber',
     }),
     harass: () => ({
       title: 'IRGC fast boats harass Gulf shipping',
@@ -190,7 +190,14 @@ const IranAI = (() => {
         text: (ev) => 'An Iranian-backed militia struck a US position with drones and rockets. ' +
           `${ev.casualties} American service ${pluralize(ev.casualties, 'member')} ` +
           `${were(ev.casualties)} killed.`,
-        casualties: c, dApproval: -2, dOil: 3, flashAsset: 'asad',
+        // -2 to -1 at v2.13, which is the largest single retune in this pass.
+        // A militia rocket attack on a base in Iraq moving national approval by
+        // two full points was always the wrong order of magnitude; against a
+        // 42-point persuadable middle it is a twentieth of everyone who can be
+        // moved, for an event that fires eight or nine times a campaign. It is
+        // still the biggest line on the bill after this — see approval.js.
+        casualties: c, dApproval: -1, dOil: 3, flashAsset: 'asad',
+        approvalClass: 'news:proxy',
         attack: { kind: 'drone', base: 'asad', count: 5 },
       }, str);
     },
@@ -225,6 +232,7 @@ const IranAI = (() => {
               'aircraft were damaged on the ramp.'
             : 'Aircraft were damaged on the ramp. There were no American fatalities.'),
         casualties: c, dApproval: -2, dOil: 5, flashAsset: base,
+        approvalClass: 'news:baseStrike',
         attack: { kind: 'missile', base, count: 4 },
       }, str);
     },
@@ -266,6 +274,7 @@ const IranAI = (() => {
         title: `Iranian missiles strike ${tgt.name.split(' at ')[0].split(' near ')[0]}`,
         text: `A missile and drone salvo hit ${tgt.name}. Allied capitals are demanding either decisive US action or immediate de-escalation.`,
         dOil: 8, dWorld: -3, dApproval: -1,
+        approvalClass: 'news:allySalvo',
         dPressure: tgt.dPressure || 0,
         dStrain: tgt.dStrain || 0,
         dResolve: tgt.dResolve || 0,
@@ -281,7 +290,11 @@ const IranAI = (() => {
             ? `${plural(ev.casualties, 'American')} ${are(ev.casualties)} dead. `
             : 'Casualty reports are still coming in. ') +
           'CENTCOM assesses this as the opening of a general war.',
-        casualties: c, dApproval: -4, dOil: 12, flashAsset: 'udeid',
+        // Habituating, and -4 to -3. It fires three times in a median campaign
+        // and calls itself 'the largest salvo of the crisis' each time, which is
+        // the definition of a story the coverage stops leading with.
+        casualties: c, dApproval: -3, dOil: 12, flashAsset: 'udeid',
+        approvalClass: 'news:barrage',
         // Everyone at once, and it argues in both directions in the same room:
         // the barrage is the hawks' whole case and the doves' whole case, which
         // is why it is the only event that fires both gauges hard.
@@ -307,6 +320,7 @@ const IranAI = (() => {
         title: 'MISSILE EXCHANGE BETWEEN IRAN AND ISRAEL',
         text: 'Iran fired a large ballistic and drone salvo at Israeli cities and airbases overnight; Arrow and David\'s Sling intercepted most of it. The IAF answered before dawn against launch sites in western Iran.',
         dOil: 6, dWorld: -4, dApproval: -1,
+        approvalClass: 'news:israelExchange',
         // Israeli cities under fire is the single loudest argument for going in
         // properly, whatever Washington has asked for
         dPressure: ISRAEL.westward * 1.5,
