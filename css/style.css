@@ -1636,6 +1636,19 @@ button { font-family: var(--mono); }
 .scope-lock { stroke: var(--red); stroke-width: 1.2; fill: none; animation: lockblink 0.28s steps(2) infinite; }
 @keyframes lockblink { 50% { opacity: 0.25; } }
 
+/* ---- the intercept (see DOGFIGHT in data.js) ----
+   Everything hostile on this display is red and everything of ours is white or
+   blue, and the merge is not allowed to be the exception: the Fulcrum is the
+   threat ring's colour, our box on it is the inbound track's, and the missile
+   between them is ours. Nobody has to be told which dot to want. The burner
+   stays amber on both, because a burner is fire and fire has no nationality. */
+.scope-bandit { fill: var(--red); }
+.scope-aim { stroke: var(--blue); stroke-width: 1.2; fill: none; animation: lockblink 0.28s steps(2) infinite; }
+.aam-trail { stroke: var(--blue); stroke-width: 1; }
+.aam-head { fill: #fff; }
+/* his, not ours — the same amber the target wears when a package lands on it */
+.bandit-flash { fill: var(--amber); }
+
 .sam-head { fill: #fff; }
 .sam-trail { stroke: var(--red); stroke-width: 1.2; }
 .sam-flash { fill: var(--red); }
@@ -3486,7 +3499,7 @@ body.mobile-ui .pkg-option { min-height: 46px; padding: 9px 11px; }
    information. Transitions collapse rather than vanish, so anything polling for
    a settled height (openPanel in ui.js) still sees it settle. */
 @media (prefers-reduced-motion: reduce) {
-  .scope-lock, .pulsing, .raid-helo.raid-wreck, .target.tel-fix,
+  .scope-lock, .scope-aim, .pulsing, .raid-helo.raid-wreck, .target.tel-fix,
   .csar-survivors.csar-contact .csar-ring, .call-phone, .call-levels i,
   .call-modal.connected .lc-wave, .rotate-icon, .transit-dot,
   .vc-meter i {

@@ -1916,6 +1916,36 @@ const MapView = (() => {
          'L-1.1,7.2 L-1.3,8.1 L-1.85,8 L-2.05,6 L-4.7,6.8 L-4.9,6.2 ' +
          'L-2.2,4.2 L-6.5,2.5 L-6.5,2 L-1.6,-2.3 L-1.45,-3 L-1.15,-4.5 ' +
          'L-0.75,-6.3 Z',
+    // ---- and the one aircraft here that is not ours ----
+    // MiG-29A, in Iranian colours. It has to lose to four American fighters at
+    // twenty pixels without a label, and it is the only shape in this file with
+    // that problem — the teen-series jets only ever have to be told apart from
+    // each other, and they get a header naming them. This one gets no header
+    // and no callsign, so the planform carries the whole read, and it is drawn
+    // around the three things a top-down Fulcrum has that nothing in the
+    // American set does.
+    //
+    // The LERX is a CURVE. Every other fighter here steps out to its wing —
+    // the Hornet's shoulders are the loudest version of it — and a Fulcrum
+    // does not step, it blends: a long slim radome that swells into the wing
+    // root through an ogive with no joint anywhere in it. That single curved
+    // leading edge is the fastest thing on the shape to read.
+    //
+    // The nozzles are WIDE APART, because a Fulcrum's engines are not stacked
+    // against each other the way an Eagle's are — there is a whole aircraft's
+    // width of centre section between them.
+    //
+    // And there is a SPIKE past the tail. The Viper's centreline spike is a
+    // fin; this one is the tail sting between the nozzles, and it is the only
+    // thing in the set that is aft of everything else on the airframe. It is
+    // drawn a touch longer than scale for the same reason the Eagle's dogtooth
+    // is drawn deeper than scale: at scope size a true one is no pixels at all.
+    mig29: 'M0,-6.9 L0.36,-5.9 L0.55,-4.6 L0.7,-3.1 C0.95,-2.45 1.6,-1.55 1.9,-0.15 ' +
+           'L5.7,2.6 L5.45,3.3 L1.85,3.9 L1.8,5.15 L4,6.75 L3.8,7.4 L1.95,6.55 ' +
+           'L1.9,8 L1.45,8.1 L1.38,7 L1.28,7.65 L0.5,7.7 L0.4,7.35 L0.3,8.75 L0,9.2 ' +
+           'L-0.3,8.75 L-0.4,7.35 L-0.5,7.7 L-1.28,7.65 L-1.38,7 L-1.45,8.1 L-1.9,8 ' +
+           'L-1.95,6.55 L-3.8,7.4 L-4,6.75 L-1.8,5.15 L-1.85,3.9 L-5.45,3.3 L-5.7,2.6 ' +
+           'L-1.9,-0.15 C-1.6,-1.55 -0.95,-2.45 -0.7,-3.1 L-0.55,-4.6 L-0.36,-5.9 Z',
     // flying wing — no tails, one continuous sawtooth trailing edge
     stealth: 'M0,-6.5 L9,4.2 L5.2,3.4 L2.8,6.4 L0,4.8 L-2.8,6.4 L-5.2,3.4 L-9,4.2 Z',
     // heavy bomber — long fuselage, high-aspect swept wings, big tailplane.
@@ -2003,6 +2033,10 @@ const MapView = (() => {
          'M-0.95,6.9 L-0.15,6.9 L-0.3,11.7 L-0.75,11.7 Z',
     f22: 'M0.2,7 L1.05,7 L0.85,11.9 L0.35,11.9 Z ' +
          'M-1.05,7 L-0.2,7 L-0.35,11.9 L-0.85,11.9 Z',
+    // two plumes set WIDE, with the tail sting running back between them —
+    // the gap is the point, and lighting the burners is what makes it visible
+    mig29: 'M0.6,7.6 L1.2,7.6 L1.03,11.9 L0.72,11.9 Z ' +
+           'M-1.2,7.6 L-0.6,7.6 L-0.72,11.9 L-1.03,11.9 Z',
     // four plumes trailing the four wing pods — a BUFF's engines are out on
     // the wing, and watching them light up out there is half the read
     b52: 'M4.75,2.6 L5.9,2.6 L5.55,7.2 L5.1,7.2 Z ' +
@@ -2145,6 +2179,230 @@ const MapView = (() => {
     return { svg, fx, ring, sweep, tg };
   }
 
+  // ------------------------------------------------------------
+  // THE INTERCEPT — one Fulcrum, and it loses
+  // ------------------------------------------------------------
+  // Flown entirely inside the 200x200 scope, on the same glass and in the same
+  // coordinate space as the strike it interrupts. See DOGFIGHT in data.js for
+  // why it is rare, why it is early, and why our side always wins.
+  //
+  // It is a ONE-CIRCLE FIGHT, because that is the only kind of turning fight
+  // that reads at this size. Both aircraft end up going round the same point:
+  // he arrives first and anchors, our lead comes off the track a beat later and
+  // enters the circle half a turn behind him, and then simply out-rates him —
+  // a slightly faster line around a slightly wider circle, which closes the
+  // half-turn in three seconds and arrives behind his tail. Two-circle, where
+  // they cross and separate and cross again, is the fight a real Fulcrum would
+  // rather have; it is also forty pixels of two dots passing each other, and it
+  // does not survive being that small.
+  //
+  // The ingress clock is stopped for the duration (see frame()), so everything
+  // in here happens in a held moment: the formation is parked, the progress bar
+  // is parked, and the only things moving on the scope are the radar, these two
+  // aircraft, and the missile between them.
+  function flyIntercept(o) {
+    const C = SC.C;
+    // ---- the timeline, in ms from the contact call ----
+    const T_MERGE = 1500;          // he crosses the edge and anchors his turn
+    const T_BREAK = 2650;          // our lead leaves the formation
+    const T_SHOT = 5650;           // three seconds of turning buys the saddle
+    const T_HIT = 6450;            // missile time of flight
+    const T_END = DOGFIGHT.ms;     // and the rejoin, back onto the track
+
+    // ---- the circle ----
+    // Parked well off to one side of the inbound track. It has to clear three
+    // things at once, and the angle is what buys all three: the target glyph at
+    // dead centre (which the circle would otherwise crawl across at its inner
+    // edge), the parked formation itself (four aircraft inside forty pixels is
+    // not a fight, it is a smudge), and the rim of the glass. Sixty units out
+    // at a bit over fifty degrees off the track leaves the turn a clear
+    // circle with daylight on every side of it — including under the target's
+    // name plate, which hangs far enough below the glyph to be the thing the
+    // inner edge of the turn actually has to miss.
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const mAng = o.bearing + side * 0.95;
+    const M = { x: C + Math.cos(mAng) * 60, y: C + Math.sin(mAng) * 60 };
+    // He crosses the edge well round the compass from where the package did, so
+    // the run-in reads as an intercept cutting across the track rather than as
+    // somebody joining the back of the queue.
+    const inAng = o.bearing + side * 1.75;
+    const from = { x: C + Math.cos(inAng) * SC.EDGE, y: C + Math.sin(inAng) * SC.EDGE };
+
+    const RB = 14;                 // his circle
+    const RF0 = 21, RF1 = 16;      // ours: wider at the merge, closing as we gain
+    const WB = 2.0;                // rad/s — about three seconds a revolution
+    const SADDLE = 0.55;           // radians of angle-off we settle at, behind him
+    // Our rate is not a tuned number, it is whatever closes half a turn in the
+    // time the turn is given. Retime the fight above and this still lands.
+    const WF = WB + (Math.PI - SADDLE) / ((T_SHOT - T_BREAK) / 1000);
+    const spin = side;             // both aircraft go round the same way
+
+    const orbit = (a, r) => ({ x: M.x + Math.cos(a) * r, y: M.y + Math.sin(a) * r });
+    const ease = (u) => u * u * (3 - 2 * u);
+    const lerp = (a, b, u) => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
+
+    // he enters along the straight line into the circle, so there is no kink
+    // where the run-in becomes the turn
+    const tB0 = Math.atan2(from.y - M.y, from.x - M.x);
+    const bAt = (t) => tB0 + spin * WB * Math.max(0, t - T_MERGE) / 1000;
+    const tF0 = bAt(T_BREAK) - spin * Math.PI;
+    const fAt = (t) => tF0 + spin * WF * (t - T_BREAK) / 1000;
+
+    // Where the formation is standing while this happens. Captured now rather
+    // than at the break, which is the same position — the clock is already
+    // stopped — and is also where our lead has to be back at when it is over.
+    const hold = { x: o.lead.pos.x, y: o.lead.pos.y };
+
+    // ---- what goes on the glass ----
+    const g = el('g', { class: 'scope-ac' });
+    g.appendChild(el('path', { class: 'scope-burner', d: BURNER.mig29, opacity: 0.75 }));
+    g.appendChild(el('path', { class: 'scope-jet scope-bandit', d: SIL.mig29 }));
+    o.view.fx.appendChild(g);
+    // Our own box on him — the mirror of the lock the SAM belt puts on us,
+    // drawn in our colour instead of theirs. It is APPENDED when it turns on
+    // rather than faded up from zero, and that is not a style preference: the
+    // box blinks on a CSS animation, a CSS animation outranks a presentation
+    // attribute, and an `opacity: 0` box whose keyframes interpolate up to 0.25
+    // is a box you can see. Hiding it that way put a lock on the bandit from
+    // the moment he crossed the edge and gave the merge away before it started.
+    const aim = el('rect', { class: 'scope-aim', x: -9, y: -9, width: 18, height: 18 });
+    let aimed = false, risen = false;
+    let trail = null, head = null, shotFrom = null, killFrom = null;
+
+    // The contact call names a bearing and a range. The bearing is REAL — the
+    // angle off the package to where he actually is, converted to compass true
+    // the same way the sonar display converts its own, so the call and the
+    // shape on the glass agree.
+    //
+    // The range is a reading, not a measurement: this scope is its own
+    // coordinate space and has no scale to be right about. What the number has
+    // to be right about is the TEMPO. He merges a second and a half after the
+    // call, and a bandit declared at seventy miles is four minutes out — the
+    // call would be describing a different engagement from the one the player
+    // is watching. Scaled so the glass runs about thirty miles from the
+    // formation to the rim, a commit at twenty-five to forty is the call an
+    // intercept this close actually gets.
+    const dx = from.x - hold.x, dy = from.y - hold.y;
+    const brg = String(Math.round((Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360)).padStart(3, '0');
+    const rng = String(Math.max(8, Math.round(Math.hypot(dx, dy) * 0.28)));
+
+    const say = (bank, problem) => o.say(pick(DOGFIGHT_LINES[bank])
+      .replace('{brg}', brg).replace('{rng}', rng), problem);
+    const calls = [
+      [150, () => say('contact', true)],
+      [T_MERGE + 250, () => say('tally', true)],
+      [T_SHOT, () => say('shot', false)],
+      [T_HIT + 120, () => say('splash', false)],
+      [T_HIT + 1100, () => say('rejoin', false)],
+    ];
+    let callIdx = 0;
+
+    // headings come off the frame-to-frame velocity rather than off the phase
+    // maths, so a jet is always pointing where it is actually going — including
+    // through the two joins, where an analytic heading would snap
+    const face = (node, p, mem) => {
+      const vx = p.x - mem.x, vy = p.y - mem.y;
+      if (vx * vx + vy * vy > 1e-4) mem.deg = Math.atan2(vy, vx) * 180 / Math.PI + 90;
+      node.setAttribute('transform',
+        `translate(${p.x.toFixed(2)},${p.y.toFixed(2)}) rotate(${(mem.deg || 0).toFixed(1)})`);
+      mem.x = p.x; mem.y = p.y;
+    };
+    const bMem = { x: from.x, y: from.y, deg: 0 };
+    const fMem = { x: hold.x, y: hold.y, deg: 0 };
+
+    const t0 = performance.now();
+    const pos = { x: hold.x, y: hold.y };   // our lead, for anything chasing it
+    let dead = false;
+
+    function stop() {
+      g.remove(); aim.remove();
+      if (trail) trail.remove();
+      if (head) head.remove();
+      trail = head = null;
+    }
+
+    // Returns false the frame the engagement is over, which is what hands the
+    // ingress clock back to frame().
+    function step(now) {
+      const t = now - t0;
+      while (callIdx < calls.length && calls[callIdx][0] <= t) calls[callIdx++][1]();
+
+      // ---- him ----
+      if (!dead) {
+        const bp = t < T_MERGE
+          ? lerp(from, orbit(tB0, RB), ease(t / T_MERGE))
+          : orbit(bAt(t), RB);
+        face(g, bp, bMem);
+        // he fades up out of the noise rather than appearing whole — a contact
+        // that pops onto the glass at full strength reads as a drawing error
+        if (!risen) {
+          if (t < 400) g.setAttribute('opacity', (t / 400).toFixed(2));
+          else { risen = true; g.removeAttribute('opacity'); }
+        }
+        // the box goes on once we have turned the corner on him, and comes off
+        // with him
+        if (!aimed && t > T_BREAK + 600) { aimed = true; o.view.fx.appendChild(aim); }
+        aim.setAttribute('transform', `translate(${bp.x.toFixed(2)},${bp.y.toFixed(2)})`);
+
+        if (t >= T_SHOT && !trail) {
+          shotFrom = { x: pos.x, y: pos.y };
+          trail = el('line', { class: 'aam-trail', x1: shotFrom.x, y1: shotFrom.y, x2: shotFrom.x, y2: shotFrom.y });
+          head = el('circle', { class: 'aam-head', cx: shotFrom.x, cy: shotFrom.y, r: 1.6 });
+          o.view.fx.appendChild(trail);
+          o.view.fx.appendChild(head);
+          if (typeof AudioSys !== 'undefined') AudioSys.play('launch');
+        }
+        if (trail) {
+          // guides on his live position, like a SAM guides on ours
+          const u = Math.min(1, (t - T_SHOT) / (T_HIT - T_SHOT));
+          const mx = shotFrom.x + (bp.x - shotFrom.x) * u;
+          const my = shotFrom.y + (bp.y - shotFrom.y) * u;
+          head.setAttribute('cx', mx); head.setAttribute('cy', my);
+          trail.setAttribute('x2', mx); trail.setAttribute('y2', my);
+          trail.setAttribute('opacity', (0.9 * (1 - u * 0.55)).toFixed(2));
+        }
+        if (t >= T_HIT) {
+          dead = true;
+          killFrom = { x: pos.x, y: pos.y };
+          g.remove(); aim.remove();
+          if (trail) { trail.remove(); head.remove(); trail = head = null; }
+          scopeBurst(o.view.fx, bp.x, bp.y, 'bandit-flash', 15);
+          if (typeof AudioSys !== 'undefined') AudioSys.play('impact');
+        }
+      }
+
+      // ---- us ----
+      let fp;
+      if (t < T_BREAK) {
+        fp = hold;                                  // still in formation, watching
+      } else if (t < T_HIT) {
+        const u = Math.min(1, (t - T_BREAK) / (T_SHOT - T_BREAK));
+        const rf = RF0 + (RF1 - RF0) * Math.min(1, u);
+        const onCircle = orbit(fAt(t), rf);
+        // the break itself is the first 1.15s of the turn: a lerp off the track
+        // and onto the circle, so leaving the formation is a movement and not a
+        // teleport
+        const b = Math.min(1, (t - T_BREAK) / 1150);
+        fp = b < 1 ? lerp(hold, onCircle, ease(b)) : onCircle;
+      } else {
+        // he is down; slide back onto the track and pick the war up again
+        const u = ease(Math.min(1, (t - T_HIT) / (T_END - T_HIT)));
+        fp = lerp(killFrom || hold, hold, u);
+      }
+      pos.x = fp.x; pos.y = fp.y;
+      face(o.lead.g, fp, fMem);
+
+      if (t < T_END) return true;
+      stop();
+      // put the lead back exactly where the formation expects it, or the first
+      // unfrozen frame is a jump
+      o.lead.pos.x = hold.x; o.lead.pos.y = hold.y;
+      return false;
+    }
+
+    return { pos, step, stop };
+  }
+
   // ---- the terminal attack run, flown inside the scope ----
   function animateScope(assetType, target, done, count, pkg) {
     const stealth = assetType === 'stealth';
@@ -2207,6 +2465,13 @@ const MapView = (() => {
 
     // live SAM coverage over this target — the same number computeStrike() used
     const adw = (typeof Game !== 'undefined' && Game.airDefenseWeight) ? Game.airDefenseWeight() : 0;
+
+    // Does a MiG come up tonight? Rolled ONCE, here, before anything is drawn —
+    // both because a per-sortie chance has to be a per-sortie roll, and because
+    // the answer is what this function returns to game.js, whose stall fallback
+    // has to be told that this one card is going to take nine seconds longer
+    // than every other card of its tier.
+    const intercept = interceptRoll(assetType);
 
     const headHeader = N > 1
       ? `${callsign} FLIGHT (×${N}) · ${ft.type} — ${baseName} → ${target.short}`
@@ -2323,6 +2588,10 @@ const MapView = (() => {
       })(performance.now());
     }
 
+    // The live engagement, and the once-guard that stops a second one. Both sit
+    // out here because frame() is the only thing that may start or end one.
+    let fight = null, fought = false;
+
     // t0/lastFrame are set when the flight actually starts — for a TLAM that is
     // after the launch clip finishes, so the clip never eats into radar time.
     let lastFrame = 0, t0 = 0;
@@ -2335,6 +2604,17 @@ const MapView = (() => {
       const dt = now - lastFrame;
       lastFrame = now;
 
+      // A MERGE STOPS THE INGRESS CLOCK. t0 walks forward with the frame while
+      // the fight is live, so `p` holds where it was: the formation parks, the
+      // progress bar parks, and the run resumes on the far side at exactly the
+      // point it left off. The alternative — letting the package keep closing
+      // through the engagement — spends the terminal run on a dogfight and
+      // arrives at the target with the fight still going.
+      //
+      // The sweep is deliberately NOT frozen. It is the same radar it was a
+      // second ago, and a scope that stops dead reads as a hung page rather
+      // than as a held moment.
+      if (fight) t0 += dt;
       const p = Math.min(1, (now - t0) / dur);
 
       // formation: each silhouette rides the bearing in, offset perpendicular
@@ -2370,7 +2650,10 @@ const MapView = (() => {
           lock.setAttribute('transform', `translate(${paintPos.x.toFixed(2)},${paintPos.y.toFixed(2)})`);
           lock.setAttribute('opacity', 1);
           if (view.ring) view.ring.classList.add('painting');
-          if (!painted && Math.random() < samChance) launchSAM();
+          // nothing rises off the ring into the middle of a turning fight —
+          // a SAM chasing the lead through the merge is three red things on a
+          // scope the size of a stamp, and the kill stops reading
+          if (!painted && !fight && Math.random() < samChance) launchSAM();
           painted = true;
         } else if (painted) {
           lock.setAttribute('opacity', 0);
@@ -2379,9 +2662,25 @@ const MapView = (() => {
         }
       }
 
+      // The engagement flies AFTER the formation has been placed for this
+      // frame: it drives the lead's silhouette itself, and it has to be the
+      // one that wins. acPos follows it out of formation so anything already
+      // guiding on the lead keeps guiding on the lead.
+      if (fight) {
+        if (fight.step(now)) { acPos.x = fight.pos.x; acPos.y = fight.pos.y; }
+        else fight = null;
+      } else if (intercept && !fought && p >= DOGFIGHT.at) {
+        fought = true;
+        fight = flyIntercept({
+          view, entry, bearing, lead: acs[0],
+          say: (text, problem) => fsLine(entry, fill(text), problem),
+        });
+      }
+
       fireUpTo(p);
       // cruise runs carry no threat styling — nothing is shooting at a TLAM
-      setProgress(entry, p, phaseFor(p, cruise), !cruise && p >= 0.42 && p < 0.86 && adw > 0);
+      setProgress(entry, p, fight ? 'AIR-TO-AIR' : phaseFor(p, cruise),
+        !cruise && (!!fight || (p >= 0.42 && p < 0.86 && adw > 0)));
 
       if (p < 1) { requestAnimationFrame(frame); return; }
       impact();
@@ -2395,6 +2694,9 @@ const MapView = (() => {
       // left to resolve, so the wall may take its screen back for the next
       // package if it needs to. See wallScreen().
       entry._done = true;
+      // a skip can land in the middle of a merge: the bandit and its missile
+      // go with the run, or they sit frozen on the glass through the BDA hold
+      if (fight) { fight.stop(); fight = null; }
       for (const a of acs) a.g.setAttribute('opacity', 0);
       lock.setAttribute('opacity', 0);
       if (view.ring) view.ring.classList.remove('painting');
@@ -2444,6 +2746,21 @@ const MapView = (() => {
     } else {
       startFlight();
     }
+    // What this card is going to cost game.js beyond its tier's flight time.
+    // Zero on all but one sortie in fifty (see animateStrike's contract).
+    return intercept ? DOGFIGHT.ms : 0;
+  }
+
+  // Rolled per sortie, and only for the two MANNED FIGHTER tiers. A bomber is
+  // the reason the fighters are up there; a B-2 that wins a turning fight is a
+  // different game, and a Tomahawk cannot be intercepted by anything in this
+  // war. `ff` is checked because a skipped turn draws nothing at all — there is
+  // no scope to fight on, and the allowance would be charged for a card that
+  // never appears.
+  function interceptRoll(assetType) {
+    if (ff || (assetType !== 'fighter' && assetType !== 'f35')) return false;
+    const turn = (typeof Game !== 'undefined' && Game.G) ? Game.G.turn : 99;
+    return turn <= DOGFIGHT.lastTurn && Math.random() < DOGFIGHT.chance;
   }
 
   // ---- bomber transit cards: the long leg in from the ramp, kept visible ----
@@ -2520,19 +2837,28 @@ const MapView = (() => {
   // Contract with game.js: `done` fires exactly once, at impact. game.js also
   // runs a watchdog that may call its own finishOne first, so the guard here is
   // about never double-resolving from this side.
+  //
+  // RETURNS the extra milliseconds this particular card is going to hold the
+  // scope for beyond its tier's flight time, which game.js adds to the stall
+  // fallback it arms behind the animation. It is zero for every sortie except
+  // the one in fifty that draws a MiG, and the fallback exists precisely to
+  // land behind the animation — so the animation has to be the thing that says
+  // how long it is. Anything that throws or never draws returns zero, because
+  // a card that does not exist cannot be waited on.
   function animateStrike(assetType, target, done, count, pkg) {
     let called = false;
     const once = () => { if (called) return; called = true; if (done) done(); };
     // skipped: the package still flies and still resolves, it just never draws
-    if (ff) { once(); return; }
+    if (ff) { once(); return 0; }
     try {
       // the submarine attack is not flown, it is fired — its own display
-      if (pkg && pkg.sub) animateSonar(target, once);
-      else animateScope(assetType, target, once, count, pkg);
+      if (pkg && pkg.sub) { animateSonar(target, once); return 0; }
+      return animateScope(assetType, target, once, count, pkg) || 0;
     } catch (e) {
       // a broken animation must never hold up the war
       console.error('scope animation failed', e);
       once();
+      return 0;
     }
   }
 

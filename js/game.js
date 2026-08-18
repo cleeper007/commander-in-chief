@@ -5087,7 +5087,7 @@ const Game = (() => {
         UI.renderAll(G);
         next();
       });
-      MapView.animateStrike(head.pkg.asset, target, finishBatch, count, head.pkg);
+      const scopeExtra = MapView.animateStrike(head.pkg.asset, target, finishBatch, count, head.pkg) || 0;
       // The stall fallback, and it must land BEHIND the animation for every
       // asset that has one — a fallback that fires first is not a safety net,
       // it is the primary path, and it resolves the batch while the formation
@@ -5110,8 +5110,15 @@ const Game = (() => {
         : head.pkg.asset === 'heavy' ? 6000
         : head.pkg.asset === 'cruise' || head.pkg.asset === 'fighter' ||
           head.pkg.asset === 'f35' ? 5000 : 0;
+      // And the card is allowed to be longer than its tier. animateStrike hands
+      // back whatever THIS card is going to spend that FLIGHT_DUR does not know
+      // about — today that is the air-to-air merge, which stops the ingress
+      // clock for nine seconds on one fighter sortie in fifty. Read off the
+      // return rather than added to the tier: charging every fighter package
+      // for a thing that almost never happens would push the safety net nine
+      // seconds late on every sortie in the war to cover one of them.
       const runDur = FLIGHT_DUR[head.pkg.sub ? 'sub' : head.pkg.asset] || 1000;
-      setTimeout(finishBatch, runDur + launchClip + 3500);
+      setTimeout(finishBatch, runDur + launchClip + scopeExtra + 3500);
     };
     next();
   }

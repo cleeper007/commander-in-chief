@@ -3585,6 +3585,73 @@ const SAM_LINES = [
   'Engagement radar locked — defeating with a beam maneuver',
 ];
 
+// ---- the intercept: a Fulcrum comes up, once in a very long while ----
+// An Easter egg, and it is allowed to be one because it costs nothing. It is
+// the same contract every other thing on that display signs: computeStrike()
+// has already decided the sortie, and the merge changes no roll, kills no
+// aircrew and moves no number. It is theatre, on a display whose whole job is
+// theatre — the difference is that this is the one piece of theatre the player
+// is not expecting, and most campaigns will never see it at all.
+//
+// The bandit is a MiG-29A because that is what Iran actually has to send up.
+// The IRIAF's fighter inventory is otherwise American and it is old — Tomcats,
+// Phantoms and Tigers, none of them delivered after 1979 — and the only Soviet
+// fighter on the ramp is the Fulcrum: a couple of squadrons out of Mehrabad,
+// plus the airframes Iraq flew into Iran in 1991 and never got back. It is
+// also the only jet in the theater a player reads as "a MiG" without being
+// told, which is the other half of what an Easter egg needs.
+//
+// TURNS 1-5 ONLY. The Fulcrum force is small, it flies without tankers, and it
+// is the first thing a campaign grinds off the board. A MiG coming up in week
+// two would be the game claiming Iran still has an air force — which is
+// exactly the thing the opening five turns are supposed to have settled.
+//
+// And OUR SIDE ALWAYS WINS. Not because the sim is generous: because the sim
+// is not consulted. An engagement that could go the other way is a coin toss
+// bolted onto a strike whose odds the player already accepted, and the aircrew
+// loss model in computeStrike() is where losing an aircraft is supposed to be
+// decided. So the Fulcrum dies every time, and nothing that happens in the
+// merge is ever written down anywhere.
+const DOGFIGHT = {
+  chance: 1 / 50,   // rolled once per manned fighter sortie
+  lastTurn: 5,      // and only while Iran still has fighters worth scrambling
+  at: 0.3,          // how far into the ingress the contact appears
+  ms: 8900,         // contact to rejoin — the whole engagement, on the scope
+};
+
+// Radio for the merge. Brevity, because a fight is the one part of a sortie
+// with no time in it for a sentence: BANDIT is a contact declared hostile,
+// TALLY is eyes on it, FOX TWO is a heat-seeker off the rail, SPLASH is the
+// other aircraft hitting the ground. {brg} and {rng} are filled from where the
+// contact actually is on the glass, so the call and the shape agree.
+const DOGFIGHT_LINES = {
+  contact: [
+    'BANDIT, BANDIT — SINGLE CONTACT {brg} FOR {rng}, HOT',
+    'POP-UP GROUP {brg}, {rng} MILES, CLOSING — DECLARED HOSTILE',
+    'SINGLE CONTACT {brg} FOR {rng}, COMMITTING ON THE PACKAGE',
+  ],
+  tally: [
+    '{cs} TALLY ONE — FULCRUM, AND HE IS COMMITTING',
+    '{cs} ENGAGED, ONE FULCRUM — BREAKING INTO HIM',
+    'TALLY, MiG-29 — {cs} IS ANCHORED AND TURNING WITH HIM',
+  ],
+  shot: [
+    '{cs} FOX TWO',
+    'IN THE SADDLE — {cs} FOX TWO',
+    '{cs} FOX TWO, GOOD TONE',
+  ],
+  splash: [
+    'SPLASH ONE — FULCRUM DOWN',
+    'GOOD KILL, GOOD KILL — SPLASH ONE FULCRUM',
+    'SPLASH ONE. HE IS BURNING ON THE DESERT FLOOR',
+  ],
+  rejoin: [
+    '{cs} IS CLEAN — REJOINING, PRESSING TO {tgt}',
+    'NO FURTHER CONTACTS — {cs} BACK ON THE TRACK',
+    '{cs} REJOINING THE PACKAGE, CONTINUING TO {tgt}',
+  ],
+};
+
 // ---- Iranian counterattack launch sites (projected coords inside Iran) ----
 // Missile salvos rise from the surviving missile-base targets (tgtId links a
 // site to its TARGETS entry — destroyed bases stop launching); the last entry
