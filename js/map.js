@@ -1090,6 +1090,7 @@ const MapView = (() => {
     syncHitDiscs();
     syncIconScale();
     syncSouthCue();
+    wallPlotSync();   // the wall's small plot is the same chart, so it moves too
   }
 
   // ---- the southern front is off the bottom of the frame ----
@@ -1486,6 +1487,11 @@ const MapView = (() => {
     entry.querySelector('.fs-lines').appendChild(div);
     const lines = entry.querySelectorAll('.fs-line');
     if (lines.length > 3) lines[0].remove();
+    // Every one of these is somebody keying a microphone, so it is also traffic
+    // on the net panel — with the callsign in front of it, which the card does
+    // not need (its header is the callsign) and the net does: that panel is
+    // carrying both screens at once and the lines have to be tellable apart.
+    wallTraffic(entry.dataset.cs || '', text, problem);
   }
 
   // Killing a card also kills its rAF loops: every loop checks card._alive.
@@ -1499,13 +1505,350 @@ const MapView = (() => {
     }
   }
 
+  // Retire a card NOW. Split out of fsClose because the wall needs a screen
+  // back on the same tick it hands it to the next package — a timer would have
+  // the new card land in a box the old one is still sitting in. Idempotent: the
+  // timer fsClose armed can still fire afterwards and finds nothing left to do.
+  //
+  // A CLIP STILL ON SCREEN HOLDS THE CARD. The card's five-second egress hold
+  // was sized for the clips that were short, and two are not: the IRGC set
+  // piece runs 8.0s and the F-14 hit 5.7s. Both were being pulled off screen
+  // mid-detonation while their own audio played on out of a detached element,
+  // which is the footage cutting out a second before the thing it was showing.
+  // The wait always ends — every clip carries its own stall timeout and calls
+  // finish(), which takes the video out — so this cannot hold a card forever.
+  // `force` is for the one caller that cannot wait: the wall reclaiming a
+  // screen for the package already flying into it.
+  function fsKill(entry, force) {
+    if (!entry) return;
+    if (!force && entry._alive && entry.querySelector('.scope-hit-video')) {
+      fsClose(entry, 600);
+      return;
+    }
+    entry._alive = false;
+    stopMissionMusic(entry);
+    entry.remove();
+    fsSync();
+    wallSync();
+  }
+
   function fsClose(entry, delay) {
-    setTimeout(() => {
-      entry._alive = false;
-      stopMissionMusic(entry);
-      entry.remove();
-      fsSync();
-    }, delay || 0);
+    setTimeout(() => fsKill(entry), delay || 0);
+  }
+
+  // ============================================================
+  // THE WALL — four screens, and the strike is watched on all of them
+  // ------------------------------------------------------------
+  // The markup is in index.html and the cabinet is in the stylesheet; this is
+  // the wiring. Four things live on it:
+  //
+  //   FEED 01 / FEED 02   the scope cards, unchanged — same radar, same
+  //                       silhouettes, same status lines, same clips. What
+  //                       changed is that there are two boxes and a card fills
+  //                       one, instead of one 260px column they stacked in.
+  //   COP PLOT            a <use> of the live #world group. Not a copy and not
+  //                       a re-render: the same nodes, drawn a second time, so
+  //                       the pan, the zoom, the salvos and every target pulse
+  //                       arrive here for nothing. #map itself never moves —
+  //                       it stays where it is, behind the wall, which is why
+  //                       none of the geometry in this file had to learn about
+  //                       any of this.
+  //   STRIKE NET          the radio traffic. Every fsLine written on either
+  //                       feed is somebody keying a mic, so it lands here with
+  //                       its callsign and kicks the trace.
+  //
+  // WHY THE WALL IS ALLOWED TO OWN THE BOARD: it is up only while a package is
+  // actually flying, and during that window there is nothing on the chart to
+  // decide. The orders are signed. The one thing the player can still do is
+  // skip, and that button is in the sidebar, which the wall never covers.
+  // ============================================================
+  // How long the wall holds open with no card on it. Packages resolve back to
+  // back — one card's egress beat overlaps the next one's launch — but a gap of
+  // a frame or two between batches is possible, and a wall that blinks out and
+  // straight back in is worse than one that waits a beat.
+  const WALL_LINGER = 900;
+  let wallShut = 0;          // the pending close, cancelled if a card arrives
+  let wallRAF = 0;
+  let wallPings = [];        // live rings on the plot, advanced by the tick
+  // Read once when the wall goes up rather than per frame: it is a media query,
+  // and the answer does not change in the middle of a strike.
+  let wallStill = false;
+  const reducedMotion = () => {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (e) { return false; }
+  };
+
+  function wallEl() { return document.getElementById('strike-wall'); }
+  function wallFeeds() {
+    const w = wallEl();
+    return w ? [...w.querySelectorAll('.wall-feed')] : [];
+  }
+  function wallUp() { const w = wallEl(); return !!w && !w.classList.contains('hidden'); }
+
+  // The screen a package gets. Empty ones first, in order, so the first card of
+  // a night lands on FEED 01 and the second under it rather than beside a gap.
+  // With both busy the card that is FURTHEST THROUGH ITS RUN gives way: in
+  // practice that is always one already past its impact and running out its
+  // five-second egress hold, because game.js does not lay on the next package
+  // until the last one has resolved. `_done` says so explicitly rather than
+  // trusting that ordering, since a card evicted before its impact would never
+  // call back and the batch behind it would sit on the watchdog.
+  function wallScreen() {
+    const feeds = wallFeeds();
+    if (!feeds.length) return null;
+    let cell = feeds.find(f => !f.querySelector('.scope-card'));
+    if (!cell) {
+      const busy = feeds.map(f => ({ f, card: f.querySelector('.scope-card') }))
+        .sort((a, b) => (b.card._done ? 1 : 0) - (a.card._done ? 1 : 0) ||
+                        a.card._born - b.card._born);
+      cell = busy[0].f;
+      fsKill(busy[0].card, true);
+    }
+    return cell.querySelector('.wall-body');
+  }
+
+  function wallOpen() {
+    const w = wallEl();
+    if (!w) return;
+    clearTimeout(wallShut); wallShut = 0;
+    if (wallUp()) return;
+    wallStill = reducedMotion();
+    w.classList.remove('hidden');
+    wallPlotMount();
+    wallNetMount();
+    wallTick(performance.now());
+  }
+
+  function wallClose() {
+    const w = wallEl();
+    clearTimeout(wallShut); wallShut = 0;
+    if (!w || !wallUp()) return;
+    w.classList.add('hidden');
+    cancelAnimationFrame(wallRAF); wallRAF = 0;
+    wallPings = [];
+    // The plot is a live reference into the chart, and the net panel is a frame
+    // loop's worth of nodes. Neither is wanted between strikes.
+    const plot = w.querySelector('.wall-plot .wall-body');
+    const net = w.querySelector('.wall-net-view');
+    if (plot) plot.innerHTML = '';
+    if (net) net.remove();
+    netSamples = netTrace = netEcho = netView = null;
+    const log = w.querySelector('.wall-net-log');
+    if (log) log.innerHTML = '';
+    for (const f of wallFeeds()) {
+      f.classList.remove('live');
+      const sub = f.querySelector('.wall-sub');
+      if (sub) sub.textContent = 'STANDBY';
+    }
+  }
+
+  // Called whenever a card lands or leaves. Keeps the tally lights honest and
+  // arms the close once the last package is off the wall.
+  function wallSync() {
+    if (!wallUp()) return;
+    let live = 0;
+    for (const f of wallFeeds()) {
+      const card = f.querySelector('.scope-card');
+      f.classList.toggle('live', !!card);
+      if (card) live++;
+    }
+    wallPlotMarks();
+    if (live) { clearTimeout(wallShut); wallShut = 0; return; }
+    clearTimeout(wallShut);
+    wallShut = setTimeout(wallClose, WALL_LINGER);
+  }
+
+  // ---- COP PLOT: the chart itself, at a quarter of the area ----
+  // <use href="#world"> rather than a clone. A clone goes stale the moment a
+  // missile moves and would have to be rebuilt on a timer; a reference is the
+  // same nodes drawn twice and is never wrong. #world survives render()'s
+  // innerHTML reset (the element is kept, only its children are replaced), so
+  // the reference holds across a turn boundary too.
+  function wallPlotMount() {
+    const box = wallEl().querySelector('.wall-plot .wall-body');
+    if (!box || !document.getElementById('world')) return;
+    box.innerHTML = '';
+    const view = el('svg', { class: 'wall-plot-view', viewBox: '0 0 1000 760' });
+    const use = el('use', { href: '#world' });
+    // Safari before 16 only honours the xlink form, and an unresolved <use> is
+    // a blank screen where the chart should be — cheap enough to write both.
+    use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '#world');
+    view.appendChild(use);
+    // The marks ride in world coordinates, so they carry #world's own transform
+    // rather than being placed in screen space — wallPlotSync keeps them level
+    // with the chart through every pan and zoom.
+    view.appendChild(el('g', { class: 'wall-plot-marks' }));
+    box.appendChild(view);
+    wallPlotSync();
+    wallPlotMarks();
+  }
+
+  // Mirror the chart's zoom classes and its pan/zoom transform onto the plot.
+  // Called from applyView, which is the one choke point every gesture and every
+  // programmatic move already goes through.
+  function wallPlotSync() {
+    const view = document.querySelector('.wall-plot-view');
+    if (!view) return;
+    for (const c of ['map-deep-zoom', 'map-close-zoom', 'map-far-zoom'])
+      view.classList.toggle(c, !!svg && svg.classList.contains(c));
+    const marks = view.querySelector('.wall-plot-marks');
+    if (marks && world) marks.setAttribute('transform', world.getAttribute('transform') || '');
+  }
+
+  // A ring on each site currently being serviced. The plot has no site names on
+  // it — at a quarter of the area they are grain, not labels — so this is how
+  // it answers "where is the thing I am watching burn".
+  function wallPlotMarks() {
+    const view = document.querySelector('.wall-plot-view');
+    if (!view) return;
+    const g = view.querySelector('.wall-plot-marks');
+    if (!g) return;
+    g.innerHTML = '';
+    wallPings = [];
+    for (const f of wallFeeds()) {
+      const card = f.querySelector('.scope-card');
+      const t = card && TARGETS.find(x => x.id === card.dataset.tgt);
+      if (!t) continue;
+      g.appendChild(el('circle', { class: 'wall-plot-mark', cx: t.x, cy: t.y, r: 13 }));
+      if (wallStill) continue;
+      // Attributes rather than a CSS keyframe on `r`: the ring is advanced by
+      // the same tick the net trace runs on, which works everywhere and costs
+      // one loop we are already paying for.
+      const ping = el('circle', { class: 'wall-plot-mark', cx: t.x, cy: t.y, r: 13 });
+      g.appendChild(ping);
+      wallPings.push({ node: ping, t0: performance.now() + wallPings.length * 400 });
+    }
+  }
+
+  // ---- STRIKE NET: the chatter, drawn as chatter ----
+  // The trace is not an analyser on the chatter bed — audio.js only builds a
+  // Web Audio graph on platforms that need one, so on most machines there is
+  // nothing to read. It is driven by the traffic instead, which is the honest
+  // signal anyway: what is on this net is what the packages are saying, and
+  // the game already knows every word of that before the sound plays.
+  const NET_PTS = 121;        // samples across the trace, 2 viewBox units apart
+  const NET_W = 240, NET_H = 90, NET_MID = 45;
+  const NET_IDLE = 0.05;      // squelch noise — an open net is never silent
+  let netSamples = null, netTrace = null, netEcho = null, netView = null;
+  let netEnv = NET_IDLE, netTarget = NET_IDLE, netPhase = 0;
+
+  function wallNetMount() {
+    const box = wallEl().querySelector('.wall-net .wall-body');
+    const log = box && box.querySelector('.wall-net-log');
+    if (!box || box.querySelector('.wall-net-view')) return;
+    // preserveAspectRatio="none" so the trace fills the panel whatever shape
+    // the cell ends up; the strokes opt out of the stretch individually.
+    netView = el('svg', {
+      class: 'wall-net-view', viewBox: `0 0 ${NET_W} ${NET_H}`,
+      preserveAspectRatio: 'none',
+    });
+    const grid = el('g', { class: 'wall-net-grid' });
+    for (let x = 30; x < NET_W; x += 30)
+      grid.appendChild(el('line', { x1: x, y1: 6, x2: x, y2: NET_H - 6, 'vector-effect': 'non-scaling-stroke' }));
+    // two rails either side of the baseline, so the trace has something to be
+    // loud against — without them the panel is a line in an empty box and the
+    // waveform reads as smaller than it is
+    for (const y of [NET_MID - 30, NET_MID + 30])
+      grid.appendChild(el('line', { x1: 0, y1: y, x2: NET_W, y2: y, 'vector-effect': 'non-scaling-stroke' }));
+    netView.appendChild(grid);
+    netView.appendChild(el('line', {
+      class: 'wall-net-base', x1: 0, y1: NET_MID, x2: NET_W, y2: NET_MID,
+      'vector-effect': 'non-scaling-stroke',
+    }));
+    netSamples = new Array(NET_PTS).fill(0);
+    netEcho = el('polyline', { class: 'wall-net-echo', 'vector-effect': 'non-scaling-stroke' });
+    netTrace = el('polyline', { class: 'wall-net-trace', 'vector-effect': 'non-scaling-stroke' });
+    netView.appendChild(netEcho);
+    netView.appendChild(netTrace);
+    // ahead of the log, so the trace is the top two-thirds of the panel
+    box.insertBefore(netView, log);
+    netEnv = netTarget = NET_IDLE;
+    netDraw();
+  }
+
+  function netDraw() {
+    if (!netTrace) return;
+    let pts = '';
+    for (let i = 0; i < NET_PTS; i++)
+      pts += (i * 2) + ',' + (NET_MID - netSamples[i]).toFixed(1) + ' ';
+    netTrace.setAttribute('points', pts);
+    netEcho.setAttribute('points', pts);
+    if (netView) netView.classList.toggle('hot', netEnv > 0.4);
+  }
+
+  // One sample of an open microphone: a carrier, a harmonic off it and a little
+  // noise, all of it scaled by how loud the net is at this instant. Clamped at
+  // the rails rather than at the panel edge, so a loud transmission clips the
+  // way a loud transmission does instead of running off the top of the box.
+  const NET_CLIP = 42;
+  function netSample() {
+    netPhase += 0.62;
+    const v = Math.sin(netPhase) * 0.62 + Math.sin(netPhase * 2.7) * 0.26 +
+      (Math.random() - 0.5) * 0.62;
+    return Math.max(-NET_CLIP, Math.min(NET_CLIP, v * netEnv * 46));
+  }
+
+  // Somebody keyed a mic. Kicks the trace and writes the line onto the net log.
+  function wallTraffic(cs, text, problem) {
+    netTarget = 1;
+    if (wallStill && netSamples) {
+      // No frame loop under reduced motion, so the whole trace is redrawn once
+      // per transmission: the panel still answers "the net is busy" without
+      // anything on screen moving.
+      netEnv = 0.8;
+      for (let i = 0; i < NET_PTS; i++) netSamples[i] = netSample();
+      netDraw();
+    }
+    const log = wallEl() && wallEl().querySelector('.wall-net-log');
+    if (!log || !text) return;
+    const line = document.createElement('div');
+    line.className = 'wall-net-line' + (problem ? ' net-problem' : '');
+    // Half the lines in FLIGHT_EVENTS already open with {cs} — "SPIRIT 31
+    // airborne out of DIEGO GARCIA" — and tagging those puts the callsign on
+    // twice. The tag is for the ones that don't say who is talking.
+    if (cs && text.indexOf(cs) !== 0) {
+      const tag = document.createElement('span');
+      tag.className = 'wall-net-cs';
+      tag.textContent = cs + ' ';
+      line.appendChild(tag);
+    }
+    line.appendChild(document.createTextNode(text));
+    log.appendChild(line);
+    while (log.children.length > 4) log.firstChild.remove();
+  }
+
+  // ---- the wall's own frame loop ----
+  // One loop for the whole panel: the net trace scrolls, the plot rings walk
+  // out, and each live screen's corner runs a timecode off its card. It exists
+  // only while the wall is up.
+  function wallTick(now) {
+    if (!wallUp()) { wallRAF = 0; return; }
+    wallRAF = requestAnimationFrame(wallTick);
+    // Under reduced motion the trace is not scrolled here at all — wallTraffic
+    // redraws it whole, once, on each transmission. The panel still answers
+    // "the net is busy" without anything on screen being in constant motion.
+    if (netSamples && !wallStill) {
+      netTarget = Math.max(NET_IDLE, netTarget * 0.972);
+      netEnv += (netTarget - netEnv) * 0.14;
+      netSamples.shift();
+      netSamples.push(netSample());
+      netDraw();
+    }
+    for (const p of wallPings) {
+      const age = (now - p.t0) % 1800;
+      if (age < 0) continue;
+      const k = age / 1800;
+      p.node.setAttribute('r', (13 + k * 30).toFixed(1));
+      p.node.setAttribute('opacity', (0.75 * (1 - k)).toFixed(3));
+    }
+    for (const f of wallFeeds()) {
+      const card = f.querySelector('.scope-card');
+      const sub = f.querySelector('.wall-sub');
+      if (!card || !sub) continue;
+      const s = Math.floor((now - card._born) / 1000);
+      sub.textContent = 'T+' + String(Math.floor(s / 60)).padStart(2, '0') +
+        ':' + String(s % 60).padStart(2, '0');
+    }
   }
 
   // ---- silhouettes: drawn NOSE-UP (nose at -y), rotated +90 onto the heading ----
@@ -1687,11 +2030,20 @@ const MapView = (() => {
   }
 
   // ---- the scope card: header, mini tactical view, status lines, progress ----
-  function scopeCard(header) {
-    const { scope } = fsStacks();
+  // The card itself has not changed; where it is hung has. It goes on one of
+  // the wall's two screens instead of onto a 260px stack in the corner of the
+  // chart — see the wall section above. `_born` is what the wall's timecode
+  // counts from and what decides which screen gives way when both are busy.
+  function scopeCard(header, callsign, targetId) {
     const entry = document.createElement('div');
     entry._alive = true;
+    entry._born = performance.now();
     entry.className = 'flight-entry scope-card';
+    if (callsign) entry.dataset.cs = callsign;
+    // Set HERE and not by the caller a line later: wallSync() below reads it to
+    // put this package's ring on the plot, and a card that learns its own target
+    // after the wall has already looked never gets one.
+    if (targetId) entry.dataset.tgt = targetId;   // also how playStrikeHit finds this scope
     entry.innerHTML =
       `<div class="fs-head">${header}</div>` +
       `<div class="scope-wrap"></div>` +
@@ -1699,8 +2051,15 @@ const MapView = (() => {
       `<div class="progress-row"><span class="progress-phase">STANDING BY</span>` +
       `<span class="progress-pct">0%</span></div>` +
       `<div class="progress-bar"><div class="progress-fill"></div></div>`;
-    scope.appendChild(entry);
-    fsPanel().classList.remove('hidden');
+    // Raise the wall before asking it for a screen: wallScreen() may have to
+    // retire the card already in one, and a hidden wall has nothing to retire.
+    wallOpen();
+    const screen = wallScreen();
+    // No wall in the document at all (an older cached index.html) — the card
+    // still has to fly, so it falls back to the corner stack it used to live in.
+    (screen || fsStacks().scope).appendChild(entry);
+    if (!screen) fsPanel().classList.remove('hidden');
+    wallSync();
     return entry;
   }
 
@@ -1852,8 +2211,7 @@ const MapView = (() => {
     const headHeader = N > 1
       ? `${callsign} FLIGHT (×${N}) · ${ft.type} — ${baseName} → ${target.short}`
       : `${callsign} · ${ft.type} — ${baseName} → ${target.short}`;
-    const entry = scopeCard(headHeader);
-    entry.dataset.tgt = target.id;   // lets playStrikeHit() find this live scope
+    const entry = scopeCard(headHeader, callsign, target.id);
     const view = buildScopeView(entry, target, adw);
     const C = SC.C;
 
@@ -2033,6 +2391,10 @@ const MapView = (() => {
       // deregistering is also the once-guard: the run reaches weapons away one
       // time, whether it got there by flying or by being skipped
       if (!skipEnders.delete(forceImpact)) return;
+      // Past its impact and running out an egress beat: the card has nothing
+      // left to resolve, so the wall may take its screen back for the next
+      // package if it needs to. See wallScreen().
+      entry._done = true;
       for (const a of acs) a.g.setAttribute('opacity', 0);
       lock.setAttribute('opacity', 0);
       if (view.ring) view.ring.classList.remove('painting');
@@ -2227,6 +2589,15 @@ const MapView = (() => {
     vid.className = 'scope-hit-video';
     vid.src = src;
     vid.playsInline = true;
+    // On the wall, the picture takes the screen for as long as it runs: the
+    // card's status lines and progress bar step aside and the clip gets the box
+    // from the header down. Worth doing because of the shapes involved — the
+    // footage is 720x400 and the sensor window it used to play in was square,
+    // so `object-fit: cover` was throwing away about half of every frame. The
+    // lines lose nothing by going: every one of them is on the net panel with
+    // its callsign attached, which is most of what that panel is for.
+    const card = wrap.closest ? wrap.closest('.flight-entry') : null;
+    if (card) card.classList.add('clip-live');
     // This is the one sound in the game that audio.js does not own, so the two
     // things it gets for free everywhere else have to be asked for here. It
     // answers to the speaker button — muting the game used to silence the
@@ -2248,6 +2619,7 @@ const MapView = (() => {
       done = true;
       clipEnders.delete(finish);
       if (hasAudio) AudioSys.duckRelease(duckKey);
+      if (card) card.classList.remove('clip-live');
       vid.remove();
       clipEnded();
       if (onEnd) onEnd();
@@ -2293,6 +2665,10 @@ const MapView = (() => {
     // Every scope is being torn down at once — kill the radio chatter outright
     // rather than leaning on each card's close to release it.
     if (typeof AudioSys !== 'undefined') AudioSys.missionMusicStopAll();
+    // ...and drop the wall with them, without the linger a normal close takes.
+    // The player skipped the footage; there is nothing left on it to watch, and
+    // a monitor that hangs on for another second is the skip not landing.
+    wallClose();
   }
 
   // Some targets have their own hit clip; everything else uses the generic one.
@@ -2508,8 +2884,8 @@ const MapView = (() => {
     const boat = US_ASSETS.find(a => a.id === STRIKE_ORIGINS.sub);
     const baseName = boat ? boat.short : 'TOLEDO (SSN)';
     const callsign = `MAKO ${rand(1, 9)}${rand(1, 9)}`;
-    const entry = scopeCard(`${callsign} · Mk-48 ADCAP — ${baseName} → ${target.short}`);
-    entry.dataset.tgt = target.id;          // lets playStrikeHit() find this scope
+    const entry = scopeCard(`${callsign} · Mk-48 ADCAP — ${baseName} → ${target.short}`,
+      callsign, target.id);
     entry.classList.add('sonar-card');
     const view = buildSonarView(entry, target);
     const C = SN.C;
@@ -2730,6 +3106,7 @@ const MapView = (() => {
     // on it, and why the shock ring is the biggest thing on the display.
     function detonate() {
       if (!skipEnders.delete(forceDetonate)) return;   // once, however it got here
+      entry._done = true;   // the wall may reclaim this screen — see wallScreen()
       wpn.setAttribute('opacity', 0);
       wire.setAttribute('opacity', 0);
       if (decoy) decoy.setAttribute('opacity', 0);

@@ -1795,6 +1795,263 @@ button { font-family: var(--mono); }
 .squadron-table td:nth-child(4) { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ============================================================
+   THE WALL — four screens, and the strike is watched on all of them
+   ============================================================ */
+/* The markup and the reasoning for the split live in index.html; this is the
+   cabinet it is mounted in. Two rules matter more than the rest:
+
+   1. EVERY BOX IS `min-height: 0`. The wall is a grid of a grid of a flex
+      column, and one missing min-height anywhere on that chain lets a scope
+      card's intrinsic height win over its row — which on a 390px landscape
+      phone pushes the bottom two screens off the panel entirely, silently,
+      exactly the failure the corner stack used to have.
+   2. THE WALL SWALLOWS THE POINTER, and that is the point of it being a
+      physical screen. It is not a control and has nothing to press, but the
+      chart it covers is FULL of things to press, and letting clicks through
+      would mean a tap on the footage opening a strike dialog for whichever
+      site happens to be behind that pixel — a target the player cannot see
+      and did not choose. The zoom controls live in the header, outside the
+      container, so they keep working the whole time. (This is the opposite
+      call to the raid stage, which is click-through because it has a SKIP
+      button of its own to opt back in.)
+
+   z-index 30: over the corner scopes (15) and the watch-floor card (16),
+   under the raid stage (40), which takes the board outright and must keep
+   doing so if a raid and a strike ever land in the same beat. */
+#strike-wall {
+  --wall-pad: 14px;    /* cabinet edge — the bezel's own thickness */
+  --wall-gap: 8px;     /* the rails between the four screens */
+  position: absolute; inset: 0; z-index: 30;
+  padding: var(--wall-pad);
+  background: rgba(2, 4, 8, 0.86);
+  cursor: default;
+  animation: wall-in 0.25s ease-out;
+}
+@keyframes wall-in { from { opacity: 0; } }
+
+/* The cabinet. Everything here is edges rather than a drawn frame: a heavy
+   bezel at this size is just less screen. Reading outward from the glass —
+   a black lip, the grey of the case, a lit top edge where the room's ceiling
+   catches it, then the shadow the whole unit throws on the wall behind. */
+.wall-set {
+  position: relative; width: 100%; height: 100%; min-height: 0; min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: var(--wall-gap);
+  padding: var(--wall-gap);
+  background: linear-gradient(to bottom, #0a0f18, #05080e 55%, #03060b);
+  border: 1px solid #2b3b58;
+  border-top-color: #3d5175;
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(150, 180, 225, 0.09),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.85),
+    inset 0 0 42px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(0, 0, 0, 0.9),
+    0 0 46px rgba(70, 130, 210, 0.07),
+    0 18px 54px rgba(0, 0, 0, 0.75);
+}
+
+.wall-cell {
+  position: relative; min-height: 0; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: #060b13;
+  border: 1px solid #16223a;
+}
+
+/* ---- the screen's own caption bar ---- */
+.wall-tag {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  padding: 3px 7px;
+  background: rgba(9, 14, 24, 0.9);
+  border-bottom: 1px solid #16223a;
+  font-size: 8px; letter-spacing: 1.6px; color: var(--dim);
+  white-space: nowrap;
+}
+.wall-id { color: #8fa7cc; }
+.wall-sub { margin-left: auto; overflow: hidden; text-overflow: ellipsis; }
+/* The tally light. Red and blinking only where something is actually being
+   recorded — a screen on standby gets the dead grey one, so the four lights
+   read as a status row on their own. */
+.wall-live {
+  flex: none; width: 5px; height: 5px; border-radius: 50%;
+  background: #2b3a56;
+}
+.wall-cell.live .wall-live { background: var(--red); animation: wall-tally 1.5s steps(2) infinite; }
+.wall-cell.live .wall-id { color: var(--text); }
+/* The two repeaters are never on standby — they are showing the theater and
+   the net, both of which exist whether or not anything is in the air. Solid
+   green rather than the blinking red: live, not recording. */
+.wall-plot .wall-live, .wall-net .wall-live { background: var(--green); }
+.wall-plot .wall-id, .wall-net .wall-id { color: var(--text); }
+@keyframes wall-tally { 50% { opacity: 0.25; } }
+
+.wall-body {
+  position: relative; flex: 1; min-height: 0; min-width: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* Standby. The resting state of a screen with no package on it — not an
+   error, and drawn so it can never be mistaken for one: the same colour the
+   raid feed's NO VISUAL uses, over the same dead bars. */
+.wall-hold {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; letter-spacing: 4px; color: #33425c;
+  background: repeating-linear-gradient(
+    to bottom, rgba(255, 255, 255, 0.022) 0 2px, transparent 2px 6px);
+}
+.wall-cell.live .wall-hold { display: none; }
+
+/* ---- a package's screen ----
+   The scope card is the same element it has always been — same header, same
+   radar, same status lines, same progress bar — and everything below is only
+   about letting it fill a box instead of sizing one. */
+.wall-feed .flight-entry {
+  width: 100%; height: 100%; min-height: 0;
+  display: flex; flex-direction: column;
+  background: none; border: 0; border-left: 0;
+  padding: 5px 7px 6px;
+}
+.wall-feed .fs-head {
+  flex: none; font-size: 9px; letter-spacing: 0.8px; margin-bottom: 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The radar takes whatever height is left and the SVG letterboxes itself
+   inside it, so a short screen never pushes the progress bar off the bottom. */
+.wall-feed .scope-wrap { margin: 0; flex: 1; min-height: 0; }
+.wall-feed .scope-view { width: 100%; height: 100%; }
+/* While a clip is running the screen is the clip. The status lines and the
+   progress bar step aside and the radar window takes the whole box under the
+   header, which is what gets the footage close to the shape it was shot in —
+   720x400 into a ~1.65 box crops a tenth off the sides, where the square
+   sensor window it used to play in was throwing away nearly half of every
+   frame. The header stays: it is the chyron, and it says whose picture this
+   is. See overlayScopeClip in map.js, which raises and drops the class. */
+.wall-feed .scope-hit-video { border: 0; }
+.wall-feed .flight-entry.clip-live .fs-lines,
+.wall-feed .flight-entry.clip-live .progress-row,
+.wall-feed .flight-entry.clip-live .progress-bar { display: none; }
+.wall-feed .fs-lines {
+  flex: none; max-height: 4.6em; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  margin-top: 4px;
+}
+.wall-feed .fs-line { font-size: 10px; line-height: 1.45; }
+.wall-feed .progress-row { margin-top: 4px; }
+
+/* ---- the plot: the chart itself, at a quarter of the area ----
+   A <use> of the live #world group, so pan, zoom, tracks, salvos and every
+   pulse arrive here for free. What it does NOT get is the site names: 8.5px
+   type in a 1000-unit viewBox drawn about 430px wide is under four pixels
+   tall, which is not a label, it is grain. The icons carry it, and the board
+   the names belong on is the one behind this. */
+/* pointer-events: none so a tap on the plot lands on the wall behind it and
+   stops there. The <use> renders the chart's own nodes, and letting a click sit
+   on one of them is an invitation to a hit test nobody wants to reason about. */
+.wall-plot-view { width: 100%; height: 100%; display: block; pointer-events: none; }
+.wall-plot-view .target text,
+.wall-plot-view .us-asset text,
+.wall-plot-view .covert-box text { display: none; }
+/* The site the package on screen is servicing, marked so the plot answers
+   "where is this" without a label — a ring the chart uses nowhere else. The
+   walking one is advanced by the wall's own frame loop rather than a keyframe:
+   `r` as an animatable CSS property is not something to bet a screen on, and
+   the loop is already running for the net trace. */
+.wall-plot-mark {
+  fill: none; stroke: var(--amber); stroke-width: 2.5; opacity: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ---- the net: the chatter, drawn as chatter ---- */
+.wall-net-view { flex: 1; min-height: 0; width: 100%; display: block; }
+.wall-net-grid line { stroke: #16233a; stroke-width: 0.6; }
+.wall-net-base { stroke: #1d3050; stroke-width: 0.6; stroke-dasharray: 3 4; }
+.wall-net-trace { fill: none; stroke: var(--green); stroke-width: 1; opacity: 0.9; }
+.wall-net-echo { fill: none; stroke: var(--green); stroke-width: 2.6; opacity: 0.14; }
+.wall-net-view.hot .wall-net-trace { stroke: var(--amber); }
+.wall-net-view.hot .wall-net-echo { stroke: var(--amber); }
+/* The traffic itself, newest at the bottom, older lines riding up out of the
+   box — same grammar as the raid feed, and the top edge is faded so a
+   half-shown line reads as history rather than as a clipped one. */
+.wall-net-log {
+  flex: none; height: 4.4em; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 1px;
+  padding: 0 7px 5px;
+  mask-image: linear-gradient(to bottom, transparent, #000 14px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
+}
+.wall-net-line {
+  font-size: 10px; line-height: 1.45; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wall-net-line.net-problem { color: var(--amber); }
+.wall-net-cs { color: var(--dim); }
+
+/* ---- the glass ----
+   One tube, one piece of glass: scanlines, a corner vignette and a slow roll,
+   over all four screens rather than per-cell. Faint on purpose — this is a
+   monitor in a lit room, not a found-footage effect, and everything under it
+   still has to be READ. */
+.wall-glass {
+  position: absolute; inset: var(--wall-pad); z-index: 5;
+  pointer-events: none; overflow: hidden; border-radius: 6px;
+  background:
+    /* the sheen off the room's lights, top-left, where a screen always has it */
+    linear-gradient(148deg,
+      rgba(160, 200, 255, 0.05) 0%, rgba(160, 200, 255, 0.012) 26%,
+      transparent 46%),
+    /* the raster */
+    repeating-linear-gradient(to bottom,
+      rgba(0, 0, 0, 0.26) 0 1px, transparent 1px 3px),
+    /* and the corners falling off, which is what makes it a tube and not a pane */
+    radial-gradient(ellipse at 50% 46%,
+      rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, 0.28) 74%, rgba(0, 0, 0, 0.62) 100%);
+}
+/* the refresh bar walking down the tube */
+.wall-glass::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 26%;
+  background: linear-gradient(to bottom,
+    transparent, rgba(150, 195, 255, 0.055), transparent);
+  animation: wall-roll 8s linear infinite;
+}
+@keyframes wall-roll { from { top: -26%; } to { top: 100%; } }
+
+/* The watch floor keeps talking over the top of all this. Its card is the only
+   place a spoken line exists as text, so it goes ABOVE the wall rather than
+   behind it — a sibling selector, because the wall raising and lowering is
+   already a class on the wall and does not need to be a second one anywhere
+   else. */
+#strike-wall:not(.hidden) ~ #voice-card { z-index: 31; }
+
+/* A touch screen gets the same four screens and less of everything else. The
+   status lines go first and they are the right thing to lose: every one of
+   them is already on the net panel with the callsign attached, which is most
+   of why that panel is worth a quarter of the wall. */
+@media (max-height: 620px), (orientation: portrait) and (max-width: 820px) {
+  #strike-wall { --wall-pad: 6px; --wall-gap: 4px; }
+  .wall-tag { padding: 2px 5px; font-size: 7px; letter-spacing: 1px; gap: 4px; }
+  .wall-feed .flight-entry { padding: 3px 5px 4px; }
+  .wall-feed .fs-head { font-size: 8px; letter-spacing: 0.4px; margin-bottom: 2px; }
+  .wall-feed .fs-lines { display: none; }
+  .wall-feed .progress-row { font-size: 8px; margin-top: 3px; }
+  .wall-net-log { height: 3.7em; padding: 0 5px 3px; }
+  .wall-net-line { font-size: 9px; line-height: 1.35; }
+  .wall-hold { font-size: 8px; letter-spacing: 2px; }
+}
+
+/* The wall is a picture of a screen, and under reduced motion it stops being
+   one that moves: no roll, no blinking tally. The net trace keeps redrawing —
+   it is the panel's content, not its decoration — but map.js drops it to a
+   step per transmission rather than a step per frame. */
+@media (prefers-reduced-motion: reduce) {
+  #strike-wall { animation: none; }
+  .wall-glass::after { display: none; }
+  .wall-cell.live .wall-live { animation: none; }
+}
+
+/* ============================================================
    RAID SCOPE — the leadership mission, narrated live in the map panel
    ============================================================ */
 /* While the task force is on the objective the war is frozen: the sidebar

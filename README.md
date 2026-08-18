@@ -368,6 +368,24 @@ warhead does not touch the hull, it takes the water out from under it.
   whatever the volley left standing: missile barrages, proxy attacks, shipping
   attacks, cyber, or moves against the Strait of Hormuz.
 
+### Watching the strike go in
+
+While packages are in the air the chart gives way to **the wall** — four screens in
+the map panel, behind the room's own glass:
+
+- **FEED 01 / FEED 02**, top-left and bottom-left. The tactical scopes: the radar
+  picture, the formation flying its run in, the SAMs that rise to meet it, and the
+  strike footage when the weapons land. Two of them, because packages overlap — one
+  flight holding its egress beat while the next comes off the deck is what a night
+  actually looks like, and a single scope could only ever show you one of them.
+- **COP PLOT**, top-right. The theater, still live, with a ring on whatever site is
+  being serviced right now.
+- **STRIKE NET**, bottom-right. Every radio call from both feeds, with the callsign
+  in front of it, drawn as traffic on the net.
+
+The wall comes up when the first package launches and goes down when the last one is
+off it. **SKIP TO RESULTS** drops it immediately and resolves the turn.
+
 The game autosaves at each turn boundary and after every resolved action —
 use **Continue** on the title screen to pick up a war in progress, **Save & Quit** to
 step away, and the mute toggle in the status bar to silence sound effects.
@@ -438,7 +456,7 @@ commander-in-chief/
 └── js/
     ├── geodata.js    # Real country outlines (Natural Earth 50m, generated)
     ├── data.js       # Targets, US assets, static data
-    ├── map.js        # SVG map, pan/zoom, icons, strike animations
+    ├── map.js        # SVG map, pan/zoom, icons, strike animations, the strike wall
     ├── ai.js         # Iranian AI opponent, advisors, headlines
     ├── audio.js      # Sound manager: preload, play, mute toggle
     ├── ui.js         # HUD, sidebar, modal rendering
