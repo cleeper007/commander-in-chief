@@ -752,6 +752,20 @@ const UI = (() => {
       return;
     }
     const urgent = brk.hi <= 6 ? ' urgent' : brk.hi <= 12 ? ' warn' : '';
+    // The declared program is gone and the clock did not stop. This is the one
+    // reading in the panel that has to say WHERE, because everything else on
+    // screen — a nuclear program assessed mostly destroyed, no enrichment
+    // aimpoint left to fly — argues the opposite. The label carries it rather
+    // than a fourth line: the box is three spans wide in a 189px scroll pane,
+    // and the badge is what a player reads with the panel shut.
+    if (brk.undeclared) {
+      setBadge('objectives', `BOMB IN ${brk.lo}–${brk.hi}`, urgent ? '' : 'badge-none');
+      box.className = 'breakout' + (urgent || ' warn');
+      box.innerHTML = '<span class="bo-label">UNDECLARED ENRICHMENT</span>' +
+        `<span class="bo-value">${brk.lo}–${brk.hi} turns</span>` +
+        `<span class="bo-conf">not at Natanz or Fordow</span>`;
+      return;
+    }
     // Shut, the objectives panel still has to show the clock the war is run
     // against — and it has to say what the number IS. "5–16T" is the most
     // important figure on the screen rendered as a crossword clue: a player who
@@ -3162,7 +3176,9 @@ const UI = (() => {
         id: 'assess-nuclear', name: 'Reassess the enrichment timeline',
         current: brk.halted
           ? 'No capability remaining.'
-          : `Current judgement: ${brk.lo}–${brk.hi} turns, ${brk.conf} confidence.`,
+          : brk.undeclared
+            ? `Current judgement: ${brk.lo}–${brk.hi} turns, ${brk.conf} confidence — none of it declared.`
+            : `Current judgement: ${brk.lo}–${brk.hi} turns, ${brk.conf} confidence.`,
         desc: brk.halted
           ? 'Enrichment capability is destroyed. There is no timeline left to assess.'
           : 'Narrows the band — the estimate is what the whole campaign is being paced against.',

@@ -310,9 +310,21 @@ const Assess = (() => {
       // it outranks a comfortable-looking board (see the objective floor note
       // in coaScore).
       sev: b => clamp(0.42 + 0.5 * clamp(1 - (b.brk.mid || 30) / 14, 0, 1), 0.42, 0.95),
-      now: b => `A device ${b.brk.lo}–${b.brk.hi} turns out, ${b.brk.conf} confidence, ` +
-        `${100 - b.deg}% of the program still turning.`,
-      left: b => `the centrifuges run another night ${b.brk.hi <= 8 ? `inside a ${b.brk.lo}–${b.brk.hi} turn band` : 'unmolested'}`,
+      // Two clauses, because from v2.19 these are two different wars. The
+      // declared halls standing is a targeting problem with the aimpoints on
+      // the plot. The declared halls gone and the clock still running is a
+      // COLLECTION problem, and the president who is told the first thing on
+      // that night goes looking at a target list that has nothing left on it.
+      // Written to the read cell's WIDTH, like the two `deal` arms: brief.js
+      // measures `phase.name + ' — ' + now` and the box is a fixed two lines.
+      // The first draft of this clause ran to 133 characters on its own.
+      now: b => b.brk.undeclared
+        ? `A device ${b.brk.lo}–${b.brk.hi} turns out, and none of it at Natanz or Fordow any more.`
+        : `A device ${b.brk.lo}–${b.brk.hi} turns out, ${b.brk.conf} confidence, ` +
+          `${100 - b.deg}% of the program still turning.`,
+      left: b => b.brk.undeclared
+        ? 'the undeclared halls run another night and no aimpoint on the plot reaches them'
+        : `the centrifuges run another night ${b.brk.hi <= 8 ? `inside a ${b.brk.lo}–${b.brk.hi} turn band` : 'unmolested'}`,
     },
     {
       id: 'belt', doctrine: 'rollback',
@@ -403,9 +415,16 @@ const Assess = (() => {
       id: 'houthi', doctrine: 'southern',
       when: b => b.houthi.active && b.houthi.strength > 0,
       sev: b => clamp(0.26 + b.houthi.strength * 0.24 + (b.houthi.mandab === 'CLOSED' ? 0.16 : 0), 0, 0.66),
+      // Trimmed to the read cell's budget at v2.19, and the reason is worth
+      // keeping: this clause did not change and did not need to. The breakout
+      // clock staying alive (see enrichRate) made the RACE phase reachable on
+      // nights the southern front leads, and phase + clause is what the cell
+      // renders — at 101 characters under a 22-character phase name it was the
+      // first line in the game to reach 127 and wrap onto a third row. Every
+      // arm now fits under GAINING AIR SUPERIORITY, the longest name there is.
       now: b => `Ansar Allah unopposed on the Red Sea coast` +
-        (b.houthi.mandab === 'CLOSED' ? ' with Bab al-Mandab shut' : '') +
-        `, and ${b.houthi.reach ? 'the Ford reaches them tonight' : 'nothing out there reaches them'}.`,
+        (b.houthi.mandab === 'CLOSED' ? ', Bab al-Mandab shut' : '') +
+        ` — ${b.houthi.reach ? 'the Ford reaches them tonight' : 'nothing out there reaches them'}.`,
       left: b => 'the Red Sea coast goes unanswered for another night',
     },
     {

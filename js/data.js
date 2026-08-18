@@ -68,7 +68,17 @@ const TARGETS = [
     // Arak and Bushehr NPP are type 'nuclear' and are NOT flagged: they are
     // reactors, on the list for other reasons, and destroying them has never
     // counted toward the primary objective.
+    //
+    // `enrichShare` is a SECOND question and must not be confused with `weight`.
+    // Weight is what nukeDegraded scores a hall at — how much of the objective
+    // it represents. This is how many machines are actually turning in it, which
+    // is what feeds the breakout clock. The two genuinely differ: the covert
+    // hall's weight is argued down to 0.5 so the declared program can still
+    // reach 80% without it, and that argument says nothing whatever about how
+    // much uranium it enriches. Shares are renormalised against their own sum in
+    // enrichRate, so adding a fourth hall is a data-only change here too.
     type: 'nuclear', x: 441, y: 218, depth: 2, israelPriority: true, enrichment: true,
+    enrichShare: 0.32,
     desc: 'Primary enrichment site. Partially buried — cruise missiles can damage surface halls but only penetrators guarantee destruction. PRIMARY OBJECTIVE.',
     // The enrichment program is the stated reason the country went to war and
     // the one thing no capital will defend out loud. Hitting it costs nothing
@@ -82,6 +92,14 @@ const TARGETS = [
   {
     id: 'fordow', name: 'Fordow Enrichment Plant', short: 'FORDOW',
     type: 'nuclear', x: 416, y: 174, depth: 2, hardened: true, israelPriority: true, enrichment: true,
+    // The survivable half of the program, and worth more of the remaining
+    // capability than the surface halls at Natanz — which is the split the old
+    // hardcoded enrichRate carried as 0.4/0.6 and the reason it is preserved
+    // here rather than set from cascade counts. Real Fordow holds far fewer
+    // machines than real Natanz; game Fordow is the one that lives through the
+    // opening week, and the clock should reflect what is still turning in week
+    // three rather than what was installed on night one.
+    enrichShare: 0.44,
     desc: 'Enrichment halls buried under 80m of rock. ONLY a B-2 with GBU-57 penetrators has any chance. PRIMARY OBJECTIVE.',
     world: 0,
     packages: [
@@ -173,6 +191,18 @@ const TARGETS = [
     // position the box (drawn at +8,+11 from here) landed around the IRAN
     // country label and read as though the chart had circled the whole country
     type: 'nuclear', x: 545, y: 290, depth: 2, covert: true, enrichment: true,
+    // A QUARTER OF THE PROGRAM, and this is the number that makes the desc below
+    // true. It was written at v1.66 claiming enrichment continues here every
+    // night of the war, and until v2.19 enrichRate read two hardcoded ids and
+    // this hall fed the clock nothing at all: in 98.3% of the campaigns where
+    // the race stopped, it stopped with this site standing at full condition.
+    //
+    // Deliberately well under either declared hall. It is a hedge built in a
+    // hurry under shallower cover — that is already why it is not `hardened` and
+    // why the saturation package exists — and a hedge is not a second Natanz.
+    // What makes it matter is not its size but that it is the LAST one standing,
+    // where BREAKOUT.reflow is pushing everything Tehran has left in storage.
+    enrichShare: 0.24,
     // The one that reframes the campaign, and the one that needed the most care.
     // It is counted by nukeDegraded, which gates BOTH victory conditions, so:
     //
@@ -2157,12 +2187,71 @@ const NAVAL_SPINUP = 3;
 // campaign is a race against a number nobody in the building can see exactly.
 // `need` is randomized at the start of every war, so the estimate the player is
 // given is a genuine estimate and not a countdown with a fog filter over it.
+//
+// THE CLOCK IS NOT A SWITCH (v2.19). Through v2.18 `enrichRate` read
+// `natanz.hp` and `fordow.hp` by hardcoded id, and a nuclear target that
+// reaches 0 never repairs — so the second of two aimpoints dying SWITCHED THE
+// RACE OFF, permanently, and the war's central threat was settled in week one.
+// Measured over 432 campaigns in .claude/betatest/race.js: the clock halted
+// before the war ended in 84% / 62% / 60% of easy / normal / hard campaigns,
+// median turn 8–11, at a median 40% of the way to a device — and every
+// competent persona reached a test 0.0% of the time. The only bots that ever
+// saw an Iranian device were the ones that barely struck anything.
+//
+// It also made the covert hall's own description a lie. Kuh-e Siah says
+// "Enrichment has continued here every night of the war — the breakout clock
+// was never counting only Natanz and Fordow," and in 98.3% of halted campaigns
+// that hall was standing at full condition while the panel read HALTED — NO
+// CAPABILITY REMAINING. `nukeDegraded` was moved off the two hardcoded ids onto
+// the `enrichment` flag for exactly this class of reason; `enrichRate` never
+// got the same fix.
+//
+// WHAT THE REAL ASSESSMENTS SAY, because the numbers below were calibrated
+// against them rather than chosen. Every 2026 public assessment of a struck
+// Iranian program is written in MONTHS, not in never: 1–3 months with the
+// stockpile and stored centrifuges intact, 6–12 months if the material is
+// destroyed or buried, against a pre-strike breakout of 2–3 weeks. The
+// divergence between those figures is not noise — it is the undeclared half of
+// the program, and the named causes are the same three things this game already
+// models: an unknown centrifuge inventory, a surviving stockpile that moved,
+// and dispersal onto covert sites nobody has located.
+//
+// The literal wall-clock ratio (~0.25 of rate after the declared halls die)
+// cannot simply be used here, and that is worth stating plainly: dropped into a
+// thirty-turn campaign it puts the device around turn 50, which is the covert
+// tier's own v1.66 mistake — a mechanic priced against a war nobody plays.
+// What is modelled instead is the SHAPE those assessments agree on — a large
+// but finite setback, whose remainder is undeclared and therefore widens the
+// band rather than closing it — calibrated so the residual clock finishes late
+// in a long war instead of never.
 const BREAKOUT = {
   needMin: 88, needMax: 118,   // progress required for a device
   rate: 6,                     // per turn at full enrichment capability
   // how wide the IC's estimate is, by confidence — ± this many turns
   band: { low: 5, medium: 3, high: 1 },
   decay: 3,                    // turns before a fresh assessment goes stale again
+
+  // ---- what Tehran does with the halls it still holds ----
+  // Stored machines get reinstalled where there is still ground to install them
+  // on. This is the single thing that keeps every real post-strike estimate in
+  // months rather than years, and it is why the survivors matter more than the
+  // arithmetic of what was destroyed: `reflow` is how much of the lost capacity
+  // the standing halls take up.
+  //
+  // `reflowCap` is what stops it being a free undo. A hall can be pushed past
+  // what it was built for and not indefinitely — it is a fixed number of
+  // cascade positions under a fixed amount of rock — so the absorbed capacity
+  // is also capped at this multiple of what is actually still standing. That
+  // second clamp is the load-bearing half: without it one surviving hall at 24%
+  // of the program reconstitutes the whole national effort, and with it a small
+  // undeclared site runs a real race but never the race Natanz was running.
+  //
+  // Both terms go to zero together. Nothing standing absorbs nothing, so
+  // HALTED still means halted — it just now means every hall is down, including
+  // the one that had to be found first, which is what that banner always
+  // claimed and never checked.
+  reflow: 0.15,
+  reflowCap: 0.4,
 };
 
 // ============================================================

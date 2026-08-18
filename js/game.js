@@ -1539,12 +1539,32 @@ const Game = (() => {
   // player is handed is an actual estimate — narrow it by spending an action
   // slot on it, or fly the campaign on a number that could be five turns wrong.
   // ============================================================
+  //
+  // Driven off the `enrichment` flag and each hall's own `enrichShare`, not off
+  // two hardcoded ids — the same fix nukeDegraded() got, for the same reason,
+  // several versions late. Read the CLOCK IS NOT A SWITCH note above BREAKOUT
+  // in data.js before touching any of this: it carries the measurement that
+  // prompted it and the real assessments the two reflow terms are calibrated
+  // against.
+  //
+  // Returns 0 only when EVERY hall is down, which is what makes `halted` an
+  // honest word. Anything still standing is absorbing machines out of storage.
   function enrichRate() {
-    const natanz = TARGETS.find(t => t.id === 'natanz');
-    const fordow = TARGETS.find(t => t.id === 'fordow');
-    // Fordow is the survivable half of the program: buried, and worth more of
-    // the remaining capability than the surface halls at Natanz.
-    const cap = (natanz.hp / 100) * 0.4 + (fordow.hp / 100) * 0.6;
+    let standing = 0, max = 0;
+    for (const t of TARGETS) {
+      if (!t.enrichment) continue;
+      const share = t.enrichShare != null ? t.enrichShare : 1;
+      max += share;
+      standing += share * Math.max(0, t.hp) / 100;
+    }
+    if (!max || standing <= 0) return 0;
+    standing /= max;
+    // What Tehran reinstalls into the halls it still holds. Capped twice: at
+    // the fraction of lost capacity that can be moved at all, and at what the
+    // surviving floor space can physically take. The second clamp is why one
+    // small undeclared hall runs a real race and not the whole program.
+    const absorbed = Math.min((1 - standing) * BREAKOUT.reflow, standing * BREAKOUT.reflowCap);
+    const cap = Math.min(1, standing + absorbed);
     return BREAKOUT.rate * cap * (IranAI.posture().enrich || 1) / diff().breakout;
   }
 
@@ -1752,6 +1772,19 @@ const Game = (() => {
   }
 
   // Turns remaining, as the IC would brief it: a band, not a number.
+  //
+  // `undeclared` is the v2.19 state and the one that needs explaining on screen:
+  // every hall CENTCOM opened the war with is rubble and the clock is still
+  // running, because what is still turning is the hall nobody declared. Without
+  // a word for it the panel shows a live breakout timeline beside a nuclear
+  // program assessed at 80% destroyed and no aimpoint to fly, which reads as a
+  // bug rather than as the situation it is.
+  //
+  // It does not leak the folder. It says that enrichment continues, which the
+  // clock beside it is already saying, and never how many gaps are left — the
+  // rule the whole covert tier is written to. In practice the box is up long
+  // before this can fire: the covert hall carries `surfaceBy: 8` and the
+  // declared halls die around turn 12–21.
   function breakoutEstimate() {
     const rate = enrichRate();
     const left = G.breakout.need - G.breakout.progress;
@@ -1760,8 +1793,10 @@ const Game = (() => {
     const age = G.turn - G.breakout.assessed;
     const conf = age <= BREAKOUT.decay ? G.breakout.conf : 'low';
     const band = BREAKOUT.band[conf];
+    const declared = TARGETS.filter(t => t.enrichment && !t.covert);
     return {
       halted: false, conf,
+      undeclared: declared.length > 0 && declared.every(t => t.hp <= 0),
       lo: Math.max(1, Math.floor(turns - band)),
       hi: Math.ceil(turns + band),
     };
@@ -5988,10 +6023,15 @@ const Game = (() => {
             ? 'The IC has worked the problem with everything it has. The judgement is unanimous and it is ' +
               'the one you wanted: enrichment capability is destroyed. There is no breakout timeline ' +
               'because there is no longer a program to time.'
-            : `Centrifuge counts off the last overhead pass, the procurement picture, and two human ` +
-              `sources the Agency will not discuss. Revised judgement: Iran is ${est.lo}–${est.hi} turns ` +
-              `from a device, ${est.conf} confidence. The Director was careful to say that the band is ` +
-              `the honest part of the answer.`,
+            : est.undeclared
+              ? `Every hall on the declared program is rubble and the centrifuges are still turning. ` +
+                `Revised judgement: Iran is ${est.lo}–${est.hi} turns from a device, ${est.conf} ` +
+                `confidence, and none of that capacity is at Natanz or Fordow. The Director put it ` +
+                `plainly — we are now timing a program we never had a declaration for.`
+              : `Centrifuge counts off the last overhead pass, the procurement picture, and two human ` +
+                `sources the Agency will not discuss. Revised judgement: Iran is ${est.lo}–${est.hi} turns ` +
+                `from a device, ${est.conf} confidence. The Director was careful to say that the band is ` +
+                `the honest part of the answer.`,
         });
         break;
       }
