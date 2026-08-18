@@ -1482,7 +1482,7 @@ button { font-family: var(--mono); }
 .cv-plane { fill: #cfe2ff; opacity: 0.85; }
 /* superstructure reads light against the hull, deck openings dark */
 .escort-house, .escort-rig { fill: #cfe2ff; opacity: 0.9; }
-.escort-deck, .escort-vls { fill: #0b1a2e; opacity: 0.6; }
+.escort-deck, .escort-vls, .escort-cargo { fill: #0b1a2e; opacity: 0.6; }
 /* The hull-type code. `.us-asset` scoped because the plain `.us-asset text`
    rule sets 8.5px, which on a 7-unit hull is taller than the ship it names.
    It carries NO opacity of its own — the tag is a `.cv-detail` and that is what
@@ -1497,7 +1497,8 @@ button { font-family: var(--mono); }
    on top of her own bow escorts' hull tags. So the name steps out for exactly as
    long as the screen is up, and steps back when it goes away. Doing it here
    rather than in the `y` attribute is the point: the offset has to follow the
-   zoom, and below .map-deep-zoom there is no screen to clear. */
+   zoom, and below .map-deep-zoom there is no screen to clear.
+
    Below is a short step: the after screen ends at 16 units and the name only
    has to clear the oiler. Above is a long one — the name cannot fit in the gap
    between the vanguard cruiser's tag and the bow destroyers', so its only home
@@ -1511,6 +1512,163 @@ button { font-family: var(--mono); }
 .cv-asset > text { transition: transform 0.25s ease; }
 .map-deep-zoom .cv-asset > text { transform: translateY(6px); }
 .map-deep-zoom .cv-asset.label-above > text { transform: translateY(-22px); }
+
+/* ---- the third zoom step: the ships stop being symbols ----
+   Everything above this point is a chart. .cv-fine is the tier where the chart
+   stops: it holds the fittings that are a fraction of a map unit across — gun
+   barrels, radar faces, catwalk masts, the jet blast deflectors, the wakes —
+   and none of them is a thing the player needs in order to fight the war. They
+   are what is down there for anyone who keeps zooming past the point where the
+   plot has told them everything it knows.
+
+   Same shape as .cv-detail one step up, and deliberately a separate class
+   rather than a tighter threshold on that one: a fitting either survives being
+   drawn at k=2.2 or it does not, and the ones that do not are a different list,
+   not a smaller version of the same one. */
+.cv-fine { opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+.map-max-zoom .cv-fine { opacity: 1; }
+
+/* carrier fittings that only exist at the bottom of the zoom */
+.cv-jbd  { stroke: #cfe2ff; stroke-width: 0.30; opacity: 0.5; stroke-linecap: round; }
+.cv-foul { stroke: #cfe2ff; stroke-width: 0.14; opacity: 0.42; }
+.cv-mast { stroke: #cfe2ff; stroke-width: 0.11; opacity: 0.8; }
+.cv-bridge { fill: #dce9fb; opacity: 0.95; }
+.cv-uptake { fill: #0b1a2e; opacity: 0.75; }
+.cv-ciws { fill: #cfe2ff; opacity: 0.85; }
+/* The overhang shadow: the deck's own outline, offset and nearly black. It is
+   the only thing on the plot drawn darker than the water, which is the point —
+   a shadow is the one mark that can only mean "this is above that". */
+.carrier-shadow { fill: #04080f; opacity: 0.3; }
+
+/* escort fittings, same tier */
+.escort-barrel { stroke: #cfe2ff; stroke-width: 0.13; opacity: 0.85; stroke-linecap: round; }
+.escort-mast   { stroke: #cfe2ff; stroke-width: 0.10; opacity: 0.75; }
+.escort-split  { stroke: #0b1a2e; stroke-width: 0.09; opacity: 0.6; }
+.escort-spy    { fill: #dce9fb; opacity: 0.95; }
+.escort-ciws   { fill: #cfe2ff; opacity: 0.8; }
+.escort-boat   { fill: #0b1a2e; opacity: 0.6; }
+.escort-stack  { fill: #0b1a2e; opacity: 0.7; }
+.escort-circle { fill: none; stroke: #cfe2ff; stroke-width: 0.10; opacity: 0.55; }
+
+/* ---- wake ----
+   Whitewater on near-black water, so it is carried almost entirely by opacity
+   rather than by colour: a wake that reads as a solid shape is a wake drawn as
+   paint. The trail is a wash, the two divergent crests are lines, and the bow
+   wave is the same wedge thrown the other way at half the weight. */
+.wake-trail { fill: #d8e6f5; }
+.wake-t0 { opacity: 0.085; }
+.wake-t1 { opacity: 0.05; }
+.wake-t2 { opacity: 0.022; }
+.wake-arm { fill: none; stroke: #d8e6f5; stroke-width: 0.14; opacity: 0.22; stroke-linecap: round; }
+.wake-bow { stroke-width: 0.10; opacity: 0.16; }
+
+/* ---- haze grey ----
+   Below this zoom every US hull on the plot is drawn in the map's blue, which
+   is not a colour any of them are — it is the colour "ours" is. At the bottom
+   of the zoom that stops being the useful thing to say. There is exactly one
+   ship per icon down here, the player is looking at a ship and not at a symbol
+   for one, and the honest answer to what colour it is is haze grey, which is
+   what the whole US Navy has been painted since 1941 for the good reason that
+   it is the colour of the horizon it wants to disappear into.
+
+   Scoped `:not(.under-attack)` rather than re-stating the red afterwards. The
+   red is the one thing on this chart that outranks how pretty the picture is,
+   and a rule that has to be repeated below every repaint to stay winning is a
+   rule that will eventually not be. Written this way a ship under attack is
+   simply never in the set.
+
+   The hull carries three more states for the same reason — .cv-moving amber for
+   a deck under orders to reposition, .cv-damaged red for one that has been hit,
+   and neither is decoration: amber is the window in which she can be caught in
+   transit. Every one of them is a `fill` on .carrier-hull, and every one of
+   them would have lost to a repaint one class heavier. The fittings are not on
+   the list: an island and a set of deck markings say nothing about the ship's
+   state, and they go grey in all four. */
+.map-max-zoom .us-asset:not(.under-attack) .escort-ship { fill: #98a2ae; opacity: 1; }
+/* A flight deck is the one surface on the plot that is NOT haze grey. It is
+   non-skid — a dark charcoal the whole 4.5 acres of it — and from directly
+   overhead it is very nearly the only thing there is to see of a carrier, which
+   is why she reads a full tone darker than her own escorts down here. Getting
+   that backwards is what made the first pass look like a chart of a carrier
+   rather than a carrier: a light deck with a black stripe cut through it is a
+   symbol, and the stripe on a real deck is white paint on the same grey. */
+.map-max-zoom .us-asset:not(.under-attack):not(.cv-moving):not(.cv-damaged) .carrier-hull { fill: #7c848e; opacity: 1; }
+/* superstructure catches the light; decks, holes and uptakes do not */
+.map-max-zoom .us-asset:not(.under-attack) .carrier-island,
+.map-max-zoom .us-asset:not(.under-attack) .cv-bridge,
+.map-max-zoom .us-asset:not(.under-attack) .escort-spy,
+.map-max-zoom .us-asset:not(.under-attack) .escort-house,
+.map-max-zoom .us-asset:not(.under-attack) .escort-rig { fill: #c2ccd8; opacity: 1; }
+.map-max-zoom .us-asset:not(.under-attack) .carrier-deck { fill: #676e77; opacity: 1; }
+.map-max-zoom .us-asset:not(.under-attack) .cv-elev,
+.map-max-zoom .us-asset:not(.under-attack) .escort-deck,
+.map-max-zoom .us-asset:not(.under-attack) .escort-vls { fill: #3c434d; opacity: 1; }
+/* An oiler's cargo deck is the same non-skid as anybody's weather deck, not a
+   flight deck and not a hole. Painted as dark as the VLS hatches beside it, the
+   middle two thirds of the ship read as a hatch she had been cut open along. */
+.map-max-zoom .us-asset:not(.under-attack) .escort-cargo { fill: #69707a; opacity: 1; }
+.map-max-zoom .us-asset:not(.under-attack) .cv-uptake,
+.map-max-zoom .us-asset:not(.under-attack) .escort-stack,
+.map-max-zoom .us-asset:not(.under-attack) .escort-boat { fill: #24292f; opacity: 1; }
+/* Deck markings are paint, and flight-deck paint is white. On the blue chart
+   they had to run light-on-dark at half strength to keep from swamping a
+   16-unit symbol; on grey they are simply the markings, at the weight they are
+   actually painted. */
+.map-max-zoom .us-asset:not(.under-attack) .cv-cat,
+.map-max-zoom .us-asset:not(.under-attack) .cv-wire,
+.map-max-zoom .us-asset:not(.under-attack) .cv-stripe,
+.map-max-zoom .us-asset:not(.under-attack) .cv-foul,
+.map-max-zoom .us-asset:not(.under-attack) .escort-circle { stroke: #eef3f9; opacity: 0.85; }
+/* ...and thinner than they are one zoom up. Every weight in .cv-detail was
+   chosen to survive k=2.2, where a catapult track is a pixel and a hairline is
+   nothing; at k=6 those same weights are a five-metre stripe of paint. */
+.map-max-zoom .us-asset:not(.under-attack) .cv-cat { stroke-width: 0.13; opacity: 0.7; }
+.map-max-zoom .us-asset:not(.under-attack) .cv-wire { stroke-width: 0.12; }
+.map-max-zoom .us-asset:not(.under-attack) .cv-stripe { stroke-width: 0.16; stroke-dasharray: 0.8 0.75; }
+/* The hull centreline is chart furniture — it is the ship's axis, not a marking
+   anybody painted — and at this zoom it runs straight through the landing area
+   that DOES have real markings. It stands down for them. */
+.map-max-zoom .us-asset .carrier-line { opacity: 0.12; stroke-width: 0.2; }
+.map-max-zoom .us-asset:not(.under-attack) .cv-jbd,
+.map-max-zoom .us-asset:not(.under-attack) .cv-mast,
+.map-max-zoom .us-asset:not(.under-attack) .escort-mast,
+.map-max-zoom .us-asset:not(.under-attack) .escort-barrel { stroke: #cfd8e3; opacity: 0.9; }
+.map-max-zoom .us-asset:not(.under-attack) .escort-split { stroke: #454d58; opacity: 1; }
+.map-max-zoom .us-asset:not(.under-attack) .cv-ciws,
+.map-max-zoom .us-asset:not(.under-attack) .escort-ciws { fill: #d6dfe9; opacity: 1; }
+/* ...and the air wing goes the grey it is actually painted, which is LIGHTER
+   than the deck under it. Drawn a shade darker instead — the first guess, on
+   the reasoning that aircraft are dark against a light chart — and eleven
+   aircraft vanished into the non-skid completely. On a real deck the tell is
+   the same way round: the jets are the pale shapes and the deck is the dark
+   thing they sit on. */
+.map-max-zoom .us-asset:not(.under-attack) .cv-plane { fill: #b9c3cf; opacity: 0.95; }
+/* An ally's ships are drawn hollow in amber and stay that way: haze grey is a
+   statement about a specific hull, and the amber outline is a statement about
+   whose it is. Nothing in this section touches .ally for that reason. */
+
+/* ---- flight quarters ----
+   Aircraft flying the pattern off a carrier that is at the bottom of the zoom
+   and on screen. The layer is display:none rather than opacity:0 above that
+   zoom, which is the one place in this stylesheet that distinction matters: the
+   frame loop in map.js is started and stopped by the same threshold, and a
+   layer that is merely transparent would be one the loop had to keep writing
+   transforms into to stay in step with a zoom it cannot see. */
+.cv-air { display: none; pointer-events: none; }
+.map-max-zoom .cv-air { display: block; }
+.jet-body { fill: #aab5c2; }
+/* the shadow on the water, thrown by an aircraft two thousand feet up: darker
+   than anything else on the plot and soft enough not to read as a second
+   aircraft */
+.jet-shadow { fill: #03070d; opacity: 0.4; }
+@media (prefers-reduced-motion: reduce) {
+  /* The cycle is decoration end to end, so it goes away whole rather than
+     freezing: an aircraft stopped halfway through a turn is not a still
+     picture of flight quarters, it is a jet parked in the sky. The deck keeps
+     the eleven aircraft spotted on it, which is what a carrier not currently
+     launching looks like. */
+  .map-max-zoom .cv-air { display: none; }
+}
 
 /* the attack submarine — hollow and dashed, because the plot is her last
    reported position and not where she is. Nothing else on the map is uncertain

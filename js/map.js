@@ -344,8 +344,8 @@ const MapView = (() => {
   }
 
   // ---- the carrier strike group ----
-  // A CSG resolves in two steps, because at chart scale it is honestly one blue
-  // flat-top and five destroyers drawn at their true spacing would be five
+  // A CSG resolves in three steps, because at chart scale it is honestly one
+  // blue flat-top and five destroyers drawn at their true spacing would be five
   // pixels of noise. Past k=1.6 (.map-deep-zoom) the escort screen appears — the
   // ships were out there the whole time, the chart just wasn't open enough to
   // say so. Past k=2.2 (.map-close-zoom) every hull resolves into its class and
@@ -360,55 +360,260 @@ const MapView = (() => {
   // are two clicks and three. The cost is that both carrier boxes wear a full
   // screen at mid zoom and they are only ~50 map units apart, so the Lincoln and
   // the Ford crowd each other once the Ford is on station. That is the trade.
+  //
+  // The third step is MAX_DETAIL_ZOOM (.map-max-zoom), and it is a different
+  // kind of step from the first two. Those add detail to a symbol; this one
+  // stops drawing a symbol. The hulls come off the map's blue and go haze grey,
+  // which is the colour they actually are; they grow wakes, because they are
+  // actually making way; and the deck starts running a cycle — see FLIGHT
+  // QUARTERS below. None of it is information the player needs to fight the
+  // war. It is what is down there for anyone who keeps zooming, and the only
+  // cost of being wrong about it is that a player who never zooms never finds
+  // it.
+  //
+  // 6 against a MAX_ZOOM of 10 is the last three clicks of the zoom-in button
+  // (1.0 x 1.3^7 = 6.27), which is as close to "all the way in" as a threshold
+  // can sit and still be reachable by a pinch that stops a little short of the
+  // stop. Declared here rather than beside MAX_ZOOM because everything it gates
+  // is in this section; applyView reads it.
+  const MAX_DETAIL_ZOOM = 6;
 
-  // Deck fittings, close zoom only. What is actually on a flight deck: the two
-  // bow catapults, the waist cat sharing the angled deck, four wires across the
-  // landing area, three deck-edge elevators overhanging the side, and aircraft
-  // parked where a carrier parks them — which is everywhere the landing area is
-  // not, because that is the one patch of deck that has to stay clear.
-  function carrierDeck() {
-    const d = el('g', { class: 'cv-detail' });
-    for (const x of [-1.25, 0.55])   // bow cats, either side of the centreline
-      d.appendChild(el('line', { class: 'cv-cat', x1: x, y1: -7.0, x2: x, y2: -1.6 }));
-    // Everything the landing area owns lies square to the ANGLED deck rather
-    // than to the hull, so it is all drawn in one frame rotated onto that axis:
-    // origin at the round-down (the aft end of the angled deck), local +y
-    // running aft, local x across it. The 25-degree offset is the whole point of
-    // an angled deck and the one thing a plan view can actually show.
-    const land = el('g', { transform: 'translate(0.15,4.25) rotate(-24.6)' });
-    // landing centreline, then the four wires across it, then the waist cat
-    // running up the starboard side of the box out of everyone's way
-    land.appendChild(el('line', { class: 'cv-stripe', x1: 0, y1: -0.4, x2: 0, y2: -8.4 }));
-    for (const y of [-0.6, -1.15, -1.7, -2.25])
-      land.appendChild(el('line', { class: 'cv-wire', x1: -1.05, y1: y, x2: 1.05, y2: y }));
-    land.appendChild(el('line', { class: 'cv-cat', x1: 1.5, y1: -1.5, x2: 1.5, y2: -7.4 }));
-    d.appendChild(land);
-    // deck-edge elevators: two starboard either side of the island, one port aft
-    for (const [x, y] of [[2.0, -4.6], [2.0, 1.3], [-2.8, 2.3]])
-      d.appendChild(el('rect', { class: 'cv-elev', x, y, width: 0.9, height: 1.7 }));
-    // the air wing: the pack aft of the island, two more spotted on the bow
-    for (const [x, y, rot] of [[1.5, 2.5, 40], [1.5, 4.1, 40], [1.5, 5.6, 40],
-                               [1.5, -5.0, -25], [1.5, -6.4, -25]]) {
-      const p = el('path', { class: 'cv-plane', d: 'M0,-0.75 L0.5,0.3 L0,0.08 L-0.5,0.3 Z' });
-      p.setAttribute('transform', `translate(${x},${y}) rotate(${rot})`);
-      d.appendChild(p);
+  // Everything from here to the end of the strike group is drawn bow-up in one
+  // frame 16 units long, which is a Nimitz's 333 m at 0.048 units to the metre.
+  // Every dimension below is on that scale unless it says otherwise, so any
+  // fitting can be checked against the real ship by dividing.
+  const CV_LEN = 16.0;
+
+  // ---- the flight deck ----
+  // What there is to see of a carrier from directly overhead is the flight deck
+  // and almost nothing else: the hull is narrower than the deck everywhere and
+  // spends its whole length underneath it. So the deck IS the silhouette, and
+  // it is not a rectangle — it is the shape the angled deck makes of one.
+  //
+  // Starboard: a straight edge with the island's sponson bulging out of it.
+  // Port: a straight edge from the bow to a third of the way aft, then a step
+  // outboard onto the angled deck's outboard edge, which runs aft from there
+  // slowly converging on the transom. The widest point of the ship is that
+  // step, 45% of the way back from the bow, and it is the one line in a plan
+  // view that says "angled deck" without drawing a single marking.
+  //
+  // 3.82 units across the deck on 16 of length is 79 m on 333 — the real ratio
+  // to within the width of the line it is drawn with. The silhouette this
+  // replaces was 4.4 on 15.8, a fifth too fat, which is what happens when a
+  // shape is drawn to read at chart scale and then asked to hold up at ten
+  // times that.
+  const CV_DECK =
+    'M0.05,-8.00 C0.92,-7.80 1.38,-7.05 1.40,-6.25 L1.40,-2.70 L1.80,-2.70 ' +
+    'L1.80,1.60 L1.40,1.60 L1.40,7.62 L1.22,8.00 L-1.28,8.00 L-1.62,5.90 ' +
+    'L-2.34,1.05 L-2.42,-1.60 Q-2.30,-2.35 -1.42,-2.95 L-1.42,-6.20 Z';
+
+  // The landing area and everything painted in it lie square to the ANGLED deck
+  // rather than to the hull, so they are all drawn in one frame rotated onto
+  // that axis: origin at the round-down (the ramp, at the stern, where the deck
+  // ends and the water starts), local +y running aft, local x across the box.
+  //
+  // 11 degrees, which is the real offset. It used to be 24.6 — a deliberate
+  // exaggeration, on the argument that the angle is the whole point of an
+  // angled deck and the one thing a plan view can show. That argument was made
+  // for a drawing nobody could zoom into. At 24.6 the landing area cannot even
+  // start at the ramp: it runs off the port side before it reaches the bow, so
+  // the round-down had to be planted amidships, three units forward of the
+  // stern, which is not where any carrier's is. Eleven degrees puts it back on
+  // the transom where it belongs and still throws the box a full 1.8 units to
+  // port of the centreline by the time it gets forward — visible at k=2.2, and
+  // unmistakable at k=6.
+  const LAND_TF = 'translate(0.10,7.55) rotate(-11)';
+  const LAND_LEN = 9.0;     // ramp to the forward end of the box
+  const LAND_HALF = 0.75;   // half the width between the foul lines
+
+  // ---- the air wing, in plan ----
+  // F/A-18E nose up, 0.90 units long on a 0.66 span — 18.7 m on 13.7, against a
+  // real 18.3 on 13.6. The shape has one job: at eight screen pixels the only
+  // things that read are the LERX shoulders and the twin stabilators, and those
+  // two are also the only things that make it a Hornet rather than a dart.
+  const F18_SPREAD =
+    'M0,-0.45 L0.05,-0.27 L0.06,-0.08 L0.33,0.11 L0.33,0.17 L0.10,0.13 ' +
+    'L0.12,0.31 L0.25,0.38 L0.16,0.44 L0.07,0.45 L-0.07,0.45 L-0.16,0.44 ' +
+    'L-0.25,0.38 L-0.12,0.31 L-0.10,0.13 L-0.33,0.17 L-0.33,0.11 ' +
+    'L-0.06,-0.08 L-0.05,-0.27 Z';
+  // ...and the same aircraft with its wings folded, which is how a carrier
+  // parks them: the outer panels go vertical and the jet loses a third of its
+  // span. A deck spotted with spread wings is a deck nobody can move an
+  // aircraft around, and drawing one was the tell that the old deck pack was
+  // five arrowheads rather than five aeroplanes.
+  const F18_FOLDED =
+    'M0,-0.45 L0.05,-0.27 L0.06,-0.08 L0.19,0.01 L0.19,0.15 L0.10,0.13 ' +
+    'L0.12,0.31 L0.25,0.38 L0.16,0.44 L0.07,0.45 L-0.07,0.45 L-0.16,0.44 ' +
+    'L-0.25,0.38 L-0.12,0.31 L-0.10,0.13 L-0.19,0.15 L-0.19,0.01 ' +
+    'L-0.06,-0.08 L-0.05,-0.27 Z';
+
+  // ---- wake ----
+  // Every hull on this plot is under way and nothing in the drawing said so.
+  // A wake is also the cheapest mark on the chart that carries real
+  // information: it is the only thing on any of these ships that shows a
+  // HEADING rather than an orientation, and with the whole formation on one
+  // course it is what makes the group read as a group steaming somewhere
+  // instead of six models arranged on a table.
+  //
+  // Drawn to the Kelvin wedge — 19.5 degrees off the track, which is the angle
+  // for any displacement hull at any speed and one of the very few numbers in
+  // ship hydrodynamics that does not depend on the ship. Max zoom only: at
+  // anything wider it is a smudge behind a symbol.
+  function shipWake(len, beam) {
+    const h = len / 2, run = len * 1.15, spread = run * 0.354, b = beam / 2;
+    const g = el('g', { class: 'ship-wake cv-fine' });
+    // The churned water directly astern, in three lengths of decreasing weight.
+    // A wake is a thing that stops, and the one drawn as a single shape at one
+    // opacity does not: it ends, hard, a fixed distance behind every ship in the
+    // formation, and six of those end at once in a straight line across open
+    // water. Three steps is enough to read as fading and cheap enough to draw
+    // for every hull on the plot.
+    const seg = [[0.00, 0.34, 0.52, 0.74], [0.34, 0.66, 0.74, 0.96], [0.66, 1.00, 0.96, 1.20]];
+    for (let i = 0; i < seg.length; i++) {
+      const [t0, t1, w0, w1] = seg[i];
+      g.appendChild(el('path', { class: `wake-trail wake-t${i}`,
+        d: `M${-b * w0},${h + run * t0} L${-b * w1},${h + run * t1} ` +
+           `L${b * w1},${h + run * t1} L${b * w0},${h + run * t0} Z` }));
     }
-    return d;
+    for (const s of [-1, 1]) {
+      // the divergent crests, thrown from the quarter at the Kelvin angle
+      g.appendChild(el('path', { class: 'wake-arm',
+        d: `M${s * b * 0.85},${h - b * 0.3} L${s * spread},${h + run}` }));
+      // The bow wave, which from overhead is not the V it is from a boat: on a
+      // hull five times longer than it is wide the Kelvin arms do not clear the
+      // beam until they are most of the way aft, so a V drawn off the stem
+      // spends its visible life as two whiskers halfway down the ship. What is
+      // actually there in a photograph is foam banked against the side, from
+      // the shoulder to the quarter, and that is a line hugging the hull.
+      g.appendChild(el('path', { class: 'wake-arm wake-bow',
+        d: `M${s * b * 0.55},${-h * 0.86} Q${s * b * 1.24},${-h * 0.2} ` +
+           `${s * b * 1.16},${h * 0.72}` }));
+    }
+    return g;
   }
 
-  // top-down aircraft-carrier silhouette (bow up): hull, angled flight deck,
-  // starboard island and a faint centreline. drawn small so at map scale it
-  // reads as a single flat-top; the escort screen is added separately.
+  // Deck fittings. What is actually on a flight deck, and where a carrier
+  // actually puts it: four catapults (two on the bow either side of the
+  // centreline, two in the waist firing across the angled deck), four wires
+  // across the landing area, four deck-edge elevators — three to starboard, one
+  // on the port quarter — and aircraft parked in every square metre the landing
+  // area does not own, because that is the one patch of deck that has to stay
+  // clear and everywhere else is fair game.
+  function carrierDeck() {
+    const g = el('g');
+    const mid = el('g', { class: 'cv-detail' });          // .map-close-zoom
+    const fine = el('g', { class: 'cv-fine' });           // .map-max-zoom
+    const land = el('g', { class: 'cv-detail', transform: LAND_TF });
+    const landFine = el('g', { class: 'cv-fine', transform: LAND_TF });
+
+    // A catapult is a track and a jet blast deflector, and the JBD — the bar
+    // that comes up out of the deck behind the aircraft — is the half that
+    // makes it read as a catapult rather than a stripe. It goes at the AFT end,
+    // where the shuttle starts and the aircraft behind it needs shielding.
+    const cat = (host, hostFine, x1, y1, x2, y2) => {
+      host.appendChild(el('line', { class: 'cv-cat', x1, y1, x2, y2 }));
+      const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
+      const px = -dy / L * 0.26, py = dx / L * 0.26;
+      const bx = x1 - dx / L * 0.18, by = y1 - dy / L * 0.18;
+      hostFine.appendChild(el('line', { class: 'cv-jbd',
+        x1: bx - px, y1: by - py, x2: bx + px, y2: by + py }));
+    };
+
+    // bow cats, splayed a couple of degrees apart the way the real pair is so
+    // that two aircraft off them in sequence do not fly the same air
+    cat(mid, fine, -0.58, -2.30, -0.92, -7.55);
+    cat(mid, fine, 0.34, -2.30, 0.50, -7.55);
+    // waist cats, on the angled deck and outboard of the landing box, which is
+    // where they have to be: the whole point of the angle is that the ship can
+    // land aircraft over the ramp and shoot them off the waist at the same time
+    cat(land, landFine, 0.42, -3.90, 0.42, -8.80);
+    cat(land, landFine, 0.98, -3.90, 0.98, -8.80);
+
+    // the landing area: centreline, the four wires, and the starboard foul line
+    // that marks where the box ends and the parking starts
+    land.appendChild(el('line', { class: 'cv-stripe',
+      x1: 0, y1: -0.2, x2: 0, y2: -LAND_LEN }));
+    for (const y of [-1.35, -1.92, -2.49, -3.06])
+      land.appendChild(el('line', { class: 'cv-wire',
+        x1: -0.70, y1: y, x2: 0.70, y2: y }));
+    landFine.appendChild(el('line', { class: 'cv-foul',
+      x1: LAND_HALF, y1: 0.05, x2: LAND_HALF, y2: -LAND_LEN }));
+
+    // Deck-edge elevators, all four of them overhanging the side they are on —
+    // that overhang is the whole design: a lift that hangs off the edge costs
+    // the deck no parking and can be worked with aircraft spotted either side
+    // of it.
+    for (const [x, y0, y1] of [[1.40, -6.05, -4.75], [1.40, -4.20, -2.90],
+                               [1.40, 2.10, 3.40], [-2.42, 4.20, 5.50]])
+      mid.appendChild(el('rect', { class: 'cv-elev',
+        x, y: y0, width: 0.76, height: y1 - y0 }));
+
+    // The island: bridge at the forward end, uptakes aft, mast between them.
+    // It is the one structure on the ship with real height, which is why it is
+    // drawn in the lightest fill on the plot while everything else on the deck
+    // is either paint or a hole.
+    fine.appendChild(el('rect', { class: 'cv-bridge', x: 1.47, y: -1.05, width: 0.44, height: 0.46 }));
+    fine.appendChild(el('rect', { class: 'cv-uptake', x: 1.51, y: 0.55, width: 0.36, height: 0.52 }));
+    fine.appendChild(el('line', { class: 'cv-mast', x1: 1.69, y1: -0.40, x2: 1.69, y2: 1.30 }));
+    for (const y of [-0.05, 0.30])
+      fine.appendChild(el('line', { class: 'cv-mast', x1: 1.44, y1: y, x2: 1.94, y2: y }));
+    // close-in weapons, on sponsons at three corners of the deck
+    for (const [x, y] of [[1.66, -3.30], [-1.55, -1.10], [1.32, 7.05]])
+      fine.appendChild(el('circle', { class: 'cv-ciws', cx: x, cy: y, r: 0.16 }));
+
+    // ---- the deck pack ----
+    // Where a carrier parks aircraft, which is not "wherever there is room":
+    // tails outboard along the starboard deck edge aft of the island (the six
+    // pack), two more crosswise on the elevators, a pair in the queue on the
+    // starboard bow cat, and two on the port bow forward of the angled deck's
+    // step. Everything here is clear of the landing box, clear of both bow cat
+    // tracks and clear of the port cat, which is the one this deck launches off
+    // — see FLIGHT QUARTERS.
+    for (const [x, y, rot] of [
+      [0.98, 2.55, -55], [0.98, 3.45, -55], [0.98, 4.35, -55],
+      [0.98, 5.25, -55], [0.98, 6.15, -55],
+      [1.76, 2.75, 90], [-2.02, 4.85, 90],
+      [0.34, -2.30, 0], [0.90, -1.25, -25],
+      [-1.09, -4.40, 200], [-1.05, -5.60, 200],
+    ]) {
+      const p = el('path', { class: 'cv-plane', d: F18_FOLDED });
+      p.setAttribute('transform', `translate(${x},${y}) rotate(${rot})`);
+      mid.appendChild(p);
+    }
+
+    g.appendChild(mid);
+    g.appendChild(land);
+    g.appendChild(fine);
+    g.appendChild(landFine);
+    return g;
+  }
+
+  // top-down aircraft-carrier silhouette, bow up: the flight deck, the hull
+  // shadow under its overhang, the angled deck's landing box cut in the map's
+  // own dark, and the island on its starboard sponson. Drawn small enough that
+  // at map scale it still reads as a single flat-top; the escort screen is
+  // added separately.
   function carrierHull(cls) {
     const c = el('g', { class: cls });
-    c.appendChild(el('path', { class: 'asset-icon carrier-hull',
-      d: 'M0,-8 C1.8,-6.5 2.2,-4.5 2.2,-3 L2.2,6.5 Q2.2,7.8 1,7.8 L-1,7.8 Q-2.2,7.8 -2.2,6.5 L-2.2,-3 C-2.2,-4.5 -1.8,-6.5 0,-8 Z' }));
-    // angled flight deck (offset to port, as on a real carrier)
-    c.appendChild(el('path', { class: 'carrier-deck', d: 'M-0.8,5 L-4.8,-4 L-2.9,-5 L1.1,3.5 Z' }));
-    // deck centreline
-    c.appendChild(el('line', { class: 'carrier-line', x1: 0, y1: -6.5, x2: 0, y2: 6.5 }));
-    // starboard island superstructure
-    c.appendChild(el('rect', { class: 'carrier-island', x: 1.2, y: -2.4, width: 1.4, height: 3.2 }));
+    c.appendChild(shipWake(CV_LEN, 3.85));
+    // The hull, which is the one part of the ship there is nothing to see of:
+    // the deck overhangs it on both sides for the whole length, so all it
+    // contributes from directly above is the shadow it throws off that
+    // overhang. Drawn as the deck's own outline, offset and darkened — which is
+    // exactly what the shadow of a shape is — and it is the cue that says the
+    // deck is a roof and not a raft.
+    c.appendChild(el('path', { class: 'carrier-shadow cv-fine', d: CV_DECK,
+      transform: 'translate(0.19,0.17)' }));
+    c.appendChild(el('path', { class: 'asset-icon carrier-hull', d: CV_DECK }));
+    // the landing box, cut dark: at chart scale this one shape is what makes
+    // the silhouette a carrier rather than a large grey ship
+    const box = el('g', { transform: LAND_TF });
+    box.appendChild(el('path', { class: 'carrier-deck',
+      d: `M${-LAND_HALF},0.10 L${LAND_HALF},0.10 L${LAND_HALF},${-LAND_LEN} ` +
+         `L${-LAND_HALF},${-LAND_LEN} Z` }));
+    c.appendChild(box);
+    c.appendChild(el('line', { class: 'carrier-line', x1: 0, y1: -6.6, x2: 0, y2: 7.2 }));
+    c.appendChild(el('rect', { class: 'carrier-island', x: 1.44, y: -1.15, width: 0.50, height: 2.60 }));
     c.appendChild(carrierDeck());
     return c;
   }
@@ -418,52 +623,391 @@ const MapView = (() => {
   // with a different set of fittings on top, which is also roughly how you tell
   // the classes apart from a thousand feet. `blunt` gives the auxiliary her
   // full-bodied merchant bow — she is built to carry fuel, not to make 30 knots.
+  //
+  // The stem is a curve now rather than the straight taper it was. A warship
+  // does not come to a point: flare above the waterline carries the bow's
+  // widest section forward of where a straight line would put it, and the
+  // shoulder that reads as is the difference between a hull and an arrowhead.
   function hullPath(len, beam, cls, blunt) {
-    const h = len / 2, b = beam / 2, s = blunt ? h * 0.62 : h * 0.5;
-    const stem = blunt
-      ? `M${-b * 0.55},${-h} L${b * 0.55},${-h} L${b},${-s}`
-      : `M0,${-h} L${b},${-s}`;
-    return el('path', { class: cls,
-      d: `${stem} L${b},${h * 0.8} Q${b},${h} ${b * 0.6},${h} ` +
-         `L${-b * 0.6},${h} Q${-b},${h} ${-b},${h * 0.8} L${-b},${-s} Z` });
+    const h = len / 2, b = beam / 2, s = blunt ? h * 0.66 : h * 0.46, r = h - s;
+    const d = blunt
+      ? `M${-b * 0.5},${-h} Q${-b},${-h + b * 0.55} ${-b},${-s} ` +
+        `L${-b},${h * 0.82} Q${-b},${h} ${-b * 0.62},${h} L${b * 0.62},${h} ` +
+        `Q${b},${h} ${b},${h * 0.82} L${b},${-s} ` +
+        `Q${b},${-h + b * 0.55} ${b * 0.5},${-h} Z`
+      : `M0,${-h} C${b * 0.74},${-h + r * 0.30} ${b},${-h + r * 0.70} ${b},${-s} ` +
+        `L${b},${h * 0.82} Q${b},${h} ${b * 0.62},${h} L${-b * 0.62},${h} ` +
+        `Q${-b},${h} ${-b},${h * 0.82} L${-b},${-s} ` +
+        `C${-b},${-h + r * 0.70} ${-b * 0.74},${-h + r * 0.30} 0,${-h} Z`;
+    return el('path', { class: cls, d });
   }
 
   // The screen, by class. Lengths are the real ones scaled off the carrier and
-  // then pulled in: a Burke is 155m against a Nimitz's 333m, a Ticonderoga 173m,
-  // and the fast combat support ship is longer than either of them — which looks
-  // like a drawing error until you remember she is a tanker with guns' worth of
-  // freeboard. Drawn to true ratio the escorts crowd the flat-top at the spacing
-  // the screen is plotted at, so everything here is about 60% of scale.
+  // then pulled in: a Burke is 155m against a Nimitz's 333m, a Ticonderoga
+  // 173m, and the fast combat support ship is longer than either of them —
+  // which looks like a drawing error until you remember she is a tanker with a
+  // warship's worth of freeboard. Drawn to true ratio the escorts crowd the
+  // flat-top at the spacing the screen is plotted at, so everything here is
+  // about 70% of scale.
+  //
+  // The BEAMS came in with the carrier's. A Burke is 155 x 20, which is 7.75 to
+  // 1; drawn at 6.6 x 1.7 she was 3.9 to 1, and a warship at four to one is a
+  // barge. 5 to 1 is the compromise the whole screen is now on — still fatter
+  // than any of these ships really are, because under about 1.3 units of beam
+  // there is no room to put a deckhouse on, and thin enough that the eye reads
+  // destroyer.
   const ESCORT_CLASSES = {
-    cg:  { len: 7.4, beam: 1.9, tag: 'CG' },    // AAW commander, two deckhouses
-    ddg: { len: 6.6, beam: 1.7, tag: 'DDG' },   // Arleigh Burke — the workhorse
-    ao:  { len: 7.8, beam: 2.3, tag: 'T-AO', blunt: true },  // the oiler
+    cg:  { len: 7.9, beam: 1.50, tag: 'CG' },    // Ticonderoga — AAW commander
+    ddg: { len: 7.1, beam: 1.42, tag: 'DDG' },   // Arleigh Burke — the workhorse
+    ao:  { len: 9.0, beam: 1.85, tag: 'T-AO', blunt: true },  // the oiler
   };
 
   function escortShip(kind) {
     const c = ESCORT_CLASSES[kind];
     const g = el('g', { class: `escort escort-${kind}` });
+    const h = c.len / 2, b = c.beam / 2;
+    // Fittings are placed as a FRACTION of the length from the stem, which is
+    // how a ship is actually described — a frame number is a fraction of a
+    // length — and what lets a layout drawn once be checked against a
+    // photograph of any of the three classes.
+    const at = (f) => -h + f * c.len;
+
+    g.appendChild(shipWake(c.len, c.beam));
     g.appendChild(hullPath(c.len, c.beam, 'asset-icon escort-ship', c.blunt));
-    const h = c.len / 2, d = el('g', { class: 'cv-detail' });
-    const box = (cls, x, y, w, ht) => d.appendChild(el('rect', { class: cls, x, y, width: w, height: ht }));
+
+    const mid = el('g', { class: 'cv-detail' });    // .map-close-zoom
+    const fine = el('g', { class: 'cv-fine' });     // .map-max-zoom
+
+    const box = (host, cls, f0, f1, w) => host.appendChild(el('rect',
+      { class: cls, x: -w / 2, y: at(f0), width: w, height: (f1 - f0) * c.len }));
+    // A 5-inch mount is a turret and a barrel, and at this size the barrel is
+    // the half that says which end of the ship it is on.
+    const gun = (f, aft) => {
+      box(mid, 'escort-house', f - 0.015, f + 0.019, b * 0.85);
+      const s = aft ? 1 : -1;
+      fine.appendChild(el('line', { class: 'escort-barrel',
+        x1: 0, y1: at(f + s * 0.014), x2: 0, y2: at(f + s * 0.055) }));
+    };
+    // The four fixed SPY faces: two looking forward off the bridge corners, two
+    // looking aft off whatever structure is at the other end of the ship. They
+    // are the reason these hulls exist, they never turn, and they are the one
+    // fitting a Burke and a Ticonderoga wear in the same place.
+    const spy = (f, aft) => {
+      for (const s of [-1, 1]) {
+        const p = el('rect', { class: 'escort-spy',
+          x: -0.17, y: -0.045, width: 0.34, height: 0.09 });
+        p.setAttribute('transform',
+          `translate(${s * b * 0.5},${at(f)}) rotate(${(aft ? 180 : 0) + s * 34})`);
+        fine.appendChild(p);
+      }
+    };
+    const mast = (f) => {
+      fine.appendChild(el('line', { class: 'escort-mast',
+        x1: 0, y1: at(f - 0.028), x2: 0, y2: at(f + 0.028) }));
+      fine.appendChild(el('line', { class: 'escort-mast',
+        x1: -b * 0.45, y1: at(f), x2: b * 0.45, y2: at(f) }));
+    };
+    // A flight deck is a deck with a circle painted on it, and the circle is
+    // the whole of what stops it reading as one more deckhouse.
+    const flightDeck = (f0, f1) => {
+      box(mid, 'escort-deck', f0, f1, b * 1.65);
+      fine.appendChild(el('circle', { class: 'escort-circle',
+        cx: 0, cy: at((f0 + f1) / 2), r: b * 0.48 }));
+    };
+    // the RHIBs, in their davits amidships — every one of these ships carries
+    // them in the same place, which is the only place left
+    const boats = (f) => {
+      for (const s of [-1, 1])
+        fine.appendChild(el('rect', { class: 'escort-boat',
+          x: s * b * 0.86 - 0.07, y: at(f), width: 0.14, height: c.len * 0.035 }));
+    };
+
     if (kind === 'ao') {
       // An auxiliary wears her house right aft over the machinery and gives the
-      // whole middle of the ship to cargo. The two bars across that deck are the
-      // replenishment rigs, and they are what tells her from a warship at a
+      // whole middle of the ship to cargo. The bars across that deck are the
+      // replenishment stations, and they are what tells her from a warship at a
       // glance: they stand athwartships, because the whole job is passing fuel
-      // sideways to something steaming a hundred feet away.
-      box('escort-deck', -0.8, -h * 0.6, 1.6, h * 0.95);
-      for (const y of [-h * 0.34, h * 0.04]) box('escort-rig', -0.95, y, 1.9, 0.26);
-      box('escort-house', -0.65, h * 0.44, 1.3, h * 0.38);
+      // sideways to something steaming a hundred feet away. Three of them, both
+      // sides — a Kaiser rigs to port and starboard at once and can be working
+      // two ships while a third waits astern.
+      box(mid, 'escort-cargo', 0.10, 0.68, b * 1.5);
+      for (const f of [0.26, 0.42, 0.58]) {
+        box(mid, 'escort-rig', f - 0.011, f + 0.011, b * 2.05);
+        fine.appendChild(el('circle', { class: 'escort-ciws', cx: 0, cy: at(f), r: b * 0.15 }));
+      }
+      box(mid, 'escort-house', 0.70, 0.87, b * 1.45);
+      box(mid, 'escort-stack', 0.775, 0.815, b * 0.55);
+      mast(0.715);
+      flightDeck(0.895, 0.985);
+    } else if (kind === 'cg') {
+      // Ticonderoga: a Spruance hull carrying two Mk 41 magazines, two 5-inch
+      // mounts and four SPY faces split between a forward and an after house.
+      // The pair of guns is the giveaway — nothing else in this screen has one
+      // at each end — and the two houses set well apart is the rest of it.
+      gun(0.085);
+      box(mid, 'escort-vls', 0.120, 0.185, b * 1.15);
+      box(mid, 'escort-house', 0.205, 0.395, b * 1.5);
+      spy(0.240);
+      mast(0.410);
+      box(mid, 'escort-stack', 0.425, 0.465, b * 0.7);
+      boats(0.475);
+      box(mid, 'escort-house', 0.490, 0.600, b * 1.4);
+      spy(0.575, true);
+      box(mid, 'escort-stack', 0.615, 0.655, b * 0.7);
+      gun(0.688, true);
+      box(mid, 'escort-vls', 0.755, 0.820, b * 1.15);
+      box(mid, 'escort-house', 0.830, 0.885, b * 1.35);   // hangar
+      flightDeck(0.890, 0.985);
     } else {
-      box('escort-vls', -0.55, -h * 0.62, 1.1, h * 0.2);   // forward VLS
-      box('escort-house', -0.6, -h * 0.3, 1.2, h * 0.5);   // bridge / deckhouse
-      if (kind === 'cg') box('escort-house', -0.5, h * 0.26, 1.0, h * 0.24); // after house
-      box('escort-vls', -0.5, h * 0.06, 1.0, h * 0.16);    // after VLS
-      box('escort-deck', -0.55, h * 0.55, 1.1, h * 0.3);   // flight deck aft
+      // Arleigh Burke, Flight IIA: one gun forward, magazines at both ends, one
+      // long deckhouse with the bridge at the front of it, two stacks and two
+      // helicopter hangars side by side aft. The single gun and the twin
+      // hangars are what tell her from the cruiser stationed ahead of her.
+      gun(0.105);
+      box(mid, 'escort-vls', 0.145, 0.215, b * 1.15);
+      box(mid, 'escort-house', 0.235, 0.440, b * 1.5);
+      spy(0.275);
+      mast(0.455);
+      box(mid, 'escort-stack', 0.470, 0.515, b * 0.7);
+      boats(0.525);
+      box(mid, 'escort-stack', 0.565, 0.610, b * 0.7);
+      box(mid, 'escort-house', 0.645, 0.790, b * 1.45);
+      fine.appendChild(el('line', { class: 'escort-split',
+        x1: 0, y1: at(0.650), x2: 0, y2: at(0.785) }));   // the two hangars
+      spy(0.755, true);
+      fine.appendChild(el('circle', { class: 'escort-ciws', cx: 0, cy: at(0.630), r: b * 0.15 }));
+      box(mid, 'escort-vls', 0.800, 0.855, b * 1.15);
+      flightDeck(0.865, 0.985);
     }
-    g.appendChild(d);
+
+    g.appendChild(mid);
+    g.appendChild(fine);
     return g;
+  }
+
+  // ---- FLIGHT QUARTERS ----
+  // At MAX_DETAIL_ZOOM the deck starts working. Every 15 seconds a Hornet is
+  // shot off the port bow catapult, climbs out, turns left into the pattern,
+  // flies two full turns of it in 15 seconds and comes back aboard.
+  //
+  // A sortie is 25.6 seconds of that and a launch goes every 15, so there are
+  // two aircraft in the air for most of a cycle and never fewer than one. That
+  // is not a compromise between the two numbers — it is what launching every 15
+  // seconds MEANS when the aircraft you launched needs longer than 15 seconds
+  // to get back. A deck running a cycle always has more than one jet up; a deck
+  // that waited for each aircraft to trap before shooting the next would be a
+  // deck doing one thing at a time, which is the one thing an angled deck was
+  // invented so a carrier would never have to do.
+  //
+  // The pattern is the real one and it is flown to port, because carrier
+  // patterns are: downwind up the port side into the wind, the turn off the
+  // 180 across the wake, and the groove onto an angled deck that points a
+  // little to port of where the ship is going. Fly it the other way round and
+  // the aircraft would have to land across the deck.
+  const CV_CYCLE = 15;        // seconds between launches, as ordered
+  const CV_TURNS = 2;         // ...and two full turns of the pattern
+  const CV_R = 12.6;          // pattern radius: outside the screen's bow guard
+  const CV_ENTRY = 115 * Math.PI / 180;   // joined on the port quarter, downwind
+  const CV_PH = { cat: 1.9, join: 3.2, orbit: 15.0, brk: 3.4, groove: 2.1, fade: 1.0 };
+  const CV_SORTIE = CV_PH.cat + CV_PH.join + CV_PH.orbit + CV_PH.brk + CV_PH.groove;
+  const CV_VISIBLE = CV_SORTIE + CV_PH.fade;
+  const CV_SLOTS = Math.ceil(CV_VISIBLE / CV_CYCLE);   // aircraft up at once
+
+  // A cubic through four points, resampled by ARC LENGTH. The plain parameter
+  // of a Bezier is not distance along it — a curve with long control arms
+  // crawls at the ends and sprints through the middle — and an aeroplane that
+  // visibly changes speed twice per turn reads as a bug rather than as flying.
+  // 64 samples is well past the point where the remaining error is smaller than
+  // the line the aircraft is drawn with.
+  function arcCurve(p0, p1, p2, p3) {
+    const N = 64, pts = [], len = [0];
+    for (let i = 0; i <= N; i++) {
+      const u = i / N, v = 1 - u;
+      pts.push({
+        x: v * v * v * p0.x + 3 * v * v * u * p1.x + 3 * v * u * u * p2.x + u * u * u * p3.x,
+        y: v * v * v * p0.y + 3 * v * v * u * p1.y + 3 * v * u * u * p2.y + u * u * u * p3.y,
+      });
+      if (i) len.push(len[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+    }
+    const total = len[N] || 1;
+    return (s) => {
+      const d = Math.max(0, Math.min(1, s)) * total;
+      let lo = 1, hi = N;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (len[m] < d) lo = m + 1; else hi = m; }
+      const seg = len[lo] - len[lo - 1] || 1, f = (d - len[lo - 1]) / seg;
+      return { x: pts[lo - 1].x + (pts[lo].x - pts[lo - 1].x) * f,
+               y: pts[lo - 1].y + (pts[lo].y - pts[lo - 1].y) * f };
+    };
+  }
+
+  const orbitAt = (a) => ({ x: -CV_R * Math.sin(a), y: -CV_R * Math.cos(a) });
+  // the tangent, which is also the direction of flight: increasing `a` runs the
+  // aircraft counter-clockwise, i.e. aft down the port side and forward up the
+  // starboard one, which is a left-hand pattern
+  const orbitDir = (a) => ({ x: -Math.cos(a), y: Math.sin(a) });
+
+  // the port bow catapult, from the shuttle at its aft end to a point off the
+  // bow — the track itself is drawn from -2.30 to -7.55 and the aircraft is
+  // flying by the time it gets there
+  const CAT_A = { x: -0.58, y: -2.30 }, CAT_B = { x: -1.02, y: -9.10 };
+  const CV_JOIN_E = orbitAt(CV_ENTRY), CV_JOIN_T = orbitDir(CV_ENTRY);
+  // Climb-out: straight ahead off the bow, then a climbing turn to port all the
+  // way round onto the downwind leg. It is a long way round and it is the way
+  // round a departing aircraft actually goes — the pattern is to port, so
+  // anything that joins it joins from the port side.
+  const CV_JOIN = arcCurve(CAT_B,
+    { x: CAT_B.x, y: CAT_B.y - 6.0 },
+    { x: CV_JOIN_E.x - CV_JOIN_T.x * 7.0, y: CV_JOIN_E.y - CV_JOIN_T.y * 7.0 },
+    CV_JOIN_E);
+
+  // The groove: the extended centreline of the ANGLED deck, which runs aft and
+  // to starboard because the deck it extends runs forward and to port. This is
+  // the whole reason the approach turn ends up astern of the ship and a little
+  // outboard of her wake rather than lined up on her stern.
+  const LAND_DIR = { x: -Math.sin(11 * Math.PI / 180), y: -Math.cos(11 * Math.PI / 180) };
+  const RAMP = { x: 0.10, y: 7.55 };
+  const GROOVE_LEN = 9.5, ROLLOUT = 3.4;
+  const GROOVE_G = { x: RAMP.x - LAND_DIR.x * GROOVE_LEN, y: RAMP.y - LAND_DIR.y * GROOVE_LEN };
+  // the turn off the 180: out of the pattern on the port quarter, across the
+  // wake, and rolled out in the groove pointing at the ramp
+  const CV_FINAL = arcCurve(CV_JOIN_E,
+    { x: CV_JOIN_E.x + CV_JOIN_T.x * 7.0, y: CV_JOIN_E.y + CV_JOIN_T.y * 7.0 },
+    { x: GROOVE_G.x - LAND_DIR.x * 6.5, y: GROOVE_G.y - LAND_DIR.y * 6.5 },
+    GROOVE_G);
+
+  // Where one aircraft is, t seconds into its sortie, in the carrier's own
+  // frame. Every phase hands the next one its end point and its heading, so the
+  // whole 25.6 seconds is one continuous line and nothing has to be smoothed
+  // over at a join.
+  function sortiePoint(t) {
+    if (t <= CV_PH.cat) {
+      // held on the cat for the first fifth of the phase — a jet sitting at
+      // full power waiting for the shot — and then constant acceleration, which
+      // is what a catapult is
+      const p = Math.max(0, (t / CV_PH.cat - 0.21) / 0.79), e = p * p;
+      return { x: CAT_A.x + (CAT_B.x - CAT_A.x) * e, y: CAT_A.y + (CAT_B.y - CAT_A.y) * e };
+    }
+    t -= CV_PH.cat;
+    if (t <= CV_PH.join) return CV_JOIN(t / CV_PH.join);
+    t -= CV_PH.join;
+    if (t <= CV_PH.orbit) return orbitAt(CV_ENTRY + (t / CV_PH.orbit) * CV_TURNS * 2 * Math.PI);
+    t -= CV_PH.orbit;
+    if (t <= CV_PH.brk) return CV_FINAL(t / CV_PH.brk);
+    t -= CV_PH.brk;
+    // the groove at approach speed, then the wire: a trap takes a Hornet from
+    // 150 knots to nothing in about two seconds and a hundred metres, which at
+    // this scale is the 3.4 units of rollout below
+    const u = Math.min(1, t / CV_PH.groove);
+    const d = u < 0.68
+      ? (u / 0.68) * GROOVE_LEN
+      : GROOVE_LEN + ROLLOUT * (1 - Math.pow(1 - (u - 0.68) / 0.32, 3));
+    return { x: GROOVE_G.x + LAND_DIR.x * d, y: GROOVE_G.y + LAND_DIR.y * d };
+  }
+
+  // An aircraft two thousand feet up is two thousand feet CLOSER to a camera
+  // looking straight down, so it draws bigger, and the shadow it throws on the
+  // water separates from it. Both are the same number, and together they are
+  // the only thing in a plan view that can say airborne rather than parked.
+  function sortieLift(t) {
+    const up = CV_PH.cat + CV_PH.join * 0.42;
+    if (t <= CV_PH.cat) return 0;
+    if (t < up) return (t - CV_PH.cat) / (up - CV_PH.cat);
+    const down = CV_SORTIE - CV_PH.groove;
+    if (t < down) return 1;
+    return Math.max(0, 1 - (t - down) / (CV_PH.groove * 0.72));
+  }
+
+  // Every carrier's air layer, registered by render(). Held rather than
+  // re-queried for one reason: this is the only thing on the chart that runs at
+  // frame rate for as long as the player leaves the zoom alone, so it is the
+  // one place where a querySelectorAll per frame is a cost with no ceiling on
+  // how long it gets paid.
+  const cvAir = [];
+  let airRAF = 0;
+
+  // Two decks running the identical cycle in lockstep would look like one
+  // animation played twice, so each is offset by a number derived from its own
+  // id — stable across a reload, and different for LINCOLN and FORD.
+  function idPhase(id) {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 9973;
+    return (h / 9973) * CV_CYCLE;
+  }
+
+  function flightQuarters(id) {
+    const air = el('g', { class: 'cv-air' });
+    const jets = [];
+    for (let i = 0; i < CV_SLOTS; i++) {
+      const g = el('g', { class: 'cv-jet', opacity: 0 });
+      const shadow = el('path', { class: 'jet-shadow', d: F18_SPREAD });
+      g.appendChild(shadow);
+      g.appendChild(el('path', { class: 'jet-body', d: F18_SPREAD }));
+      air.appendChild(g);
+      jets.push({ g, shadow, rot: 0 });
+    }
+    cvAir.push({ id, node: air, jets, phase: idPhase(id) });
+    return air;
+  }
+
+  // Which sortie this slot is flying right now. Slot i owns every launch whose
+  // number is congruent to i modulo the number of slots, so the two aircraft
+  // alternate off the cat and each one gets a full CV_CYCLE * CV_SLOTS seconds
+  // to fly its 25.6 and clear the deck.
+  function placeJet(jet, now, slot) {
+    const n0 = Math.floor(now / CV_CYCLE);
+    const n = n0 - ((((n0 - slot) % CV_SLOTS) + CV_SLOTS) % CV_SLOTS);
+    const t = now - n * CV_CYCLE;
+    if (t < 0 || t > CV_VISIBLE) { jet.g.setAttribute('opacity', 0); return; }
+    const p = sortiePoint(Math.min(t, CV_SORTIE));
+    const q = sortiePoint(Math.min(t + 0.07, CV_SORTIE));
+    const dx = q.x - p.x, dy = q.y - p.y;
+    // A forward difference is zero while the aircraft is stopped — on the cat
+    // before the shot, and in the wires after it — and a heading of zero there
+    // would spin the jet to bow-up in front of the player. Hold the last one.
+    if (Math.hypot(dx, dy) > 1e-4) jet.rot = Math.atan2(dx, -dy) * 180 / Math.PI;
+    const lift = sortieLift(t);
+    const s = 1 + 0.30 * lift, off = 2.6 * lift;
+    // The sun does not turn with the aeroplane, so the shadow's offset has to
+    // be counter-rotated out of the jet's own frame, and counter-scaled out of
+    // its lift: a shadow on the water is cast at the size of the aircraft, not
+    // at the size the aircraft is drawn from above it.
+    const r = jet.rot * Math.PI / 180, cos = Math.cos(r), sin = Math.sin(r);
+    jet.g.setAttribute('opacity', t <= CV_SORTIE ? 1 : 1 - (t - CV_SORTIE) / CV_PH.fade);
+    jet.g.setAttribute('transform',
+      `translate(${p.x.toFixed(3)},${p.y.toFixed(3)}) rotate(${jet.rot.toFixed(2)}) scale(${s.toFixed(3)})`);
+    jet.shadow.setAttribute('transform',
+      `translate(${(off * (cos + sin) / s).toFixed(3)},${(off * (cos - sin) / s).toFixed(3)}) scale(${(1 / s).toFixed(3)})`);
+  }
+
+  function airFrame(ts) {
+    airRAF = requestAnimationFrame(airFrame);
+    const now = ts / 1000;
+    const b = worldBox();
+    for (const c of cvAir) {
+      const a = US_ASSETS.find(u => u.id === c.id);
+      // "...when max zoomed in ON THEM": a deck the player is not looking at is
+      // not flying, which is what keeps this to one deck's worth of work in the
+      // one case it can cost anything — both carriers on screen at k=6 at once.
+      const near = !!a && a.active !== false &&
+        a.x > b.x0 - 34 && a.x < b.x1 + 34 && a.y > b.y0 - 34 && a.y < b.y1 + 34;
+      c.node.classList.toggle('hidden', !near);
+      if (!near) continue;
+      const t = now + c.phase;
+      for (let i = 0; i < c.jets.length; i++) placeJet(c.jets[i], t, i);
+    }
+  }
+
+  // Started and stopped from applyView, which is the choke point every gesture
+  // already goes through. Below the zoom the CSS has the layer hidden anyway,
+  // so the only thing this decides is whether a frame callback is running at
+  // all — and it must not be, on a chart the player has zoomed back out of.
+  const stillFrames = () =>
+    window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function syncCarrierAir() {
+    const want = view.k >= MAX_DETAIL_ZOOM && cvAir.length > 0 && !stillFrames();
+    if (want && !airRAF) airRAF = requestAnimationFrame(airFrame);
+    else if (!want && airRAF) { cancelAnimationFrame(airRAF); airRAF = 0; }
   }
 
   // the strike group: the carrier plus her screen, hidden until the map is
@@ -472,25 +1016,33 @@ const MapView = (() => {
   // defence commander, destroyers on the bows and the port quarter, and the
   // oiler tucked astern inside everything else, because she is what the screen
   // is partly there to protect.
-  function carrierGroup() {
+  //
+  // Every hull in it is on the SAME HEADING as the carrier, which is the one
+  // thing the old drawing had plainly wrong. A screen is not five ships pointed
+  // five ways; it is a formation, stationed on a guide, and the guide is the
+  // deck in the middle of it. The group steams one base course and turns
+  // together, and the moment that matters most — the carrier coming into the
+  // wind to launch, which is the moment this drawing is now animating — is the
+  // moment every ship in the screen is most exactly parallel to her. Splayed
+  // headings read as five ships milling about, and now that they all carry
+  // wakes they would read as five ships milling about at twenty knots.
+  const CSG_STATIONS = [
+    { kind: 'cg',  dx: 0,   dy: -18 },   // vanguard
+    { kind: 'ddg', dx: -13, dy: -8 },    // port bow
+    { kind: 'ddg', dx: 13,  dy: -6 },    // starboard bow
+    { kind: 'ddg', dx: -14, dy: 8 },     // port quarter
+    { kind: 'ao',  dx: 12,  dy: 12 },    // oiler astern
+  ];
+
+  function carrierGroup(id) {
     const grp = el('g', { class: 'carrier-strike-group' });
     const screen = el('g', { class: 'strike-group' });
-    const escorts = [
-      { kind: 'cg',  dx: 0,   dy: -18, rot: 0 },     // vanguard
-      { kind: 'ddg', dx: -13, dy: -8,  rot: -22 },   // port bow
-      { kind: 'ddg', dx: 13,  dy: -6,  rot: 20 },    // starboard bow
-      { kind: 'ddg', dx: -14, dy: 8,   rot: -158 },  // port quarter
-      { kind: 'ao',  dx: 12,  dy: 12,  rot: 168 },   // oiler astern
-    ];
-    for (const e of escorts) {
+    for (const e of CSG_STATIONS) {
       const slot = el('g', { transform: `translate(${e.dx},${e.dy})` });
-      const s = escortShip(e.kind);
-      s.setAttribute('transform', `rotate(${e.rot})`);
-      slot.appendChild(s);
-      // The tag rides in the UNROTATED slot so it reads upright on whatever
-      // heading the ship is on, and ABOVE her without exception: the two ships
-      // in the after screen are stationed either side of the carrier's own name,
-      // and a tag under those two lands on top of it.
+      slot.appendChild(escortShip(e.kind));
+      // The tag rides in the slot ABOVE her hull without exception: the two
+      // ships in the after screen are stationed either side of the carrier's
+      // own name, and a tag under those two lands on top of it.
       const tag = el('text', { class: 'escort-tag cv-detail',
         y: -(ESCORT_CLASSES[e.kind].len / 2 + 1.4) });
       tag.textContent = ESCORT_CLASSES[e.kind].tag;
@@ -499,6 +1051,7 @@ const MapView = (() => {
     }
     grp.appendChild(screen);
     grp.appendChild(carrierHull('carrier-body'));
+    grp.appendChild(flightQuarters(id));   // drawn last: they are above the ship
     return grp;
   }
 
@@ -673,7 +1226,7 @@ const MapView = (() => {
     });
     let icon;
     if (a.kind === 'carrier') {
-      icon = carrierGroup();
+      icon = carrierGroup(a.id);
     } else if (a.kind === 'bomber') {
       icon = bomberIcon();
     } else if (a.kind === 'logistics') {
@@ -698,6 +1251,8 @@ const MapView = (() => {
     world = document.getElementById('world');
     tooltip = document.getElementById('tooltip');
     world.innerHTML = '';
+    // every node the flight-quarters loop holds has just been thrown away
+    cvAir.length = 0;
 
     // water backdrop
     world.appendChild(el('rect', { x: -2000, y: -2000, width: 5000, height: 5000, fill: 'var(--water)' }));
@@ -1076,11 +1631,14 @@ const MapView = (() => {
   function applyView() {
     clampView();
     world.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
-    // reveal each carrier's escort screen once zoomed in, and the individual
-    // hull classes and deck fittings one step past that (see carrierGroup for
-    // why these two numbers are as low as they are)
+    // reveal each carrier's escort screen once zoomed in, the individual hull
+    // classes and deck fittings one step past that, and at the bottom of the
+    // zoom the haze grey and the flight cycle (see the strike group section for
+    // why these three numbers are where they are)
     svg.classList.toggle('map-deep-zoom', view.k >= 1.6);
     svg.classList.toggle('map-close-zoom', view.k >= 2.2);
+    // ...and at the bottom of the zoom the ships stop being symbols altogether
+    svg.classList.toggle('map-max-zoom', view.k >= MAX_DETAIL_ZOOM);
     // small/touch screens hide the site names until the chart is open enough
     // for them not to overlap — see .map-far-zoom in the stylesheet
     svg.classList.toggle('map-far-zoom', view.k < 1.7);
@@ -1091,6 +1649,7 @@ const MapView = (() => {
     syncIconScale();
     syncSouthCue();
     wallPlotSync();   // the wall's small plot is the same chart, so it moves too
+    syncCarrierAir();
   }
 
   // ---- the southern front is off the bottom of the frame ----
@@ -1689,7 +2248,7 @@ const MapView = (() => {
   function wallPlotSync() {
     const view = document.querySelector('.wall-plot-view');
     if (!view) return;
-    for (const c of ['map-deep-zoom', 'map-close-zoom', 'map-far-zoom'])
+    for (const c of ['map-deep-zoom', 'map-close-zoom', 'map-max-zoom', 'map-far-zoom'])
       view.classList.toggle(c, !!svg && svg.classList.contains(c));
     const marks = view.querySelector('.wall-plot-marks');
     if (marks && world) marks.setAttribute('transform', world.getAttribute('transform') || '');
