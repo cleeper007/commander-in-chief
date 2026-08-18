@@ -882,123 +882,60 @@ const Game = (() => {
 
   // ---- save / continue (localStorage) ----
   const Save = (() => {
-    // v13: the SAM belt stopped being a one-way ratchet. Air defense sites
-    // reconstitute out of the national reserve after three quiet nights, capped
-    // at 60% forever once killed, and targets carry the `lastStruck`/`killedOnce`
-    // bookkeeping that decides both. A v12 save has neither and would resume with
-    // a belt that comes back on the wrong schedule.
-    // v12: the coalition rings twice. The single random `leaderCall` became a
-    // two-entry `leaderCalls` queue — London on the cable, Paris the following
-    // turn — each carrying which take of the call it is going to play. A v11
-    // save holds one call, possibly already answered, with no way to say which
-    // of the two it was or what the world looked like when it came in.
-    // v9: the air campaign became three campaigns in sequence. Strike assets
-    // split into 5th-gen, 4th-gen and heavy bombers behind an air-superiority
-    // gate, and theater capacity now grows all war off the force flow. A v8
-    // save has one undifferentiated fighter pool, no phase, and no buildup —
-    // there is no honest way to decide what it should become.
-    // v8: the war stopped being fully observable. Target condition is now
-    // something CENTCOM estimates rather than reads, Iran runs one of three
-    // hidden war plans, enrichment is a race against a hidden number, and
-    // tanker capacity, congressional authorization and dispersed launchers are
-    // all live state. A v7 save has none of it and would load into a war whose
-    // rules it was never played under.
-    // v7: targets stopped being a three-state enum and became a 0–100 condition
-    // track that repairs overnight, and the campaign runs to 30 turns against
-    // rescaled loss thresholds. A v6 save carries neither, and dropping it into
-    // this balance would be a different war than the one it was saved from.
-    // v6: two IRGC hulls joined the target list and naval strength became a
-    // fraction of the fleet. A v5 save would load with both ships untouched and
-    // a capacity meter that no longer means what it meant when it was written.
-    // v5: downed aircrew and their recovery counters became state. A v4 save has
-    // no `downed` field and a stats block missing three counters — retired
-    // rather than migrated, the same as every version before it.
-    // v15: Israel stopped being a switch. The one-shot `israelPatience` counter
-    // and `israelStrikesUsed` flag became a pressure gauge that runs all 30 turns
-    // (`israelPressure`), a sortie count, and the standing promise-to-hold state
-    // the president can spend approval on. A v14 save holds a countdown whose
-    // meaning is gone and no gauge to derive one from — and it was saved from a
-    // war where the IAF flew at most once.
-    const KEY = 'cic-save-v10';  // bump the version to invalidate old saves
-    // v14: a package acquired a price. `strikesThisTurn` had been saved since v8
-    // and read by nothing at all; it is now the night's position against a
-    // tasking order, and `fatigue` is the crew-rest debt that order is written
-    // against. A v13 save holds a count that meant nothing and no debt, so it
-    // would resume as a war with a free surge — a different game than the one it
-    // was saved from.
-    // v16: the turn cap stopped being a wall. `maxTurns` was the turn the war
-    // was taken away at; `softCap` is the turn the country starts running out
-    // of patience, and the campaign continues past it on an accelerating
-    // approval drain. Same number, opposite meaning — a v15 save resumed under
-    // v16 would be a war whose ending it was never played against.
-    // v17: the fleet's ballistic missile defense stopped being free. What was a
-    // constant fraction of every covered salvo is now a magazine of interceptor
-    // rounds that opens near-total, drains against what Tehran actually fires,
-    // and is only refilled by sending the deck off station to do it. A v16 save
-    // resumed under this rule would be a war carrying a full magazine it had
-    // already spent — every round the screen fired in the first two weeks would
-    // be handed back, which is a different game than the one it was saved from.
-    // v1.63 bumps again on the same feature, and the reason is the rule about
-    // CHANGING THE MEANING of existing state rather than adding to it: the same
-    // Natanz and Fordow hp now produce a different nukeDegraded, because the
-    // enrichment program has a third hall in it. A v18 save restored here would
-    // read 80% on a program its player finished, with a victory condition that
-    // no longer fires and nothing on screen to say why.
-    // v20: the target list has a civil infrastructure class in it, and with it
-    // a resupply modifier on the national repair effort. This is a bump on the
-    // CHANGING THE MEANING rule rather than the adding-to-it one: the same
-    // saved hp on the same SAM battery now evolves at a different rate
-    // overnight, because how fast Iran rebuilds is a product the bridges and
-    // the switchyards are now terms in. A v19 save restored here would resume a
-    // campaign whose repair arithmetic it was never played under — with four
-    // aimpoints at full condition that its player was never offered and never
-    // declined, which is also the half of it the player would actually see.
-    // v21: coordinating with Israel means something different than it did. The
-    // same saved `israelPosture: 'coordinated'` now buys a wider night and a
-    // standing bill at home, and roughly half of those nights end with an
-    // element over the civil grid that the president answers for. This is the
-    // CHANGING THE MEANING rule and not the adding-to-it one: a v20 save was
-    // played by someone who accepted a bargain this build does not offer, and
-    // would resume mid-war having bought something else. The folder rates and
-    // the heavy bomber turnaround moved underneath it in the same build.
-    // The Gulf is two camps with two gauges, and where the Gulf basing tier
-    // folds is no longer a constant — a save written before the caveats existed
-    // would resume with a threshold the rest of the state disagrees with.
-    // And TARGETS itself is two aimpoints longer: a v23 save carries no record
-    // of the southern front at all, so resuming one would restore a target list
-    // the rest of the state cannot account for.
-    // v25: the difficulty levels are now three different jobs rather than one
-    // job at three prices (see DIFFICULTY). A v24 save carries no munitions
-    // stock, and — worse — was played on a level whose name no longer describes
-    // what it does: an EASY save would resume into a war that has taken the
-    // target list away from a president who has been using it for nine turns.
-    // v26: aircrew stopped being invented at the moment they were lost. The
-    // campaign now carries a roster of named aviators with a sortie count each,
-    // and `downed` points into it instead of minting a callsign. This is the
-    // ADDING-TO-IT rule rather than the changing-the-meaning one — no v25 number
-    // means anything different here — but a v25 save has no roster and no record
-    // of who flew the first nine nights, and a squadron rebuilt from nothing on
-    // load would hand the player thirteen strangers at zero sorties in a war
-    // that has already lost two of them. There is no honest way to reconstruct
-    // that, which is the same argument every bump above makes.
-    // v27: the war now keeps a record of what it told the president. `bdaLog` is
-    // every band a reading put in front of them beside what was actually
-    // standing at the time, read back on the endgame screen (see logReading).
-    // ADDING-TO-IT again — no v26 number changes meaning — but the table is a
-    // claim about the whole campaign, and a v26 save carries no readings from
-    // the nights already flown. Resuming one would end in a believed-vs-actual
-    // section reporting that the president was never handed a wrong number for
-    // the first half of their war, which is not a smaller record than the real
-    // one. It is a different and flattering one, presented as the record.
-    // 28: the escort screen shoots at ships now, so `nsmPool` is new state and a
-    // v27 save restores with an undefined NSM magazine — which reads as zero and
-    // silently refuses a package the war is supposed to offer.
-    // 29: approval is no longer a field. It is derived from three bloc counts
-    // that a v28 save does not carry, so a restored v28 war would come back
-    // with an undefined base and an undefined middle — which reads as NaN
-    // approval, and NaN fails every comparison, so the collapse check, the
-    // Hill's vote and the grade all quietly stop firing. Nothing on screen
-    // would say why.
+    // There are no migrations. read() returns null unless the stored version
+    // matches VERSION exactly, so a bump does not upgrade an old save — it
+    // retires it, and someone loses a war in progress. That is the whole load
+    // contract, and it is why the bar for bumping is worth stating once instead
+    // of re-arguing per version:
+    //
+    //   CHANGING THE MEANING of state already in FIELDS is always a bump. The
+    //   same saved number read under new rules is a different war than the one
+    //   it was saved from, and it resumes with nothing on screen to say what
+    //   moved (v7's condition track, v16's softCap, v21's Israel bargain).
+    //
+    //   ADDING state is a bump when the new field cannot be honestly
+    //   reconstructed from what an older save carries. Rebuilt-from-nothing is
+    //   not neutral: an undefined magazine reads as zero and silently refuses a
+    //   package the war is supposed to offer, an undefined bloc count reads as
+    //   NaN and NaN fails every comparison — so the collapse check, the Hill's
+    //   vote and the grade all quietly stop firing (v26, v28, v29 below).
+    //
+    // What forced each bump, for precedent when weighing the next one:
+    //   v5   downed aircrew and their recovery counters became state
+    //   v6   two IRGC hulls joined TARGETS; naval strength became a fraction
+    //   v7   targets went from a three-state enum to a 0–100 condition track
+    //        that repairs overnight, against rescaled 30-turn thresholds
+    //   v8   the war stopped being fully observable: estimated condition, a
+    //        hidden Iranian war plan, a hidden breakout number, and tankers,
+    //        war powers and dispersed launchers all became live state
+    //   v9   the air campaign became three campaigns behind an air-superiority
+    //        gate, with theater capacity growing all war off the force flow
+    //   v12  one random `leaderCall` became the two-entry `leaderCalls` queue
+    //   v13  the SAM belt stopped being a one-way ratchet — reconstitution out
+    //        of reserve, a 60% ceiling once killed, `lastStruck`/`killedOnce`
+    //   v14  a package acquired a price: `strikesThisTurn` became the night's
+    //        position against a tasking order, `fatigue` the crew-rest debt
+    //   v15  Israel stopped being a switch and became a 30-turn pressure gauge
+    //   v16  `maxTurns` became `softCap` — same number, opposite meaning
+    //   v17  fleet BMD stopped being free and became a drainable magazine
+    //   v19  a third enrichment hall: the same Natanz/Fordow hp now produce a
+    //        different nukeDegraded, and the old victory condition never fires
+    //   v20  a civil infrastructure class, and with it a resupply modifier that
+    //        changes how fast every saved hp recovers overnight
+    //   v21  coordinated with Israel began buying a wider night and a standing
+    //        bill at home; folder rates and heavy turnaround moved with it
+    //   v24  the Gulf became two camps with two gauges and a basing fold that
+    //        is no longer constant, and TARGETS grew a southern front
+    //   v25  the difficulty levels became three different jobs rather than one
+    //        job at three prices, and munitions stock arrived with them
+    //   v26  aircrew stopped being invented at the moment they were lost —
+    //        `downed` points into a named roster that carries sortie counts
+    //   v27  `bdaLog`: every band a reading put in front of the president,
+    //        beside what was actually standing at the time
+    //   v28  the escort screen shoots at ships, so `nsmPool` is new state
+    //   v29  approval stopped being a field and became a product of three bloc
+    //        counts that no earlier save carries
+    const KEY = 'cic-save-v10';  // frozen; VERSION below is what invalidates saves
     const VERSION = 29;
     const FIELDS = [
       // `approval` is absent on purpose and must stay absent — it is a getter
