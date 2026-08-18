@@ -812,6 +812,74 @@ button { font-family: var(--mono); }
   -webkit-line-clamp: unset; display: block; overflow: visible;
 }
 
+/* ============================================================
+   NUCLEAR RELEASE AUTHORITY
+   ------------------------------------------------------------
+   The folder handed over the night the breakout clock finishes. It reuses the
+   .action / .action-do card the brief and the sidebar already use, on the
+   shared-renderer principle everything else in this game follows — what is here
+   is only what makes it read as the last folder rather than a fourth brief.
+
+   Red is not decoration and is not used anywhere else at this weight. Every
+   other urgent thing in this game is amber, including the collapse phase on the
+   read line, which is exactly why this can afford to be red: the palette has
+   been holding one step in reserve for thirty turns.
+
+   The clamp comes off .il-current here for the same reason it comes off inside
+   #brief-modal-buttons — that rule is written against the sidebar's 189px
+   scroll pane and this box's budget is horizontal. */
+.modal.nuclear { width: 760px; border-color: var(--red); }
+.modal.nuclear .modal-header { border-bottom-color: var(--red-dark); }
+.modal.nuclear .panel-title { color: var(--red); }
+
+#nuclear-buttons .il-current,
+#nuclear-buttons .coa-defers { -webkit-line-clamp: unset; display: block; overflow: visible; }
+
+.nuke-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+
+/* The clock, and it is first in the box because it is the only reason the rest
+   of it is a decision. Sized like a countdown rather than a stat cell — this is
+   the one number on the screen the president is being asked to beat. */
+.nuke-clock {
+  flex: 0 0 auto; text-align: center; padding: 8px 14px;
+  border: 1px solid var(--red-dark); background: #2a0d0d; min-width: 96px;
+}
+.nuke-clock-n { font-size: 34px; line-height: 1; color: var(--red); font-weight: 700; }
+.nuke-clock-l { font-size: 8px; letter-spacing: 0.08em; color: var(--dim); margin-top: 5px; line-height: 1.3; }
+.nuke-clock.critical { border-color: var(--red); animation: nukePulse 1.4s ease-in-out infinite; }
+@keyframes nukePulse { 0%, 100% { background: #2a0d0d; } 50% { background: #4a1414; } }
+/* Anything that moves on its own gets turned off for a player who asked for
+   that, same as every other animation in this file. */
+@media (prefers-reduced-motion: reduce) { .nuke-clock.critical { animation: none; } }
+
+.nuke-sit { margin: 0; font-size: 11px; line-height: 1.5; color: var(--text); }
+
+/* One per line, not a three-column grid. The brief's rooms lay their orders out
+   in columns because three courses of action are alternatives a president reads
+   ACROSS; these are rungs of a ladder and are read DOWN, and putting them
+   side by side would say they are the same size of decision. */
+.nuke-rows { display: flex; flex-direction: column; gap: 8px; }
+.nuke-row { border-left: 3px solid var(--red-dark); }
+.nuke-row .action-name { color: var(--red); }
+.nuke-bill { display: block; margin-top: 7px; }
+
+/* The trap rung. Drawn as a different KIND of thing rather than as a third card
+   with worse numbers: no price row, because there is no currency left to state
+   one in, and the border says so before the text does. */
+.nuke-row.terminal { border-left-color: var(--red); background: #260c0c; }
+.nuke-terminal-warn {
+  display: block; margin-top: 7px; padding: 5px 7px;
+  border: 1px solid var(--red); color: var(--red);
+  font-size: 9px; line-height: 1.45; letter-spacing: 0.04em;
+}
+
+/* The door back, in #session-buttons. It must not look like the four beside it
+   — a player scanning that row for SAVE & QUIT should not be able to miss that
+   something else is live down there. */
+.btn-nuclear, .btn-nuclear:hover {
+  background: #3a0f0f; color: var(--red); border-color: var(--red);
+}
+
 /* the doctrine's own thesis, at the head of its argument. It used to be the
    collapsed line; behind the caret it reads as what the option is FOR, which
    is what it always was. */
@@ -3463,6 +3531,38 @@ body.mobile-ui #session-buttons button::after { inset: -4px -2px; }
   /* the fade's reach is the body's own padding — see the note on
      .modal-body::after, which is written against the 16px default */
   .modal.brief .modal-body::after { bottom: -10px; }
+
+  /* The release folder pays its way down here on the same terms as the brief,
+     and it has one thing the brief does not: a 34px countdown that exists to be
+     read across the room. That stays. What comes off is the air around it and
+     the situation paragraph's line height — three rows plus a paragraph plus a
+     clock is more than a 92vh box holds on an 812x375 landscape phone, and the
+     rows are the decision. */
+  .modal.nuclear { max-height: 96vh; }
+  .modal.nuclear .modal-body { padding: 10px 12px; }
+  .nuke-head { gap: 9px; margin-bottom: 8px; }
+  .nuke-clock { padding: 4px 9px; min-width: 70px; }
+  .nuke-clock-n { font-size: 22px; }
+  .nuke-clock-l { font-size: 7.5px; margin-top: 3px; }
+  .nuke-sit { font-size: 10px; line-height: 1.4; }
+  .nuke-rows { gap: 6px; }
+  .nuke-bill { margin-top: 5px; }
+  .nuke-terminal-warn { font-size: 8.5px; line-height: 1.4; padding: 4px 6px; margin-top: 5px; }
+  /* Measured on an 812x375 landscape phone: the body gets 249px and three rows
+     plus the clock want 373. Three rows CANNOT fit and compressing until they
+     do would mean cutting the casualty figure or the bill, which is the whole
+     content of the decision. So the target is two — the demonstration and the
+     tactical strike, the two rows that are actually a choice — with the trap
+     rung below the fold. That is the right reading order anyway: nobody should
+     scroll past STRATEGIC STRIKE — TEHRAN to reach the option they wanted, and
+     the sticky fade on .modal-body already says there is more down there. */
+  .nuke-row .action-do { padding: 6px 8px; }
+  .nuke-row .action-name { font-size: 10px; }
+  .nuke-row .il-current { font-size: 9.5px; margin-top: 2px; }
+  .nuke-row .coa-cost { font-size: 8.5px; margin-top: 3px; }
+  .nuke-row .coa-defers { font-size: 8.5px; margin-top: 3px; }
+  .nuke-bill { margin-top: 4px; }
+  .nuke-bill .coa-chip { font-size: 8px; padding: 0 3px; }
 }
 
 /* ---- the chart's controls, once the pane stops holding seven of them ----
@@ -3585,10 +3685,14 @@ body.mobile-ui .pkg-option { min-height: 46px; padding: 9px 11px; }
      game has round ones — it is the position that makes it a sheet, not a
      radius borrowed from another app's design language. */
   .overlay { align-items: flex-end; justify-content: stretch; padding: 0; }
-  .modal, .modal.wide, .modal.brief {
+  .modal, .modal.wide, .modal.brief, .modal.nuclear {
     width: 100%; max-width: 100%; max-height: 88dvh;
     border-left: 0; border-right: 0; border-bottom: 0;
   }
+  /* The clock goes above the paragraph rather than beside it: at this width a
+     96px box and a four-line paragraph share a row that fits neither. */
+  .nuke-head { flex-direction: column; gap: 8px; }
+  .nuke-clock { width: 100%; }
   /* A phone gets one column, and the seals come down to the size of the line
      they sit beside. The grid above already folds on its own at 215px, but the
      rule down each card's left edge is drawn for columns and reads as a stray

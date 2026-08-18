@@ -19,9 +19,9 @@
      stays invisible in the tab for as long as that row survives. Renaming the
      URL is the only thing it listens to. Stamp these with the badge on every
      bump, even when only the art changed. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=2.17">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2.17">
-<link rel="manifest" href="site.webmanifest?v=2.17">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=2.18">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2.18">
+<link rel="manifest" href="site.webmanifest?v=2.18">
 <meta name="theme-color" content="#0a1626">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -35,7 +35,7 @@
      version-badge) renames every asset URL, which is the only thing that
      reliably forces the fetch.
      Bump the stamps and the badge together. -->
-<link rel="stylesheet" href="css/style.css?v=2.17">
+<link rel="stylesheet" href="css/style.css?v=2.18">
 </head>
 <body>
 
@@ -57,7 +57,7 @@
 
 <!-- ============ TITLE SCREEN ============ -->
 <div id="title-screen" class="overlay">
-  <div class="version-badge">v2.17<span class="beta-tag">BETA</span></div>
+  <div class="version-badge">v2.18<span class="beta-tag">BETA</span></div>
   <div class="title-box">
     <div class="title-eyebrow">EYES ONLY // NATIONAL COMMAND AUTHORITY</div>
     <h1>COMMANDER IN CHIEF</h1>
@@ -493,6 +493,10 @@
              controls — they reopen a dialog, they do not give an order — and
              they are hidden at every level that reads those decisions off a
              panel instead. UI.syncBriefButton and CSAR.syncButton own them. -->
+        <!-- The door back into the release folder, live only while the window
+             is open. Its own class rather than btn-secondary: this control must
+             not look like the four beside it. UI.syncNuclearButton owns it. -->
+        <button id="btn-nuclear" class="btn-secondary btn-nuclear hidden">RELEASE AUTHORITY</button>
         <button id="btn-brief" class="btn-secondary hidden">BRIEF ME</button>
         <button id="btn-recovery" class="btn-secondary hidden">RECOVERY</button>
         <button id="btn-primer" class="btn-secondary">HOW TO PLAY</button>
@@ -625,7 +629,7 @@
          which room this is, and a screen reader announcing two seals before it
          gets there is two pieces of furniture read aloud. -->
     <div class="modal-header brief-head">
-      <img class="brief-seal" src="icons/seal-president.svg?v=2.17" alt="" aria-hidden="true">
+      <img class="brief-seal" src="icons/seal-president.svg?v=2.18" alt="" aria-hidden="true">
       <span class="panel-title" id="brief-modal-title">
         <span id="brief-modal-room">STRIKE OPTIONS</span>
         <span class="brief-count" id="brief-modal-when"></span>
@@ -636,7 +640,7 @@
            making them recognise, so it is the thing that turns a folder into a
            meeting. Filled from BRIEF_STAGES `who`/`role` in showRoom. -->
       <span class="brief-who">
-        <img class="brief-seal" id="brief-modal-seal" src="icons/seal-dod.png?v=2.17" alt="" aria-hidden="true">
+        <img class="brief-seal" id="brief-modal-seal" src="icons/seal-dod.png?v=2.18" alt="" aria-hidden="true">
         <span class="brief-who-name" id="brief-modal-who"></span>
       </span>
       <button class="modal-close" data-close="brief-modal">✕</button>
@@ -764,6 +768,27 @@
   </div>
 </div>
 
+<!-- ============ NUCLEAR RELEASE AUTHORITY ============ -->
+<!-- Opened by the turn chain the night the breakout clock finishes, and
+     reopened for as long as the window runs by RELEASE AUTHORITY in
+     #session-buttons. It IS dismissible — data-esc and a ✕ — because deferring
+     is a real answer here and the most likely correct one; the door back is
+     what makes that safe. The orders land in #nuclear-buttons, because order
+     containers are matched by SHAPE (.modal [id$="-buttons"]) and a container
+     named anything else renders every row as a native white centred button. -->
+<div id="nuclear-modal" class="overlay hidden" data-esc="btn-nuclear-close">
+  <div class="modal nuclear" role="dialog" aria-modal="true" aria-labelledby="nuclear-title">
+    <div class="modal-header">
+      <span class="panel-title" id="nuclear-title">NUCLEAR RELEASE AUTHORITY</span>
+      <button id="btn-nuclear-close" class="modal-close" aria-label="Close">&#10005;</button>
+    </div>
+    <div class="modal-body" id="nuclear-body"></div>
+    <div class="modal-footer">
+      <button id="btn-nuclear-stand-down" class="btn-secondary">STAND DOWN &mdash; NO RELEASE TONIGHT</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ ALLIED HEAD-OF-GOVERNMENT CALL ============ -->
 <!-- London straight off the coalition cable, Paris the turn after. No close
      button and no backdrop dismissal: the whole decision is take it or don't,
@@ -849,22 +874,22 @@
   </div>
 </div>
 
-<script src="js/text.js?v=2.17"></script>
-<script src="js/geodata.js?v=2.17"></script>
-<script src="js/data.js?v=2.17"></script>
-<script src="js/assess.js?v=2.17"></script>
-<script src="js/map.js?v=2.17"></script>
-<script src="js/ai.js?v=2.17"></script>
-<script src="js/audio.js?v=2.17"></script>
-<script src="js/ui.js?v=2.17"></script>
+<script src="js/text.js?v=2.18"></script>
+<script src="js/geodata.js?v=2.18"></script>
+<script src="js/data.js?v=2.18"></script>
+<script src="js/assess.js?v=2.18"></script>
+<script src="js/map.js?v=2.18"></script>
+<script src="js/ai.js?v=2.18"></script>
+<script src="js/audio.js?v=2.18"></script>
+<script src="js/ui.js?v=2.18"></script>
 <!-- after ui.js: the walkthrough drives the room through UI's exported openPanel
      / openStrikeModal, and ui.js reaches back for Tour.start() at click time -->
-<script src="js/tour.js?v=2.17"></script>
-<script src="js/specops.js?v=2.17"></script>
+<script src="js/tour.js?v=2.18"></script>
+<script src="js/specops.js?v=2.18"></script>
 <!-- before csar.js: the shootdown asks the roster who was in the aircraft, and
      ui.js reaches for Aircrew.renderPanel / endgameHtml at render time -->
-<script src="js/aircrew.js?v=2.17"></script>
-<script src="js/csar.js?v=2.17"></script>
-<script src="js/game.js?v=2.17"></script>
+<script src="js/aircrew.js?v=2.18"></script>
+<script src="js/csar.js?v=2.18"></script>
+<script src="js/game.js?v=2.18"></script>
 </body>
 </html>

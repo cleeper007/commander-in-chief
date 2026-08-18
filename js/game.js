@@ -577,6 +577,16 @@ const Game = (() => {
     // shown is a genuine estimate. See breakoutTick / breakoutEstimate.
     breakout: { progress: 0, need: 100, conf: 'low', assessed: -99 },
 
+    // ---- and what happens the night that race is lost ----
+    // `tested` is stamped by breakoutTick the turn progress crosses `need`, and
+    // from that turn the campaign is on NUCLEAR.window. `used` is the ids
+    // already spent off the release folder, in order, because the ladder is
+    // walkable — a demonstration that fails to coerce leaves the tactical
+    // option standing and the after-action has to be able to say so. `defused`
+    // is the one thing that stops the window's ending, and only the tactical
+    // strike sets it. See the NUCLEAR block in data.js.
+    nuclear: { tested: false, testedTurn: -1, used: [], defused: false },
+
     // ---- what CENTCOM believes, as opposed to what is true ----
     // targetId -> { hp, turn }: the last assessed condition and when it was
     // assessed. Every display in the game reads this; nothing outside the
@@ -999,7 +1009,7 @@ const Game = (() => {
     // approval, and NaN fails every comparison, so the collapse check, the
     // Hill's vote and the grade all quietly stop firing. Nothing on screen
     // would say why.
-    const VERSION = 29;
+    const VERSION = 30;
     const FIELDS = [
       // `approval` is absent on purpose and must stay absent — it is a getter
       // with a throwing setter, and read() assigns every name in this list
@@ -1017,7 +1027,7 @@ const Game = (() => {
       'carriers', 'secondCarrierOrdered', 'secondCarrierEta', 'alliedFighters',
       'bombersOrdered', 'bomberEta', 'bombersArrived', 'deployTurn',
       'heaviesOrdered', 'heavyEta', 'heaviesArrived', 'forceFlow', 'airPhaseSeen',
-      'milestones', 'difficulty', 'iranPosture', 'postureKnown', 'breakout', 'intel',
+      'milestones', 'difficulty', 'iranPosture', 'postureKnown', 'breakout', 'nuclear', 'intel',
       'tankers', 'tankerCap', 'basing', 'basingDebt', 'gulf', 'warPowers', 'addresses', 'threat',
       'timeline', 'bdaLog', 'adapt', 'adaptSeen', 'turnStartHp', 'tlamPool', 'torpedoes',
       'bmdPool', 'bmdRearm', 'nsmPool', 'pgm',
@@ -1538,11 +1548,207 @@ const Game = (() => {
     return BREAKOUT.rate * cap * (IranAI.posture().enrich || 1) / diff().breakout;
   }
 
+  // Returns the test event on the one night it crosses, and null every other
+  // night. Through v2.17 this returned null always and checkEnd read the raw
+  // progress, which meant the device being tested and the campaign ending were
+  // the same instant. They are now four turns apart — see the NUCLEAR block in
+  // data.js — and this is where the clock is stamped, because the crossing is
+  // an event in the world and not a reading somebody took of it.
   function breakoutTick() {
     const rate = enrichRate();
     if (rate <= 0) return null;
     G.breakout.progress += rate;
+    if (!G.nuclear.tested && G.breakout.progress >= G.breakout.need) {
+      G.nuclear.tested = true;
+      G.nuclear.testedTurn = G.turn;
+      return nuclearTestEvent();
+    }
     return null;
+  }
+
+  // ============================================================
+  // NUCLEAR RELEASE
+  // ------------------------------------------------------------
+  // Read the NUCLEAR block in data.js before touching any of this; it carries
+  // the argument for why the folder has three rows on it and why one of them
+  // cannot be survived.
+  // ============================================================
+
+  // Is release authority unlocked, and how long is left on it? The one read
+  // every other surface asks — the dialog, the session button, the HUD and the
+  // after-action — so none of them can disagree about whether the war is in the
+  // window. `left` counts the turns still to run: at 0 the ending fires from
+  // checkEnd on this same turn's resolution.
+  function nuclearState() {
+    const n = G.nuclear;
+    if (!n.tested) return { open: false, tested: false };
+    return {
+      open: !n.defused && !G.over,
+      tested: true,
+      defused: n.defused,
+      testedTurn: n.testedTurn,
+      left: Math.max(0, NUCLEAR.window - (G.turn - n.testedTurn)),
+      used: n.used.slice(),
+    };
+  }
+
+  // The rows, in ladder order, each carrying whether it has already been spent.
+  // A spent row is returned rather than filtered out, on the same grounds the
+  // brief's slot section says SLOT SPENT TONIGHT rather than vanishing: a row
+  // that disappears on being used reads as one that was never offered, and this
+  // is the last folder in the game where that ambiguity is affordable.
+  function releaseOptions() {
+    const st = nuclearState();
+    if (!st.open) return [];
+    return NUCLEAR.options.map(o => ({
+      id: o.id, name: o.name, where: o.where, ends: !!o.ends,
+      coerce: o.coerce, defuses: !!o.defuses, iranDead: o.iranDead,
+      approval: o.approval, erode: o.erode, world: o.world,
+      spent: G.nuclear.used.indexOf(o.id) >= 0,
+    }));
+  }
+
+  // The order. Returns { events, result } — `result` non-null is the campaign
+  // ending on this call rather than at the end of the turn, which is the
+  // difference between this and every other order in the game.
+  function releaseNuclear(id) {
+    const st = nuclearState();
+    if (!st.open) return null;
+    const o = NUCLEAR.options.find(x => x.id === id);
+    // A spent row cannot be re-ordered, terminal or not. The trap rung ends the
+    // campaign on the press so in the real flow it can never come round twice —
+    // but `G.over` is set by finish(), which is the UI's call and not this
+    // function's, so the uniform guard is the one that is true of this function
+    // read on its own.
+    if (!o || G.nuclear.used.indexOf(id) >= 0) return null;
+    G.nuclear.used.push(id);
+
+    // The trap rung. It does not resolve against the board — there is no roll,
+    // no bill and no tomorrow to charge one against — so it returns the ending
+    // directly and everything below this line is skipped.
+    if (o.ends) return { events: [], result: buildResult('defeat', 'tehran') };
+
+    // Charged here rather than through applyEvent, so the event below reports a
+    // bill already spent — pollEvent's rule, and the Hill's. It also keeps the
+    // charge off DIFFICULTY.retaliation, which scales what IRAN costs the
+    // president and has no business discounting what the president did.
+    const dApproval = movePublic(o.approval);
+    const eroded = erodeBase(o.erode);
+    G.world = clamp(G.world + o.world, 0, 100);
+
+    // The tactical shot is the only thing on this board that stops the window,
+    // and it stops it by destroying the device rather than by un-enriching the
+    // uranium: the halls under the assembly site come off with it, which is why
+    // the deep program goes as well. Nothing here rewinds G.breakout.progress —
+    // the race was lost, and the record of it should say so.
+    if (o.defuses) {
+      G.nuclear.defused = true;
+      for (const t of TARGETS) {
+        if (!t.enrichment) continue;
+        damageTarget(t, 100);
+        t.killedOnce = true;
+        t.lastStruck = G.turn;
+        // A sharp reading, not a band. Every other strike in this game leaves
+        // CENTCOM guessing at what it did, and that is the right model for two
+        // aircraft and a bomb load — it is not the model for this. Without it
+        // the objectives panel goes on quoting a stale estimate of a program
+        // that is now a hole.
+        G.intel[t.id] = { hp: t.hp, turn: G.turn, sharp: true };
+      }
+    }
+
+    // Whether Tehran folds. Rolled once, here, against the option's own number
+    // — and it is the only thing either of these two rows is bought for, which
+    // is why the demonstration's 30% is stated on its card in words a president
+    // can weigh rather than left for them to discover.
+    const folded = Math.random() < o.coerce;
+    const events = [nuclearReleaseEvent(o, { dApproval, eroded, folded })];
+    if (folded) return { events, result: buildResult('victory', 'capitulation') };
+    return { events, result: null };
+  }
+
+  // The crossing, reported. This is the single worst piece of news in the game
+  // and it is deliberately NOT the end of the game any more, so the prose has
+  // to do a thing the old ending's prose never had to: say what is still true.
+  // The last line is the whole feature — there is a folder, and it is open.
+  //
+  // The bill is charged the ordinary way, through applyEvent, because unlike a
+  // release this is something that HAPPENED to the president rather than
+  // something they did. It is sized to be survivable on purpose: a test that
+  // collapsed the presidency on its own would hand the player a folder and end
+  // the campaign before they could open it, which is the whole mechanic
+  // arriving and leaving in the same report.
+  function nuclearTestEvent() {
+    const st = NUCLEAR.window;
+    return {
+      title: 'NUCLEAR TEST DETECTED — EASTERN DESERT',
+      dApproval: -18, erode: 3, dWorld: -6,
+      sum: 'Iran has tested a device',
+      outcome: 'miss',
+      text: () =>
+        'At 0417 local the seismic array at Kabul registered a body-wave magnitude 4.6 event in the ' +
+        'Dasht-e Lut, at a depth and with a signature that is not an earthquake. Airborne collection ' +
+        'confirmed the debris cloud four hours later. Iran has tested a nuclear device, and the war ' +
+        'that was fought to prevent exactly this did not prevent it.\n\n' +
+        'What the assessment says next is the only part of this that is still a decision. A tested ' +
+        'device is not a fielded one — it is being assembled, and the assembly building is a place on ' +
+        'a map. The estimate is that they have on the order of ' + Txt.plural(st, 'day') + ' of work ' +
+        'before the weapon is mated to something that can carry it. After that the board this war has ' +
+        'been fought on stops existing.\n\n' +
+        'Release authority is unlocked. There are three options in the folder and the Chairman has ' +
+        'declined to recommend any of them.',
+    };
+  }
+
+  // What a release did, reported after the fact. `dApproval` and `erode` are
+  // the amounts that ACTUALLY landed — handed in from releaseNuclear, which
+  // already spent them — so the chips and the prose quote the same figures the
+  // bar moved by. It must never reach applyEvent; that is why they are named
+  // `spentApproval`/`spentErode` rather than the fields applyEvent looks for.
+  function nuclearReleaseEvent(o, r) {
+    const folded = r.folded;
+    const bodies = {
+      demo: () =>
+        'A single weapon was delivered by a B-2 out of Diego Garcia and detonated at altitude over ' +
+        'open water southeast of Socotra, six hundred miles from the nearest inhabited coast. The ' +
+        'flash was visible from three continents. Nobody was killed, which is the entire point and ' +
+        'is also the argument every critic of the decision will make against it for the rest of your ' +
+        'life.\n\n' +
+        (folded
+          ? 'Tehran understood the sentence. Within nine hours the Swiss channel carried an offer of ' +
+            'immediate and unconditional terms — the device surrendered, the program opened, the war ' +
+            'over. They believed you would do it again over something inhabited. They were not going ' +
+            'to find out.'
+          : 'Tehran did not understand the sentence, or understood it and decided the answer was no. ' +
+            'The statement out of the Supreme National Security Council called it an act of ' +
+            'desperation by a government that had run out of conventional options, which is not a ' +
+            'wholly unfair reading of it. The assembly clock is still running.'),
+      tactical: () =>
+        'One B61-11 earth-penetrator, delivered by a single aircraft, on the assembly site and the ' +
+        'halls beneath it. The device Iran spent thirty years building was destroyed roughly four ' +
+        'hours before it would have been mated to a transporter erector launcher, along with what ' +
+        'remained of the enrichment program underneath it and something on the order of ' +
+        o.iranDead.toLocaleString() + ' ' + Txt.pluralize(o.iranDead, 'Iranian') + '.\n\n' +
+        'The military problem this war existed to solve is solved. There is no device, there is no ' +
+        'program, and there is no timeline. ' +
+        (folded
+          ? 'Tehran sued for terms before the fallout plume had finished mapping. What is being signed ' +
+            'is not really an armistice — it is an acknowledgment by both governments that the thing ' +
+            'they were fighting over no longer exists.'
+          : 'Tehran has not asked for terms. The war goes on, against a country that no longer has a ' +
+            'nuclear program and has just had one American nuclear weapon used on it, and there is no ' +
+            'precedent anywhere for what the next week of that looks like.') + '\n\n' +
+        'The United States is the first state to use a nuclear weapon in anger since 1945, and the ' +
+        'second use is yours.',
+    };
+    return {
+      title: folded ? `${o.name} — TEHRAN CAPITULATES` : `${o.name} — EXECUTED`,
+      sum: folded ? 'Tehran accepts terms' : 'Weapon delivered',
+      outcome: folded ? 'destroyed' : 'damaged',
+      // reported, never carried — see the comment above this function
+      spentApproval: r.dApproval, spentErode: r.eroded, spentWorld: o.world,
+      text: bodies[o.id],
+    };
   }
 
   // Turns remaining, as the IC would brief it: a band, not a number.
@@ -6604,8 +6810,14 @@ const Game = (() => {
           // charged rather than carrying one, so it never reaches applyEvent
           const wearyEv = pollEvent(weary);
 
-          // the centrifuges ran again tonight, whatever else happened
-          breakoutTick();
+          // The centrifuges ran again tonight, whatever else happened — and on
+          // exactly one night of exactly some campaigns, this is the night they
+          // finish. Charged through applyEvent because unlike a release it is
+          // something that happened TO the president; it rides in the
+          // retaliation report with the rest of the night's bad news and then
+          // gets a dialog of its own behind it.
+          const nukeTest = breakoutTick();
+          if (nukeTest) applyEvent(nukeTest);
 
           // ---- the news cycle moves on ----
           // Standing abroad has to recover on its own or it is not a resource, it
@@ -6654,7 +6866,8 @@ const Game = (() => {
           // report, in a dialog of its own, because a resolution that shortens the
           // target list for the rest of the war cannot be the eleventh collapsed
           // line under nine battle damage assessments.
-          const theirs = [...events, ...gulf, ...basing, ...flow, ...(wearyEv ? [wearyEv] : [])];
+          const theirs = [...events, ...gulf, ...basing, ...flow, ...(wearyEv ? [wearyEv] : []),
+            ...(nukeTest ? [nukeTest] : [])];
           // the ticker and the after-action record still see the whole night —
           // the split is only in how it is read back to the president
           const all = [...ours, ...theirs, ...(vote && !cutoff ? [vote] : [])];
@@ -6685,12 +6898,21 @@ const Game = (() => {
             // president has finished reading what Tehran did overnight.
             flushArrivalCalls(() => { if (!G.over) maybeLeaderCall(null); });
           });
-          // The gavel falls last. The vote is scored on tonight's dead, so the
-          // president reads the salvo first and the roll call after it, and
+          // The release folder falls last of all, behind even the gavel. A
+          // nuclear test outranks everything else that happened tonight, so it
+          // is read last rather than first: the president finishes the night's
+          // accounting, hears the Hill, and then is handed the folder with
+          // nothing else left to read. It holds `close`, so the turn does not
+          // hand on until it is shut.
+          const nuke = nukeTest
+            ? guard('nuclear', () => UI.showNuclear(close))
+            : close;
+          // The gavel falls before it. The vote is scored on tonight's dead, so
+          // the president reads the salvo first and the roll call after it, and
           // whichever dialog is last in the chain is the one holding `close`.
           const gavel = (vote && !cutoff)
-            ? guard('warpowers', () => UI.showWarPowers(vote, close))
-            : close;
+            ? guard('warpowers', () => UI.showWarPowers(vote, nuke))
+            : nuke;
           if (!theirs.length) { gavel(); return; }
           UI.showReport(`IRANIAN RETALIATION — DAY ${day}, TURN ${G.turn}`, theirs, gavel);
         }));
@@ -6835,8 +7057,16 @@ const Game = (() => {
     if (G.over) return null;
     // primary win: the nuclear program is gone and Iran can no longer fight
     if (G.nukeDegraded() >= 100 && G.iranBroken()) return buildResult('victory', 'military');
-    // the race the whole war was against: they got there first
-    if (G.breakout.progress >= G.breakout.need) return buildResult('defeat', 'breakout');
+    // The race the whole war was against: they got there first. Through v2.17
+    // this fired on the tick the progress crossed, so the test and the ending
+    // were the same instant. They are now NUCLEAR.window turns apart — the
+    // crossing is stamped in breakoutTick and this reads the clock it started —
+    // and what the ending describes is the weapon leaving the assembly building
+    // rather than the test itself. A tactical release defuses it; nothing else
+    // does, and running out the window is the default because doing nothing is
+    // what most presidents in this position would in fact do.
+    if (G.nuclear.tested && !G.nuclear.defused &&
+        G.turn - G.nuclear.testedTurn >= NUCLEAR.window) return buildResult('defeat', 'breakout');
     // the losses are military and political:
     if (G.casualties.us >= casualtyLimit()) return buildResult('defeat', 'casualties');
     // An approval collapse means two different things depending on when it
@@ -6943,8 +7173,21 @@ const Game = (() => {
     for (const r of rows) { sum += r.score * r.weight; wsum += r.weight; }
     let score = wsum ? sum / wsum : 0;
     score += WAR_GRADE.outcome[kind] || 0;
-    // The device was tested. Everything above this line is a footnote.
+    // The device was tested and then fielded. Everything above this line is a
+    // footnote — the war existed to prevent exactly one thing.
     if (reason === 'breakout') score = Math.min(score, WAR_GRADE.breakoutCap);
+    // An American nuclear release caps the total wherever the rest of it landed,
+    // at the WORST cap among the rows spent — a president who demonstrated and
+    // then struck is graded on the strike. This is deliberately not an F: unlike
+    // a breakout these campaigns can have achieved the objective, and a grade
+    // that could not tell "prevented it at a monstrous price" from "did not
+    // prevent it" would be scoring the same thing twice with the wrong answer.
+    // Tehran needs no cap of its own — that ending is a defeat with a hard floor
+    // under every row and the outcome adjustment on top of it.
+    for (const id of G.nuclear.used) {
+      const o = NUCLEAR.options.find(x => x.id === id);
+      if (o && o.gradeCap != null) score = Math.min(score, o.gradeCap);
+    }
     score = clamp100(score);
     const letter = letterFor(score);
     return { score: Math.round(score), letter, mark: letterWithMark(score), blurb: TOTAL_BLURB[letter] };
@@ -7029,6 +7272,8 @@ const Game = (() => {
       time: 'WAR FROZEN — OBJECTIVES INCOMPLETE',
       breakout: 'DEFEAT — IRAN GOES NUCLEAR',
       cutoff: 'DEFEAT — CONGRESS CUTS OFF THE WAR',
+      tehran: 'DEFEAT — THE PRESIDENCY IS OVER',
+      capitulation: 'VICTORY — TEHRAN CAPITULATES UNDER NUCLEAR THREAT',
     };
     const verdicts = {
       military: 'VICTORY. The nuclear program is destroyed and Iran\'s ability to wage war — its missile force, its navy, its command structure — has been dismantled. The objectives are achieved by force of arms.',
@@ -7040,6 +7285,8 @@ const Game = (() => {
       time: 'The war outlasted the country\'s willingness to fight it. Real damage was done — most of the program is gone — but Iran\'s capacity to fight survives, and the operation is being wound down with the last objectives still on the list. The problem is handed to the next news cycle, and perhaps the next president.',
       breakout: 'The war was fought to prevent exactly one thing, and it did not prevent it. Seismic sensors registered a test in the eastern desert while American aircraft were still flying. Every other number on this page is now a footnote.',
       cutoff: 'The authorization lapsed and the Hill declined to renew it. With funding cut off mid-campaign the force is being recovered rather than employed, and the war ends by act of Congress with its objectives unmet.',
+      tehran: 'You ordered a countervalue strike on a capital city. The Vice President and a majority of the Cabinet invoked the Twenty-Fifth Amendment before the aircraft had cleared Iranian airspace; the House drew up a single article of impeachment the same afternoon and the Senate convicted inside a week, with your own party voting to remove. There is no argument about the merits of the war left to have.',
+      capitulation: 'Tehran accepted terms rather than find out whether the next weapon would be aimed at something inhabited. The nuclear crisis is over and the objectives are met — by a threat the United States had not made since 1962 and had to demonstrate to make credible.',
     };
     const narratives = {
       military: `CENTCOM's assessment is unambiguous: enrichment halted, missile brigades combat-ineffective, the IRGC command chain severed.` +
@@ -7056,6 +7303,15 @@ const Game = (() => {
       breakout: `The program stood at ${deg}% degraded when the device was tested — close enough that the ` +
         `argument about which turn lost this war will run for a generation. It took ${G.turn} turns and ` +
         `${G.casualties.us} American lives to not quite get there.`,
+      tehran: `The strike killed on the order of ${NUCLEAR.options.find(o => o.id === 'tehran').iranDead
+        .toLocaleString()} people in an afternoon. ` +
+        `Whatever the war was about stopped mattering at the moment the order was authenticated, and ` +
+        `every institution that could stop what happened next has now done so. History will record ` +
+        `${G.casualties.us} American dead in the campaign and will not lead with the figure.`,
+      capitulation: `The program is finished, the war is over on American terms, and the United States ` +
+        `used a nuclear weapon to get there. It took ${G.turn} turns and ${G.casualties.us} American ` +
+        `lives, and the argument about whether there had been another way is one that will outlive ` +
+        `everyone who was in the room.`,
       cutoff: `The vote was ${G.approval < 35 ? 'not close' : 'close, and it went the wrong way'}. ` +
         `${G.casualties.us} dead, an ally count in single figures, and ${G.addresses === 0
           ? 'a president who never once went on television to explain what any of it was for'
@@ -7370,6 +7626,10 @@ const Game = (() => {
       need: rand(BREAKOUT.needMin, BREAKOUT.needMax),
       conf: 'low', assessed: -99,
     };
+    // Same leak class as the per-war fields on TARGETS: `used` is an array and
+    // a campaign that inherited the last one's would open with the release
+    // folder already half spent.
+    G.nuclear = { tested: false, testedTurn: -1, used: [], defused: false };
 
     // Jerusalem's temper is not a constant either. What is rolled is where the
     // gauge STARTS, not how long it takes — the rate comes off the target list
@@ -7593,6 +7853,7 @@ const Game = (() => {
     // logReading is the write side of it — the panels that show a band call it
     // so the after-action screen can say how good the band was.
     estimate, condition, logReading, staleEstimates, targetDesc, breakoutEstimate, barred, canReach, tankersFor, tankerCapacity,
+    nuclearState, releaseOptions, releaseNuclear, finish,
     casualtyLimit, difficulty: diff,
     // where a decision arrives on this level — a dialog, or a drawer. ui.js and
     // csar.js both ask; neither is allowed its own answer (see DIFFICULTY.popups)

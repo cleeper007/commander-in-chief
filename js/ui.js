@@ -8,7 +8,7 @@ const UI = (() => {
   // Counted nouns and signed numbers live in text.js, where ai.js and csar.js
   // can reach them too. Pulled into locals here so the ~30 call sites below read
   // the way they always did.
-  const { plural, turns, signed, MINUS } = Txt;
+  const { plural, pluralize, turns, signed, MINUS } = Txt;
 
   let selectedPkg = null;
   let currentTarget = null;
@@ -3346,6 +3346,7 @@ const UI = (() => {
     SpecOps.renderPanel(G);
     renderBadges();
     syncBriefButton();   // the way back into a dismissed brief, while there is one
+    syncNuclearButton(); // and into the release folder, while there is a window
   }
 
   function renderAll(G) {
@@ -4024,6 +4025,167 @@ const UI = (() => {
       $('warpowers-modal').classList.add('hidden');
       if (onClose) onClose();
     };
+  }
+
+
+  // ============================================================
+  // NUCLEAR RELEASE AUTHORITY
+  // ------------------------------------------------------------
+  // The folder the president is handed the night the breakout clock finishes.
+  // Read the NUCLEAR block in data.js for why it has three rows on it; this is
+  // only how they are put on a screen, and there are three rules in that.
+  //
+  // IT IS ITS OWN DIALOG, on the same grounds the War Powers vote is: it rewrites
+  // what the rest of the campaign can be, and as line twelve of a retaliation
+  // report it would collapse to one row between a SAM site and a tanker track.
+  // It is chained LAST — behind even the gavel — because a nuclear test outranks
+  // everything else that happened tonight and is therefore read with nothing
+  // else left to read.
+  //
+  // IT IS DISMISSIBLE, unlike the allied call, because standing down is a real
+  // answer and is usually the right one on the first night. RELEASE AUTHORITY in
+  // #session-buttons is the door back, live for exactly as long as the window
+  // is, which is what makes deferring safe rather than a way to lose the folder.
+  //
+  // AND THE THIRD ROW ASKS FOR A TYPED WORD. It is the only control in this game
+  // that does. Every other irreversible order in here is one click behind a
+  // confirm, and that is right for them, because all of them are survivable and
+  // most of them are recoverable — this one ends the campaign on the press with
+  // no roll, no report and no tomorrow. A player who ordered it by misreading a
+  // button would be entitled to think the game had done it to them.
+  function nuclearBody() {
+    const st = Game.nuclearState();
+    const opts = Game.releaseOptions();
+
+    // The clock, and it is the first thing in the box because it is the only
+    // reason any of the rest of it is a decision rather than a hypothetical.
+    const left = st.left;
+    const clock = `<div class="nuke-clock${left <= 1 ? ' critical' : ''}">` +
+      `<div class="nuke-clock-n">${left}</div>` +
+      `<div class="nuke-clock-l">${left === 1
+        ? 'TURN BEFORE THE WEAPON IS FIELDED'
+        : 'TURNS BEFORE THE WEAPON IS FIELDED'}</div></div>`;
+
+    const head = `<div class="nuke-head">` + clock +
+      `<p class="nuke-sit">A device was tested in the Dasht-e Lut on turn ${st.testedTurn}. ` +
+      `It is being assembled, not yet mated to a launcher, and the assembly site is a place on a map. ` +
+      `When this clock runs out the campaign ends — there is no version of this board that survives a ` +
+      `fielded Iranian weapon, and no conventional package that reaches the building in time.</p></div>`;
+
+    const rows = opts.map(o => {
+      // The trap rung is drawn as a different KIND of thing, not as a third
+      // card with worse numbers. It has no price row because there is no
+      // currency left to state one in, and it carries the only warning label in
+      // the game that is not also an argument.
+      if (o.ends) {
+        return `<div class="action nuke-row terminal${o.spent ? ' off' : ''}" data-action="nuke-${o.id}">` +
+          `<button class="action-do nuke-do" data-nuke="${o.id}" ${o.spent ? 'disabled' : ''}>` +
+          `<span class="action-name">${o.name}</span>` +
+          `<span class="il-current">${o.where} — an estimated ` +
+          `${o.iranDead.toLocaleString()} ${pluralize(o.iranDead, 'civilian death')}.</span>` +
+          `<span class="nuke-terminal-warn">THE JOINT STAFF WILL EXECUTE THIS ORDER. NOTHING AFTER IT IS ` +
+          `RECOVERABLE — NOT THE WAR, NOT THE PRESIDENCY, NOT THE COUNTRY THAT ORDERED IT.</span>` +
+          `</button></div>`;
+      }
+      const odds = Math.round(o.coerce * 100);
+      const bill = [
+        ['APPROVAL', `${o.approval}`],
+        ['LOYAL BASE', `${o.erode} pts, permanent`],
+        ['STANDING ABROAD', `${o.world}`],
+        ['TEHRAN FOLDS', `${odds}%`],
+      ].map(([k, v]) => `<span class="coa-chip warn"><b>${k}</b> ${v}</span>`).join('');
+      return `<div class="action nuke-row${o.spent ? ' off' : ''}" data-action="nuke-${o.id}">` +
+        `<button class="action-do nuke-do" data-nuke="${o.id}" ${o.spent ? 'disabled' : ''}>` +
+        `<span class="action-name">${o.name}</span>` +
+        `<span class="il-current">${o.where}.</span>` +
+        `<span class="coa-cost">${o.spent ? 'ALREADY EXECUTED THIS CAMPAIGN'
+          : o.defuses
+            ? 'STOPS THE CLOCK — destroys the device and the halls under it'
+            : 'DOES NOT STOP THE CLOCK — a signal, and nothing else'}</span>` +
+        `<span class="coa-defers">${o.iranDead
+          ? `AN ESTIMATED ${o.iranDead.toLocaleString()} ${pluralize(o.iranDead, 'IRANIAN DEATH')}`
+          : 'NO CASUALTIES — THE POINT OF IT IS THAT THERE ARE NONE'}</span>` +
+        `<span class="nuke-bill">${bill}</span>` +
+        `</button></div>`;
+    }).join('');
+
+    return head + `<div id="nuclear-buttons" class="nuke-rows">${rows}</div>`;
+  }
+
+  // `onClose` is the turn chain's `close` on the night of the test and absent
+  // every time the president comes back through RELEASE AUTHORITY. It is held
+  // by whichever of the two doors is pressed, and it is deliberately NOT fired
+  // when an order ends the campaign — finish() owns the screen from there.
+  function showNuclear(onClose) {
+    renderHUD(Game.G);
+    const modal = $('nuclear-modal');
+    const body = $('nuclear-body');
+    body.innerHTML = nuclearBody();
+    body.scrollTop = 0;
+
+    const shut = (run) => {
+      modal.classList.add('hidden');
+      syncNuclearButton();
+      if (run && onClose) onClose();
+    };
+
+    for (const btn of modal.querySelectorAll('.nuke-do')) {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-nuke');
+        const opt = Game.releaseOptions().find(o => o.id === id);
+        if (!opt) return;
+        // The typed word. See the third rule at the top of this block.
+        if (opt.ends && !confirmTerminal()) return;
+        const out = Game.releaseNuclear(id);
+        if (!out) return;
+        modal.classList.add('hidden');
+        syncNuclearButton();
+        // An order that ended the campaign goes straight to the endgame screen
+        // and never runs the chain's `close`: there is no next turn to hand on
+        // to, and nextTurn() behind an endgame screen is the bug that leaves a
+        // finished war accepting orders.
+        if (out.result) {
+          if (out.events.length) {
+            showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => Game.finish(out.result), { prose: true });
+          } else {
+            Game.finish(out.result);
+          }
+          return;
+        }
+        showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => shut(true), { prose: true });
+      };
+    }
+
+    $('btn-nuclear-close').onclick = () => shut(true);
+    $('btn-nuclear-stand-down').onclick = () => shut(true);
+    modal.classList.remove('hidden');
+  }
+
+  // Typed confirmation for the countervalue strike. A native prompt() rather
+  // than a fourth bespoke dialog on purpose: it is modal, it is keyboard-only,
+  // it cannot be dismissed by a stray click on a backdrop, and it looks like
+  // nothing else in this game — all four of which are the point. An empty or
+  // cancelled answer is a refusal, which is the safe direction to resolve
+  // ambiguity in for the one order that has no other door out of it.
+  function confirmTerminal() {
+    const answer = window.prompt(
+      'STRATEGIC STRIKE — TEHRAN\n\n' +
+      'This order kills roughly four million people and ends your presidency. It cannot be ' +
+      'recalled, and there is no outcome after it in which any objective of this war is met.\n\n' +
+      'Type EXECUTE to authenticate the order, or cancel.');
+    return (answer || '').trim().toUpperCase() === 'EXECUTE';
+  }
+
+  // The door back, live for exactly as long as the window is. Same shape and
+  // same reasoning as syncBriefButton — a decision a player can defer needs a
+  // way back to it, or deferring is indistinguishable from losing the folder.
+  function syncNuclearButton() {
+    const btn = $('btn-nuclear');
+    if (!btn) return;
+    const st = Game.nuclearState();
+    btn.classList.toggle('hidden', !st.open);
+    if (st.open) btn.textContent = `RELEASE AUTHORITY — ${st.left} LEFT`;
+    btn.onclick = () => showNuclear(null);
   }
 
   // ============================================================
@@ -4884,6 +5046,14 @@ const UI = (() => {
     // explains the collection deck has to have the collection deck on screen
     // behind it, whichever room the chain would have opened on.
     applyPanelTrim, openBrief, closeBrief, syncBriefButton, briefSlotPending, briefGoto,
+    // The release folder. showNuclear is the turn chain's — it is chained last
+    // on the night of the test and holds `close`, so a harness that stubs UI
+    // must stub it as a SEAM and not a noop, exactly as showWarPowers is: a
+    // swallowed onClose stalls the campaign on the test turn forever.
+    // nuclearBody is exported for .claude/betatest/nuclear.js on the same
+    // grounds as intelParts and coaRows — it is a pure read of G, so the probe
+    // can hold it across stub() and measure what the room actually says.
+    showNuclear, syncNuclearButton, nuclearBody,
     // Exported for .claude/betatest/state.js and nothing else in the game calls
     // them from out here. Both are pure functions of G — no DOM, deliberately —
     // so the probe can hold a reference across stub(), which noops every UI

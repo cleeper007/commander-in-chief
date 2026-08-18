@@ -2166,6 +2166,116 @@ const BREAKOUT = {
 };
 
 // ============================================================
+// NUCLEAR RELEASE — THE OPTION THAT ONLY EXISTS ONCE THE RACE IS LOST
+// ------------------------------------------------------------
+// Through v2.17 the breakout clock reaching `need` was an instant loss: the
+// device is tested, `DEFEAT — IRAN GOES NUCLEAR` fires, and the campaign ends
+// on the same tick. That is the correct ending and it is still here — what was
+// missing is that a real president does not learn about a foreign nuclear test
+// and then stop existing. They are handed a folder, and the folder has three
+// things in it, and every one of them is worse than the last.
+//
+// So the test now opens a WINDOW instead of closing the war. For `window` turns
+// Iran has a device and has not yet fielded it, release authority is unlocked,
+// and the campaign runs on. Do nothing and the same ending fires when the window
+// expires — that is the weapon leaving the assembly building for a launcher,
+// which is what the old instant loss was always describing. The president has
+// not been given more time to win the war they were already losing; they have
+// been given the four nights in which the only remaining decisions are nuclear.
+//
+// THE THREE OPTIONS ARE A LADDER AND THE TOP RUNG IS A TRAP. That is the whole
+// design. Two of them are real answers at ruinous prices and the third ends the
+// presidency on the spot, and the reason the third is on the folder at all is
+// that a menu with the unthinkable option quietly removed is not a menu about
+// the unthinkable. It is offered, it is described honestly, and it is the only
+// order in this game that cannot be recalled, deferred or survived.
+//
+// WHAT EACH ONE BUYS, and why they are not three sizes of the same thing:
+//
+//   demo      — a shot nobody dies in. No military effect whatsoever, and that
+//               is not a shortcoming, it is the entire instrument: it is a
+//               sentence spoken in the only language left. It does not defuse
+//               the window, so a demonstration that fails to coerce leaves the
+//               president exactly where they were, four days poorer, with the
+//               clock still running and the tactical option still on the table.
+//               The cheap gamble.
+//   tactical  — the device itself, at the site it is being mated at, with the
+//               buried enrichment halls underneath it. This DEFUSES the window,
+//               which is the only thing on this board that does, and takes the
+//               deep program with it. The certain answer at the ruinous price.
+//   tehran    — an instant loss. See `ends` below.
+//
+// The costs are charged DIRECTLY rather than through applyEvent, on the same
+// grounds pollEvent and the Hill's vote are: they report a bill already spent.
+// That also keeps them off `DIFFICULTY.retaliation`, which is deliberate —
+// that knob is how hard IRAN's bill lands and how much patience the country has
+// for what is being done TO it. What a president did with their own release
+// authority is not a thing an easy setting gets to discount. The only
+// difficulty in here is `erode`'s own scaling, which is the shape of the
+// country and applies to every catastrophe alike.
+//
+// `approval` is a push in the pre-v2.13 fully-fluid units every other literal in
+// this codebase is written in, so it goes through movePublic and lands against
+// the ~42 points actually in play. `erode` is points off the loyal base, which
+// is the part that does not come back: the country does not become persuadable
+// again about this. Those two together are what "extremely costly" has to mean
+// now that approval has a shape — a nuclear release is the only decision in the
+// game that lowers the president's own floor, and the floor is the whole model.
+const NUCLEAR = {
+  // Turns from the test to the ending firing. Four is two days of war, which is
+  // long enough to be a decision and short enough that it is never a phase of
+  // the campaign to be managed. Anything longer and the breakout ending stops
+  // being a loss and becomes a detour.
+  window: 4,
+
+  // Iranian dead, for the two options that produce any. Nothing reads these
+  // into G.casualties — that counter is American — but they are stated on the
+  // card and in the after-action, because an option whose price is written
+  // entirely in approval points is an option the game is lying about.
+  options: [
+    {
+      id: 'demo',
+      name: 'DEMONSTRATION SHOT',
+      where: 'high-altitude airburst over open water, southeast of Socotra',
+      // 30% is deliberately a bad bet and deliberately not hopeless. This is
+      // the option a president reaches for because the other two are worse,
+      // and the honest thing to model about it is that speaking in the only
+      // language left works less than a third of the time.
+      coerce: 0.30,
+      defuses: false,
+      approval: -20, erode: 4, world: -22, iranDead: 0,
+      // A C+ ceiling. No one died and the program was not touched: what is
+      // being capped is the fact of an American nuclear detonation, and that
+      // fact is the same size whatever it did or did not achieve.
+      gradeCap: 64,
+    },
+    {
+      id: 'tactical',
+      name: 'TACTICAL STRIKE — WEAPONS COMPLEX',
+      where: 'a single B61-11 on the assembly site and the halls beneath it',
+      coerce: 0.70,
+      defuses: true,
+      approval: -34, erode: 9, world: -38, iranDead: 9000,
+      // A D+. The war's object was achieved and the means will define the
+      // presidency, every biography of it, and the sixty years after it.
+      gradeCap: 49,
+    },
+    {
+      id: 'tehran',
+      name: 'STRATEGIC STRIKE — TEHRAN',
+      where: 'a countervalue strike on the capital',
+      // No `coerce`, no `defuses`, no prices. This one does not resolve against
+      // the board at all: it ends the campaign the moment it is ordered, and
+      // everything the other two rows spend is charged in a currency that stops
+      // existing. The confirmation is a typed word (see ui.js) — the only
+      // control in this game that asks for one.
+      ends: true,
+      iranDead: 4200000,
+    },
+  ],
+};
+
+// ============================================================
 // COURSES OF ACTION — WHAT THE STAFF HAS ALREADY DECIDED
 // ------------------------------------------------------------
 // The president does not pick aimpoints. A real one is handed two or three
