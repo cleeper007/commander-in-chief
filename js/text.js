@@ -68,6 +68,36 @@ const Txt = (() => {
     return n + (r >= 11 && r <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
   };
 
+  // ---- THE CAMPAIGN CLOCK ----
+  // Two turns a day, twelve hours apart, and the clock is WASHINGTON'S. The
+  // player is the president in the White House, not the CAOC in Qatar, so the
+  // bar reads the time it is where the decision is being made rather than the
+  // time it is where the aircraft are. Turn 1 is 20:00 ET: the campaign opens
+  // in the evening, which is what makes every sentence in this game about
+  // tonight's tasking order literally true of the first one.
+  //
+  // The pairing therefore runs EVENING then MORNING, and the date rolls over
+  // BETWEEN the two halves of a turn-pair rather than after them — which is why
+  // this is floor+1 and not the ceil(turn / 2) it replaced. Under ceil, turn 1
+  // printed DAY 1 — 20:00 and turn 2 printed DAY 1 — 08:00, one line reading as
+  // twelve hours of time running backwards. Thirty turns is fifteen days and
+  // twelve hours of war, so it touches sixteen dates; the campaign is still the
+  // fifteen days G's comment claims.
+  const day = (turn) => Math.floor(turn / 2) + 1;
+  const hour = (turn) => (turn % 2 === 1 ? '20:00' : '08:00');
+  const stamp = (turn) => `DAY ${day(turn)} — ${hour(turn)}`;
+
+  // Whether the package launches into the dark — a fact about TEHRAN, not about
+  // the clock above it, and the two now disagree. Iran runs seven and a half
+  // hours ahead of Washington: 20:00 ET is 03:30 over the target, the deep
+  // pre-dawn window a strike package wants, and 08:00 ET is the middle of their
+  // afternoon. So the ODD turns are the night ones, the reverse of what the
+  // 06:00 / 18:00 theater-local clock this replaced implied. csar.js's recovery
+  // odds read it from here rather than restating the parity in a comment beside
+  // a magic number, which is how that comment came to describe a clock the game
+  // no longer keeps.
+  const night = (turn) => turn % 2 === 1;
+
   // A signed cost, typeset. The tuning tables store plain JS numbers, so a
   // world-opinion cost interpolated raw arrives as a hyphen-minus ("-1") and
   // sits next to a real minus ("−45") two lines up in the same panel. Every
@@ -75,5 +105,6 @@ const Txt = (() => {
   const MINUS = '−';
   const signed = (n) => (n > 0 ? '+' : MINUS) + Math.abs(n);
 
-  return { plural, pluralize, turns, were, are, ordinal, signed, MINUS };
+  return { plural, pluralize, turns, were, are, ordinal, signed, MINUS,
+    day, hour, stamp, night };
 })();

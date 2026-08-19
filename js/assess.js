@@ -134,7 +134,7 @@ const Assess = (() => {
     const degEta = deg >= 100 ? 0 : degRate > 0.2 ? (100 - deg) / degRate : null;
 
     const b = {
-      turn: G.turn, day: Math.ceil(G.turn / 2),
+      turn: G.turn, day: Txt.day(G.turn),
       horizon: Math.max(0, G.softCap - G.turn),
       diff: d,
 

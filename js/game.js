@@ -144,7 +144,7 @@ const Game = (() => {
 
     return {
       cls: 'world',
-      title: `POLL: APPROVAL AT ${Math.round(G.approval)}% ON DAY ${Math.ceil(G.turn / 2)}`,
+      title: `POLL: APPROVAL AT ${Math.round(G.approval)}% ON DAY ${Txt.day(G.turn)}`,
       text,
       sum: cost
         ? `Public patience: ${Txt.signed(-(Math.round(cost * 10) / 10))} approval`
@@ -6683,7 +6683,7 @@ const Game = (() => {
       // read after carrierRisk consumed tonight's, and shown with Tehran's half
       const threat = raiseThreat();
 
-      const day = Math.ceil(G.turn / 2);
+      const day = Txt.day(G.turn);
       const ours = [...bda, ...(israeli ? [israeli] : []), ...dispersals,
         ...repairs, ...phase, ...objectives, ...gaps, ...staffed, ...fleet];
 

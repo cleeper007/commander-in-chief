@@ -565,14 +565,14 @@ const UI = (() => {
 
   // ---- HUD / bottom bar ----
   function renderHUD(G) {
-    // clock
-    const day = Math.ceil(G.turn / 2);
-    const hour = G.turn % 2 === 1 ? '06:00' : '18:00';
-    // LOCAL is in a span so a phone can drop it: with the chart's label already
-    // hidden this row is the clock plus six controls, and on a 390px portrait
-    // screen those six need every pixel the word was spending.
+    // clock. Washington's, not the theater's, and the stamp is Txt's — four
+    // modules print this day number and the pairing is no longer the obvious
+    // ceil(turn / 2). See the campaign clock block in text.js.
+    // The zone is in a span so a phone can drop it: with the chart's label
+    // already hidden this row is the clock plus six controls, and on a 390px
+    // portrait screen those six need every pixel the word was spending.
     $('map-clock').innerHTML =
-      `DAY ${day} — ${hour}<span class="mc-local"> LOCAL</span>`;
+      `${Txt.stamp(G.turn)}<span class="mc-local"> ET</span>`;
     // A bare count, no denominator. The war does not end on a known turn any
     // more — it ends when the country stops paying for it — and "17/30" would
     // promise a deadline the game no longer honours in either direction: it can
@@ -4005,7 +4005,7 @@ const UI = (() => {
       `<div class="wp-gavel" aria-hidden="true">⚖</div>` +
       `<div class="wp-verdict-text">` +
       `<div class="wp-result">${vote.title}</div>` +
-      `<div class="wp-chamber">JOINT RESOLUTION · BOTH CHAMBERS · DAY ${Math.ceil(Game.G.turn / 2)}</div>` +
+      `<div class="wp-chamber">JOINT RESOLUTION · BOTH CHAMBERS · DAY ${Txt.day(Game.G.turn)}</div>` +
       `</div></div>`;
 
     if (chips) html += `<div class="wp-chips">${chips}</div>`;
@@ -4949,10 +4949,10 @@ const UI = (() => {
       d.coa && !d.freeTargeting
         ? { cls: 'friendly', title: 'THE STAFF WRITES THE NIGHT',
             text: Game.popup('brief')
-              ? 'CENTCOM walks in with options every evening and will not leave until you sign one. You ' +
-                'are not picking aimpoints — you are picking which war tonight is for. BRIEF ME reopens ' +
-                'the folder if you send the room away.'
-              : 'CENTCOM briefs you options every evening under TONIGHT\'S OPTIONS. Sign one. You are ' +
+              ? 'CENTCOM walks in with options at the top of every turn and will not leave until you sign ' +
+                'one. You are not picking aimpoints — you are picking which war tonight is for. BRIEF ME ' +
+                'reopens the folder if you send the room away.'
+              : 'CENTCOM briefs you options every turn under TONIGHT\'S OPTIONS. Sign one. You are ' +
                 'not picking aimpoints — you are picking which war tonight is for.' }
         : d.coa
         ? { cls: 'friendly', title: 'TWO OPTIONS, AND THE REST IS YOURS',

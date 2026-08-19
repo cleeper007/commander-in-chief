@@ -164,8 +164,11 @@ const CSAR = (() => {
     let p = 0.44;
     parts.push(['Baseline — alert package, hostile ground', 0.44]);
 
-    // turns alternate 06:00 / 18:00; even turns launch into the dark
-    if (G.turn % 2 === 0) { p += 0.12; parts.push(['Night recovery — they own the dark', 0.12]); }
+    // Dark over the target, which is Tehran's clock and not the bar's — the
+    // ODD turns are the night ones now. Asked of Txt rather than restated
+    // here, because the parity this used to hardcode was a copy of the clock
+    // and went stale the first time the clock moved.
+    if (Txt.night(G.turn)) { p += 0.12; parts.push(['Night recovery — they own the dark', 0.12]); }
 
     // the helicopters fly through whatever is left of the SAM belt, so this is
     // worth exactly what has been shot off it
