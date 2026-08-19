@@ -245,6 +245,21 @@ button { font-family: var(--mono); }
   padding: 8px 14px; border-bottom: 1px solid var(--line);
   background: var(--bg-panel);
 }
+/* The command's mark, and it is LETTERHEAD rather than a control: it belongs to
+   the title beside it and lives and dies with it. Height only, auto width, on
+   .brief-seal's reasoning — a fixed height keeps it on the line it captions,
+   and the shadow seats a full-colour disc on a very dark bar instead of
+   floating it over one. 22px against the header's 26px buttons, so the mark
+   never sets the height of the bar; the buttons already do.
+   The negative margin is not the flow-shortening trap the note on
+   .modal-body::after documents — in a flex ROW it only pulls the next item in,
+   and what it buys is the 12px .brief-head puts between a seal and its title
+   out of a bar whose own gap is 18px. A seal 18px clear of the words it stamps
+   reads as a second item in the row rather than the mark on the first. */
+#cop-seal {
+  height: 22px; width: auto; flex: none; margin-right: -6px;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+}
 #map-clock { color: var(--amber); font-size: 12px; }
 #map-zoom-controls { margin-left: auto; display: flex; gap: 6px; }
 #map-zoom-controls button {
@@ -3193,6 +3208,11 @@ body.mobile-ui #sidebar-scroll.at-end {
    fires and costs nothing. */
 body.mobile-ui #map-header { padding: 5px 8px; gap: 4px 10px; flex-wrap: wrap; }
 body.mobile-ui #map-header .panel-title { display: none; }
+/* and the seal goes with the title, because that is what it is a caption for.
+   This bar has already dropped 32 characters of attribution to fit seven
+   controls and a clock onto a phone; a mark with nothing left to stamp is the
+   next thing it cannot afford. */
+body.mobile-ui #cop-seal { display: none; }
 body.mobile-ui #map-clock { flex: none; white-space: nowrap; font-size: 11px; }
 /* and a hard stop, so nothing in this pane can ever paint on the sidebar again */
 body.mobile-ui #map-panel { overflow: hidden; }
@@ -3317,6 +3337,9 @@ body.mobile-ui #session-buttons button::after { inset: -4px -2px; }
   body { font-size: 12px; }
   #map-header { padding: 5px 10px; gap: 10px; }
   #map-header .panel-title { font-size: 10px; }
+  /* the mark tracks the line it captions, and the gap it is correcting for is
+     now 10px rather than 18 */
+  #cop-seal { height: 18px; margin-right: -2px; }
 
   /* stats scroll sideways instead of crushing into each other */
   #status-row { padding: 5px 10px; overflow-x: auto; overflow-y: hidden; }
