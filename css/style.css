@@ -1444,6 +1444,23 @@ button { font-family: var(--mono); }
   pointer-events: none; text-anchor: middle; font-family: var(--mono);
 }
 
+/* ---- island names ----
+   Held back until .map-close-zoom (k>=2.2). See ISLAND_LABELS in map.js for why
+   the anchors are hand-placed and why the text counter-scales instead of riding
+   the world transform the two rules above ride.
+
+   Sized and coloured UNDER the target names it shares that water with, and over
+   the sea labels: a place you can bomb is not an aimpoint, but it is not open
+   water either. Faded rather than switched, on the same 0.18s the coarse-pointer
+   rule below uses, because the tier flips on a pinch and a name that appears
+   mid-gesture reads as a glitch. */
+.island-label { opacity: 0; transition: opacity 0.18s ease; }
+.map-close-zoom .island-label { opacity: 1; }
+.island-label text {
+  fill: #4a6288; font-size: 7px; letter-spacing: 0.5px; font-family: var(--mono);
+  pointer-events: none; text-anchor: middle;
+}
+
 .target { cursor: pointer; }
 .target .tgt-ring { fill: none; stroke-width: 1.5; }
 .target.intact .tgt-ring { stroke: var(--red); }
@@ -2207,7 +2224,10 @@ button { font-family: var(--mono); }
 .wall-plot-view { width: 100%; height: 100%; display: block; pointer-events: none; }
 .wall-plot-view .target text,
 .wall-plot-view .us-asset text,
-.wall-plot-view .covert-box text { display: none; }
+.wall-plot-view .covert-box text,
+/* island names go for the same reason and harder: they are 7px on the chart,
+   so at a quarter of the area they are grain before they are anything else. */
+.wall-plot-view .island-label { display: none; }
 /* The site the package on screen is servicing, marked so the plot answers
    "where is this" without a label — a ring the chart uses nowhere else. The
    walking one is advanced by the wall's own frame loop rather than a keyframe:

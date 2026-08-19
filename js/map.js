@@ -88,6 +88,98 @@ const MapView = (() => {
   // cutoff, and no aimpoint on it.
   const ISLANDS = [
     { name: 'Iran', cls: 'iran', d: 'M393.6,388.37L393.68,388.54L393.83,388.54L393.88,388.6L394.03,388.55L394.04,388.57L394.12,388.52L394.14,388.54L394.12,388.5L394.19,388.47L394.36,388.26L394.47,388.3L394.47,388.2L394.45,388.25L394.35,388.21L394.37,388.11L394.44,388.12L394.44,388.04L394.41,388.02L394.42,388.1L394.33,388.1L394.37,388.02L394.31,388.07L394.25,387.85L394.27,387.85L394.25,387.73L394.29,387.68L394.38,387.69L394.39,387.64L394.34,387.53L394.36,387.66L394.27,387.66L394.28,387.56L394.21,387.43L394.28,387.12L394.36,387.13L394.39,387.07L394.36,387.12L394.28,387.09L394.32,387.06L394.32,386.98L394.37,386.88L394.42,386.9L394.47,386.83L394.43,386.79L394.54,386.58L394.31,386.44L394.28,386.36L394.26,386.44L394.23,386.43L394.26,386.41L394.16,386.38L394.17,386.35L394.14,386.37L394.18,386.32L394.27,386.34L394.25,386.31L393.99,386.38L393.77,386.22L393.73,386.25L393.74,386.33L393.71,386.33L393.42,386.13L393.33,386.12L393.31,386.09L393.2,386.1L393.13,386.03L392.8,386.14L392.74,386.24L392.89,386.47L393.01,386.53L393.03,386.58L392.93,386.65L393.04,386.6L393.06,386.64L392.98,386.7L393.08,386.69L393.02,386.74L393.11,386.72L393.17,387.04L393.16,387.22L393.12,387.24L393.23,387.31L393.25,387.5L393.31,387.56L393.35,387.72L393.35,387.76L393.31,387.79L393.36,387.77L393.39,387.82L393.48,388.24L393.51,388.29L393.52,388.27L393.55,388.29Z' },
+
+    // ---- the Strait of Hormuz ----
+    // Same cutoff, same fix, one notch further down. 50m carries Qeshm (1,500
+    // km2) and then nothing at all in the strait, so the chokepoint this game
+    // turns three mechanics on — the barrel, the dove gauge, GULF's whole
+    // fold — was drawn as one big island and open water. No Hormuz, no Larak,
+    // no Hengam, and none of the disputed group `naval-covert` names in its own
+    // region line while sitting on it. Six outlines, largest first, 1.4 to 48
+    // km2. The smallest of them is 0.62 x 0.52 units — under a pixel at the
+    // opening view, which is exactly why the names below are a separate
+    // decision from the coastlines.
+    //
+    // Same provenance and the same test as Kharg: OSM coastline through
+    // geodata.js's own projection, checked against a marker this game already
+    // places. Bandar Abbas' naval aimpoint is at (590,467) and Hormuz Island
+    // lands 8 units south-east of it, which is where it is. Abu Musa is the
+    // second check and it FAILED — `naval-covert` was hand-placed at (520,498),
+    // a hundred kilometres of open water west of its own island, near enough to
+    // Farur to look deliberate. The marker moved onto the island (data.js), not
+    // the island onto the marker. That is what the comment above means by not
+    // trusting the coincidence twice; it was not a coincidence the second time.
+    //
+    // Douglas-Peucker at the same 0.02 units and the same two decimals, which
+    // holds every area inside 0.5% of the source. `data-country` is 'Iran' on
+    // all six, the three the UAE claims included. That is not an adjudication —
+    // it is what this game already models, a swarm base Tehran runs fast-attack
+    // craft and anti-ship launchers off. Tagged 'United Arab Emirates' they
+    // would flash with Abu Dhabi's mood out of gulfTurn, on the islands the
+    // president is being asked to bomb.
+    // Hormuz — 40.5 km2, OSM relation 3387931
+    { name: 'Iran', cls: 'iran', d: 'M599.19,468.5L599.15,468.53L598.68,468.45L598.5,468.27L598.42,468.03L598.28,468.32L598.2,468.36L598.1,468.33L598.21,468.37L598.15,468.46L598.03,468.37L598.06,468.29L598.03,468.38L598.14,468.46L598.13,468.57L598.09,468.63L598.0,468.65L597.85,468.85L597.52,469.04L597.49,469.11L597.55,469.35L597.42,469.47L597.38,469.66L597.41,469.78L597.35,469.89L597.42,470.0L597.55,470.12L597.54,470.2L597.94,470.44L598.25,470.46L598.33,470.52L598.68,470.64L598.99,470.64L599.05,470.61L599.16,470.65L599.44,470.42L599.57,470.4L599.86,470.28L599.88,470.25L599.81,470.21L599.8,470.12L599.9,469.99L600.04,469.68L600.02,469.65L600.05,469.55L600.03,469.47L600.07,469.39L600.01,469.25L600.01,469.18L599.95,469.02L599.88,468.95L599.66,468.89L599.61,468.76L599.5,468.7L599.47,468.5L599.39,468.39L599.28,468.36Z' },
+    // Larak — 47.9 km2, OSM way 160052075
+    { name: 'Iran', cls: 'iran', d: 'M596.35,476.23L596.32,476.26L595.65,476.24L595.62,476.26L595.34,476.17L595.17,476.04L595.13,476.05L594.76,476.46L594.58,476.56L594.53,476.68L594.39,476.83L594.35,476.91L594.28,476.93L594.19,477.09L594.09,477.13L593.99,477.28L593.91,477.29L593.89,477.51L593.84,477.54L593.82,477.96L593.94,478.28L594.18,478.53L594.2,478.6L594.16,478.62L594.18,478.65L594.31,478.64L594.32,478.58L594.45,478.54L594.62,478.53L594.76,478.57L594.77,478.6L594.87,478.59L594.94,478.57L594.93,478.52L594.99,478.48L595.58,478.36L595.6,478.32L595.82,478.22L595.8,478.17L595.83,478.14L595.96,478.1L596.0,478.04L596.07,478.03L596.28,477.86L596.43,477.81L596.67,477.58L596.93,477.2L597.1,476.81L597.12,476.66L597.09,476.57L597.01,476.62L596.96,476.6L596.76,476.29Z' },
+    // Hengam — 32.9 km2, OSM way 656361290
+    { name: 'Iran', cls: 'iran', d: 'M579.81,483.92L579.86,483.82L579.83,483.79L579.85,483.84L579.82,483.9L579.76,483.8L579.8,483.78L579.75,483.8L579.71,483.75L579.64,483.87L579.25,483.95L579.26,484.1L579.22,484.12L579.21,484.25L579.17,484.27L579.17,484.35L578.97,484.47L578.95,484.57L578.92,484.57L578.91,484.65L578.84,484.73L578.79,484.89L578.75,484.9L578.71,484.99L578.7,485.05L578.64,485.08L578.63,485.15L578.59,485.12L578.58,485.28L578.5,485.49L578.45,485.53L578.45,485.7L578.34,485.71L578.35,485.76L578.31,485.83L578.28,485.82L578.26,485.91L578.16,485.92L578.15,486.19L578.34,486.38L578.35,486.44L578.39,486.45L578.44,486.42L578.5,486.47L578.54,486.57L578.6,486.52L578.8,486.59L578.82,486.5L579.11,486.51L579.18,486.5L579.3,486.42L579.41,486.42L579.58,486.36L579.93,486.09L580.08,485.84L580.07,485.73L580.1,485.56L580.27,485.19L580.31,485.17L580.31,485.08L580.41,484.96L580.49,484.75L580.39,484.75L580.34,484.67L580.32,484.33L580.11,484.17L580.11,484.11L580.04,484.11Z' },
+    // Greater Tunb — 10.8 km2, OSM way 160056026
+    { name: 'Iran', cls: 'iran', d: 'M560.75,499.57L560.73,499.37L560.54,499.03L560.49,499.0L560.26,499.0L560.05,499.22L559.88,499.26L559.86,499.24L559.73,499.31L559.68,499.44L559.62,499.45L559.59,499.67L559.55,499.75L559.51,499.76L559.52,499.93L559.62,499.93L559.78,500.23L559.91,500.31L559.88,500.28L559.91,500.26L559.93,500.3L559.98,500.26L560.18,500.31L560.44,500.26L560.56,500.31L560.65,500.3L560.75,500.24L560.74,500.07L560.71,500.06L560.73,500.03L560.69,499.96L560.76,499.71L560.81,499.71L560.75,499.68L560.76,499.58L560.86,499.6L560.89,499.71L560.87,499.59Z' },
+    // Lesser Tunb — 1.4 km2, OSM way 160056054
+    { name: 'Iran', cls: 'iran', d: 'M555.15,500.59L555.18,500.54L555.23,500.54L555.23,500.59L555.23,500.53L555.0,500.45L554.93,500.35L554.78,500.34L554.7,500.27L554.65,500.29L554.61,500.35L554.66,500.35L554.69,500.39L554.69,500.5L554.73,500.52L554.73,500.63L554.8,500.67L554.8,500.79L555.07,500.75L555.07,500.72L555.11,500.72L555.15,500.61L555.23,500.61Z' },
+    // Abu Musa — 12.6 km2, OSM way 468798441
+    { name: 'Iran', cls: 'iran', d: 'M551.74,514.45L551.84,514.45L551.86,514.56L551.85,514.45L551.75,514.44L551.7,514.36L551.64,514.07L551.69,513.98L551.55,513.83L551.53,513.73L551.56,513.67L551.49,513.59L551.35,513.53L551.31,513.43L551.31,513.48L551.24,513.52L551.23,513.56L551.09,513.64L550.99,513.74L550.89,513.76L550.79,513.91L550.76,513.91L550.62,514.09L550.55,514.09L550.56,514.06L550.53,514.09L550.43,514.07L550.37,514.25L550.31,514.33L550.35,514.38L550.31,514.49L550.36,514.57L550.39,514.56L550.33,514.46L550.35,514.48L550.33,514.43L550.37,514.38L550.37,514.41L550.59,514.55L550.62,514.6L550.62,514.73L550.53,514.8L550.6,514.88L550.64,514.87L550.65,514.81L550.71,514.8L550.7,514.77L550.78,514.77L550.94,514.9L550.99,514.88L551.04,514.91L551.16,515.12L551.17,515.06L551.26,514.98L551.65,514.95L551.82,514.97L551.88,514.95L551.87,514.83L551.77,514.59L551.78,514.54L551.82,514.53L551.75,514.54Z' },
+  ];
+
+  // ---- island names, held back until the chart is open ----
+  // Qeshm's outline is already in geodata.js, so it appears here as a name
+  // only; the other five come off ISLANDS above. All six are held back to
+  // .map-close-zoom (k>=2.2) — the tier that already means "resolve the
+  // detail", where a hull takes its class and the flight deck grows fittings.
+  // Six names printed at the opening view would be a smear across the one
+  // stretch of this chart that is already carrying two Bandar Abbas aimpoints,
+  // the HORMUZ: OPEN readout, a covert box and the Lincoln's own screen.
+  //
+  // Drawn on a target name's terms and not a sea label's: a FIXED world anchor
+  // with the text counter-scaled about it (syncIconScale drives both), so the
+  // name holds its size on screen and shrinks in MAP units every click the
+  // player zooms in. That direction is the whole reason the layout works. The
+  // tier it appears at is its most crowded moment and every zoom past it has
+  // more room, so the anchors are tuned at k=2.2 and nothing after can get
+  // worse. A world-scaled label — the sea labels' rule — would instead hold one
+  // fixed degree of crowding at every zoom, and GREATER TUNB set beside its own
+  // island is wider than Qeshm.
+  //
+  // The anchors are hand-placed against everything already in that water at
+  // that zoom — both Bandar Abbas labels at their k=2.2 size, the strait
+  // readout, Abu Musa's marker and each other — and every one is nearer the
+  // island it names than any other island, and clear of every coastline
+  // including its own, so a name reads as pointing at something rather than
+  // sitting on it. Checked at 2.2, 2.5, 3, 4, 6 and 10.
+  //
+  // Two of those constraints were got wrong first and both are worth keeping.
+  // The strait readout is sized against `HORMUZ: CONTESTED` and not the
+  // `HORMUZ: OPEN` it is BUILT with — setHormuz rewrites it, CONTESTED is five
+  // characters wider, it is centred so it grows both ways, and a war that opens
+  // contested had GREATER TUNB printed through it on turn 1. And the clearances
+  // are ~1.6 map units rather than whatever fits, because every advance here is
+  // reckoned at 0.6em and --mono is five different fonts that do not agree on
+  // that to the third decimal. A layout tuned to the last tenth of a unit is
+  // one that holds on the machine it was tuned on.
+  //
+  // KHARG and ABU MUSA are deliberately not in here. The target list already
+  // puts both names on this chart, and a chart that says ABU MUSA twice inside
+  // a ring's width is one that has stopped being read. Abu Musa's marker is
+  // covert, so its island stays unnamed until the folder finds what is on it —
+  // which is the right way round rather than an omission. The island is a
+  // place; the name arriving with the marker is the finding.
+  const ISLAND_LABELS = [
+    { name: 'QESHM',        x: 572.5, y: 477.1, anchor: 'end' },
+    { name: 'HORMUZ',       x: 601.7, y: 469.3, anchor: 'start' },
+    { name: 'LARAK',        x: 599.0, y: 481.6, anchor: 'start' },
+    { name: 'HENGAM',       x: 582.4, y: 487.7, anchor: 'start' },
+    { name: 'LESSER TUNB',  x: 552.8, y: 501.8, anchor: 'end' },
+    { name: 'GREATER TUNB', x: 558.7, y: 496.0 },
   ];
 
   function el(tag, attrs = {}) {
@@ -296,6 +388,12 @@ const MapView = (() => {
   // box is an area of uncertainty and the carrier's escort screen is a
   // formation at its true spacing. Those mean something in map units and have
   // to keep scaling with them.
+  //
+  // Island NAMES ride here too (ISLAND_LABELS), for the same reason a target's
+  // name does: a name is a statement about a place and not a measurement of
+  // one. Their coastlines do not — an island is exactly the kind of extent the
+  // paragraph above is about, which is why zooming in walks a name off the
+  // island it started on top of.
   let iconK = 1;
 
   function syncIconScale() {
@@ -303,7 +401,7 @@ const MapView = (() => {
     const k = Math.min(1, 1 / view.k);
     if (k === iconK) return;   // panning does not move it; only zoom does
     iconK = k;
-    for (const g of world.querySelectorAll('g.tgt-icon'))
+    for (const g of world.querySelectorAll('g.tgt-icon, g.isl-scale'))
       g.setAttribute('transform', `scale(${k})`);
   }
 
@@ -1285,6 +1383,29 @@ const MapView = (() => {
       const t = el('text', { class: 'sea-label', x: s.x, y: s.y });
       t.textContent = s.name;
       world.appendChild(t);
+    }
+
+    // Island names. Two nested groups because the two transforms have different
+    // owners: the outer one is the anchor and never moves, the inner one is
+    // rewritten by syncIconScale on every zoom. Writing both onto one element
+    // would mean that function had to reconstruct the translate it does not
+    // otherwise know about.
+    for (const s of ISLAND_LABELS) {
+      const g = el('g', { class: 'island-label', transform: `translate(${s.x},${s.y})` });
+      const sc = el('g', { class: 'isl-scale', transform: `scale(${iconK})` });
+      // text-anchor goes in as a STYLE, not a presentation attribute. The
+      // stylesheet sets `text-anchor: middle` on .island-label text, and a CSS
+      // declaration beats a presentation attribute however specific the
+      // attribute looks — written as an attribute, every label asking to hang
+      // off one end silently rendered centred, half its width from where it was
+      // placed. (data.js's two `label.anchor` targets are the same bug, still
+      // live: targetIcon writes that one as an attribute under `.target text`,
+      // which also sets text-anchor in CSS.)
+      const t = el('text', s.anchor ? { style: `text-anchor: ${s.anchor}` } : {});
+      t.textContent = s.name;
+      sc.appendChild(t);
+      g.appendChild(sc);
+      world.appendChild(g);
     }
 
     // Hormuz status indicator

@@ -160,7 +160,18 @@ const TARGETS = [
   },
   {
     id: 'naval-covert', name: 'Forward Swarm Base — Abu Musa', short: 'ABU MUSA',
-    type: 'naval', x: 520, y: 498, depth: 1, covert: true, label: { dy: -14 },
+    // On the island, as of the Strait of Hormuz outlines in map.js. This was
+    // (520,498) — a hundred kilometres of open water west of Abu Musa, nearer
+    // Farur than to itself — which was invisible while nothing under it was
+    // drawn and is a contradiction the moment something is. Display-only:
+    // nothing simulates on a target's x/y (the covert box's fuzz, the downed
+    // crew's marker and the strike animation are all it reaches), and the box
+    // now contains the island it is a box about, which it did not before.
+    // The name still hangs ABOVE, as it always did — deliberately no `anchor`,
+    // because that key does not work: targetIcon writes it as a presentation
+    // attribute and `.target text` sets text-anchor in the stylesheet, which
+    // wins. ISLAND_LABELS is tuned around this label where it actually renders.
+    type: 'naval', x: 551, y: 514, depth: 1, covert: true, label: { dy: -14 },
     // Deliberately NOT sized to gate iranBroken. navalStrength is a mean over
     // six sites, so no plausible weight puts one hidden base above the 0.5 bar —
     // forcing it would mean tightening the naval requirement to "sink literally
