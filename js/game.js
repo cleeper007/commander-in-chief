@@ -1707,14 +1707,17 @@ const Game = (() => {
       outcome: 'miss',
       text: () =>
         'At 0417 local the seismic array at Kabul registered a body-wave magnitude 4.6 event in the ' +
-        'Dasht-e Lut, at a depth and with a signature that is not an earthquake. Airborne collection ' +
-        'confirmed the debris cloud four hours later. Iran has tested a nuclear device, and the war ' +
-        'that was fought to prevent exactly this did not prevent it.\n\n' +
-        'What the assessment says next is the only part of this that is still a decision. A tested ' +
-        'device is not a fielded one — it is being assembled, and the assembly building is a place on ' +
-        'a map. The estimate is that they have on the order of ' + Txt.plural(st, 'day') + ' of work ' +
-        'before the weapon is mated to something that can carry it. After that the board this war has ' +
-        'been fought on stops existing.\n\n' +
+        'Dasht-e Lut, shallow, with a signature that is not an earthquake. They did not bury it. A ' +
+        'reconnaissance aircraft on a standing track had the fireball and the column on film inside ' +
+        'four minutes, and a device shot above ground is a device somebody wants photographed. Iran ' +
+        'has tested a nuclear device, and the war that was fought to prevent exactly this did not ' +
+        'prevent it.\n\n' +
+        'A source inside the program confirmed the rest of it within the hour: the design works, and ' +
+        'there is a weapon. What the assessment says next is the only part of this that is still a ' +
+        'decision. A working device is not a fielded one — it is being assembled, and the assembly ' +
+        'building is a place on a map. The estimate is that they have on the order of ' +
+        Txt.plural(st, 'day') + ' of work before the weapon is mated to something that can carry it. ' +
+        'After that the board this war has been fought on stops existing.\n\n' +
         'Release authority is unlocked. There are three options in the folder and the Chairman has ' +
         'declined to recommend any of them.',
     };
@@ -6906,11 +6909,11 @@ const Game = (() => {
           // report, in a dialog of its own, because a resolution that shortens the
           // target list for the rest of the war cannot be the eleventh collapsed
           // line under nine battle damage assessments.
-          const theirs = [...events, ...gulf, ...basing, ...flow, ...(wearyEv ? [wearyEv] : []),
-            ...(nukeTest ? [nukeTest] : [])];
+          const theirs = [...events, ...gulf, ...basing, ...flow, ...(wearyEv ? [wearyEv] : [])];
           // the ticker and the after-action record still see the whole night —
           // the split is only in how it is read back to the president
-          const all = [...ours, ...theirs, ...(vote && !cutoff ? [vote] : [])];
+          const all = [...ours, ...theirs, ...(nukeTest ? [nukeTest] : []),
+            ...(vote && !cutoff ? [vote] : [])];
           UI.setTicker(IranAI.headlines(G, all));
           recordTurn(all);
           const result = cutoff ? buildResult('defeat', 'cutoff') : checkEnd();
@@ -6938,14 +6941,29 @@ const Game = (() => {
             // president has finished reading what Tehran did overnight.
             flushArrivalCalls(() => { if (!G.over) maybeLeaderCall(null); });
           });
-          // The release folder falls last of all, behind even the gavel. A
-          // nuclear test outranks everything else that happened tonight, so it
-          // is read last rather than first: the president finishes the night's
-          // accounting, hears the Hill, and then is handed the folder with
-          // nothing else left to read. It holds `close`, so the turn does not
-          // hand on until it is shut.
+          // The test falls last of all, behind even the gavel. It outranks
+          // everything else that happened tonight, so it is read last rather
+          // than first: the president finishes the night's accounting, hears the
+          // Hill, and is then pulled into the one meeting with nothing else left
+          // to read. Whatever is at the end of it holds `close`, so the turn does
+          // not hand on until the folder is shut.
+          //
+          // FOUR BEATS, and they are four because the third one is a bill. The
+          // alarm and the footage are theatre; the assessment is where the
+          // −18 approval, the −6 abroad and the three points off the base that
+          // applyEvent has ALREADY charged get said out loud, in the report
+          // renderer that draws every other bill in this game. Without it the
+          // most expensive single event in the campaign lands with nothing on
+          // screen accounting for it. The test event is out of the retaliation
+          // report above for the same reason the vote is: an alarm that goes
+          // off after the president has already read "Iran has tested a device"
+          // as line eleven of the night's traffic is announcing something they
+          // were told twenty seconds ago.
           const nuke = nukeTest
-            ? guard('nuclear', () => UI.showNuclear(close))
+            ? guard('nuclear', () => UI.showNsaAlert(
+                () => UI.showNuclearTest(
+                  () => UI.showReport('NUCLEAR TEST DETECTED — EASTERN DESERT', [nukeTest],
+                    () => UI.showNuclear(close), { prose: true }))))
             : close;
           // The gavel falls before it. The vote is scored on tonight's dead, so
           // the president reads the salvo first and the roll call after it, and

@@ -56,6 +56,18 @@ const AudioSys = (() => {
     // The switchboard, ringing under the incoming-call popup until it is
     // answered or declined. Looped by hand — see ringStart.
     phoneRing: 'phone-ring.m4a',   // ~2.3 s
+    // The two halves of the one night the arrays see a device. The alarm runs
+    // under the NSA's request for the room and does NOT stop until the meeting
+    // is taken — looped on the element, which is the choice ringStart argues
+    // against and is the right one here: what that comment calls "a fire alarm,
+    // not a telephone" is, this once, a fire alarm. ~1.5 s.
+    nukeAlarm: 'nuclear-alert.mp3',
+    // ...and the National Security Advisor, over the test footage. Deliberately
+    // NOT in VOICE below, for the same reason the leader calls are not: the
+    // dialog it plays under covers the map, so a watch card raised here would
+    // be a caption behind the thing it is captioning, and its transcript is on
+    // screen in that dialog where it reads. ~10.9 s.
+    nsaCall: 'nsa-nuclear-call.mp3',
   };
 
   // ---- WHO IS TALKING ----
@@ -121,6 +133,10 @@ const AudioSys = (() => {
     // Ambience, not an event: the rotors sit under the launch SFX and the feed
     // rather than on top of them.
     raidInfil: 0.6,
+    // The one clip in here that does not stop by itself. Everything else is a
+    // burst the player waits out; this runs until the meeting is taken, and at
+    // the gain a one-shot klaxon can afford it is punishing rather than urgent.
+    nukeAlarm: 0.45,
   };
 
   // Mission tracks: looping background music that plays while a jet's radar
@@ -660,6 +676,48 @@ const AudioSys = (() => {
     try { c.pause(); c.currentTime = 0; } catch (e) { /* silent */ }
   }
 
+  // ---- the alarm ----
+  // The klaxon that does not stop. Everything else in this file is a burst: an
+  // event happened, the room hears about it once, and the clip runs out on its
+  // own. This one is a STANDING condition — the National Security Advisor has
+  // asked for the room and the president has not yet said yes — so it loops on
+  // the element until somebody answers it.
+  //
+  // Which is precisely the thing ringStart refuses to do, and the two comments
+  // are not in disagreement. `loop` end to end is "a fire alarm, not a
+  // telephone", and a telephone is what that one is; this one is the fire
+  // alarm, so it takes the treatment that was wrong there. It also means the
+  // gap is not scheduled by hand and there is no `ended` listener to unhook —
+  // stopping it is pausing it and clearing the flag.
+  //
+  // Like the bell it is safe to start twice and safe to stop having never
+  // started, because the popup calls the stop from every path out of it.
+  let alarming = false;
+
+  function alarmStart() {
+    const c = clips.nukeAlarm;
+    if (alarming || muted || !unlocked || !c) return;
+    alarming = true;
+    c.loop = true;
+    // One hold for the whole alarm, on the same argument as the ring's: the
+    // beds must not swell back up between two laps of a 1.5 s clip.
+    duckAdd('alarm');
+    try {
+      c.currentTime = 0;
+      const p = c.play();
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) { /* silent */ }
+  }
+
+  function alarmStop() {
+    alarming = false;
+    duckDrop('alarm');
+    const c = clips.nukeAlarm;
+    if (!c) return;
+    c.loop = false;   // the element is shared with nothing, but leave it clean
+    try { c.pause(); c.currentTime = 0; } catch (e) { /* silent */ }
+  }
+
   // ---- the secure line ----
   // A head of government on the phone is the one sound in this game that is not
   // an event in the mix — it is the room going quiet so the president can take a
@@ -682,12 +740,16 @@ const AudioSys = (() => {
   // that popup has no Escape and no close button — `close` is the only door out
   // of it, which is what makes one hold safe to leave standing.
   let onLine = false;    // the secure-line popup is up, in any of its states
-  let lineClip = null;   // the one clip that IS the call, named by the caller
+  let lineClip = [];     // the clips that ARE the call, named by the caller
 
-  // The switchboard and the leader's own recording. Nothing else, and the
-  // caller names the clip rather than this file keeping a second copy of the
-  // list in WORLD_LEADERS — a fifth head of government is then a data change.
-  function lineAudio(name) { return name === 'phoneRing' || (!!lineClip && name === lineClip); }
+  // The switchboard and whatever the caller says is the call. Nothing else, and
+  // the caller names the clips rather than this file keeping a second copy of
+  // the list in WORLD_LEADERS — a fifth head of government is then a data
+  // change. It is a LIST because the nuclear set piece is one room held across
+  // two dialogs: the alarm under the NSA asking for the meeting, then the NSA
+  // himself over the footage. Naming both up front is what lets that hold be
+  // continuous rather than dropped and re-taken between them.
+  function lineAudio(name) { return name === 'phoneRing' || lineClip.indexOf(name) >= 0; }
 
   // On the line the duck is not a duck. Zero on the ramp path; the pause path
   // (canLevel false — see bedLevel) is already silence and needs nothing.
@@ -728,7 +790,8 @@ const AudioSys = (() => {
   function lineOpen(clip) {
     if (onLine) return;
     onLine = true;         // before silenceRoom: a finisher that runs in there
-    lineClip = clip || null;   // must be refused too, not allowed one last word
+    // must be refused too, not allowed one last word
+    lineClip = !clip ? [] : Array.isArray(clip) ? clip.slice() : [clip];
     silenceRoom();
     duckAdd('line');       // and the beds go to zero, not to the duck
   }
@@ -736,7 +799,7 @@ const AudioSys = (() => {
   function lineClose() {
     if (!onLine) return;
     onLine = false;
-    lineClip = null;
+    lineClip = [];
     duckDrop('line');      // musicLevel is inside duckDrop; the beds ramp back
   }
 
@@ -794,7 +857,7 @@ const AudioSys = (() => {
     if (!muted) musicLevel();
     // muting mid-ring hangs up the bell, not the call: the popup is still there
     // and still waiting on an answer, it has just stopped making noise
-    if (muted) ringStop();
+    if (muted) { ringStop(); alarmStop(); }
     // The strike footage is the one audible thing this file does not own — see
     // the duck seam at the bottom — so the master switch has to reach it by
     // hand, and reach it MID-CLIP rather than only at creation: a player who
@@ -853,5 +916,5 @@ const AudioSys = (() => {
   // strike footage in map.js plays its own audio and has to take a hold like
   // everything else, or the bed sits on top of it. Named keys, dropped by the
   // caller; see the ducks set for why it is a set and not a counter.
-  return { init, play, playThen, cut, ringStart, ringStop, lineOpen, lineClose, alertCheck, isMuted, setMuted, isMusicOff, setMusicOff, missionMusicStart, missionMusicStop, missionMusicStopAll, duckHold: duckAdd, duckRelease: duckDrop };
+  return { init, play, playThen, cut, ringStart, ringStop, alarmStart, alarmStop, lineOpen, lineClose, alertCheck, isMuted, setMuted, isMusicOff, setMusicOff, missionMusicStart, missionMusicStop, missionMusicStopAll, duckHold: duckAdd, duckRelease: duckDrop };
 })();

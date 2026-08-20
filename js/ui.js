@@ -4128,6 +4128,176 @@ const UI = (() => {
     return head + `<div id="nuclear-buttons" class="nuke-rows">${rows}</div>`;
   }
 
+  // ============================================================
+  // THE NIGHT THE ARRAYS SEE A DEVICE
+  // ------------------------------------------------------------
+  // Two dialogs in front of the release folder, and they exist for the reason
+  // the War Powers vote has a dialog of its own: the test used to be a
+  // collapsed line in the retaliation report, between a SAM site and a tanker
+  // track, and it is the single most consequential thing that can happen in
+  // this campaign. It is now out of that report entirely (see the `all` split
+  // in resolve) and the chain is alert → footage → assessment → folder.
+  //
+  // THE ALARM IS THE POINT OF THE FIRST ONE. Every other dialog in the game
+  // waits politely for the president to notice it; this one makes a noise until
+  // it is answered, because the fiction is a standing request from the National
+  // Security Advisor and not a piece of paper on the desk. It is also the only
+  // dialog that withholds its own subject — Reyes does not say what it is over
+  // the circuit, which is both correct practice for compartmented material and
+  // the thing that makes TAKE THE MEETING a beat rather than a click-through.
+  //
+  // It brackets its own exclusive hold on the room (see lineOpen in audio.js).
+  // The footage takes its own immediately after, and the gap between them is
+  // one synchronous statement — nothing can queue into it — which is what lets
+  // each dialog own both ends of its own hold rather than sharing one across
+  // two functions that can fail independently.
+  //
+  // `onAccept` is the rest of the chain, and there is no other door out.
+  function showNsaAlert(onAccept) {
+    const modal = $('nsa-alert-modal');
+    $('nsa-alert-line').textContent =
+      'The Situation Room is filling. The National Security Advisor has asked for you now and ' +
+      'will not say what this is over the circuit, which is most of what you need to know about ' +
+      'what it is.';
+
+    AudioSys.lineOpen(['nukeAlarm', 'nsaCall']);
+    AudioSys.alarmStart();
+    // The clip is 600KB and the alarm runs for as long as the president takes
+    // to answer, so the answer lands on footage that has already arrived.
+    // Warmed here rather than left in the markup: most campaigns never reach
+    // breakout, and none of them should pay for this at boot.
+    warmTestFootage();
+
+    let taken = false;
+    $('btn-nsa-accept').onclick = () => {
+      if (taken) return;   // the button is the whole dialog; do not run it twice
+      taken = true;
+      AudioSys.alarmStop();
+      // Closed here and re-opened inside showNuclearTest on the next statement.
+      // See the note above: this is one room across two dialogs, not two rooms.
+      AudioSys.lineClose();
+      modal.classList.add('hidden');
+      if (onAccept) onAccept();
+    };
+    modal.classList.remove('hidden');
+    try { $('btn-nsa-accept').focus(); } catch (e) { /* silent */ }
+  }
+
+  const TEST_CLIP = 'video/nuclear-test.mp4';
+
+  // WHAT REYES SAYS, word for word. It lives here rather than in audio.js's
+  // VOICE table because this clip deliberately is not in that table — VOICE
+  // raises the watch card on the map, and the map is under a dialog for the
+  // whole time this is talking. Everything else about the rule holds: it is a
+  // TRANSCRIPT and not a paraphrase, because the caption on the glass is the
+  // only place these words exist for a player with the sound off.
+  const NSA_SAYS =
+    'Mr. President, we have a credible-source alert. One of our assets inside Iran just ' +
+    'confirmed it: they have a functional nuclear weapon. This isn\u2019t a projection anymore. ' +
+    'It\u2019s real.';
+
+  // Point the element at the clip without playing it. Safe to call twice — the
+  // browser will not re-fetch a src it already holds, and setting the same
+  // value again does not restart the load.
+  function warmTestFootage() {
+    const v = $('nuke-test-video');
+    if (!v || v.getAttribute('src') === TEST_CLIP) return;
+    v.setAttribute('src', TEST_CLIP);
+    try { v.load(); } catch (e) { /* silent */ }
+  }
+
+  // The footage, with Reyes across the bottom of it.
+  //
+  // THE TRANSCRIPT IS ON THE GLASS, not only in the speaker, and it is up from
+  // the first frame rather than revealed line by line. That is the same rule
+  // the watch-floor card is written to — with sound off, or for a player who
+  // cannot hear it at all, the caption is the only place the content exists —
+  // and a caption that arrives in pieces is a caption that a player reading
+  // rather than listening is being made to wait for.
+  //
+  // NOTHING HERE DECIDES ANYTHING. The clip, the call and the button are
+  // theatre over a bill that was already charged in resolve; skipping costs the
+  // player nothing, which is why Escape is wired to the skip. The one thing it
+  // must not do is fail to hand the chain on: a missing file, a refused
+  // autoplay, a throttled background tab and a muted game all have to arrive at
+  // the same `onDone`, so the end of the set piece is a latch fed by four
+  // independent sources and the button works from the first frame.
+  const TEST_RUN_MS = 16500;   // the clip is 16.0 s — see video/nuclear-test.mp4
+
+  function showNuclearTest(onDone) {
+    const modal = $('nuclear-test-modal');
+    const frame = $('nuke-test-frame');
+    const btn = $('btn-nuke-test-go');
+    const video = $('nuke-test-video');
+
+    $('nuke-test-says').textContent = NSA_SAYS;
+    frame.classList.remove('ended', 'no-visual');
+    frame.classList.add('connected');
+    btn.textContent = 'SKIP \u25B8';
+
+    warmTestFootage();
+    AudioSys.lineOpen(['nsaCall']);
+
+    let ended = false, over = false;
+    const timers = [];
+
+    // The set piece is finished: the meter stops, the frame goes cold, and the
+    // button stops offering to skip something that is no longer running.
+    //
+    // `over` is checked as well as `ended` because this runs off four
+    // independent sources and one of them is a timer the skip cannot unhook in
+    // time on every engine. Settling a dialog that has already handed the chain
+    // on would take FOCUS off whatever opened behind it — the button it focuses
+    // is by then a hidden control in a closed box.
+    const settle = () => {
+      if (ended || over) return;
+      ended = true;
+      frame.classList.remove('connected');
+      frame.classList.add('ended');
+      btn.textContent = 'RELEASE AUTHORITY \u25B8';
+      try { btn.focus(); } catch (e) { /* silent */ }
+    };
+
+    const go = () => {
+      if (over) return;
+      over = true;
+      for (const id of timers) clearTimeout(id);
+      // Safe on a clip that already finished, and on one that never started.
+      // A skip is the player saying they have heard this one.
+      AudioSys.cut('nsaCall');
+      AudioSys.lineClose();
+      try { video.pause(); } catch (e) { /* silent */ }
+      modal.classList.add('hidden');
+      if (onDone) onDone();
+    };
+
+    // Reyes gates nothing — playThen falls straight through when the clip
+    // cannot play, so a muted game reaches `settle` on the watchdog below and
+    // never waits on a voice nobody is going to hear.
+    AudioSys.playThen('nsaCall', () => { /* the voice is done; the clip may not be */ });
+
+    video.onended = () => settle();
+    video.onerror = () => { frame.classList.add('no-visual'); settle(); };
+    // The rewind is its own try, apart from the play — an element that is not
+    // seekable yet throws here and is about to play perfectly well from zero,
+    // which is where it already is. Folded into the play's catch it put NO
+    // VISUAL over a picture that then ran underneath it.
+    try { video.currentTime = 0; } catch (e) { /* not seekable yet; it starts at 0 anyway */ }
+    try {
+      const p = video.play();
+      if (p && p.catch) p.catch(() => { /* autoplay refused — the watchdog still lands */ });
+    } catch (e) { frame.classList.add('no-visual'); }
+
+    // The fourth source. `ended` does not fire in a hidden tab, and a clip that
+    // never decoded fires nothing at all; without this the button would sit on
+    // SKIP over a black box forever.
+    timers.push(setTimeout(settle, TEST_RUN_MS));
+
+    btn.onclick = go;
+    modal.classList.remove('hidden');
+    try { btn.focus(); } catch (e) { /* silent */ }
+  }
+
   // `onClose` is the turn chain's `close` on the night of the test and absent
   // every time the president comes back through RELEASE AUTHORITY. It is held
   // by whichever of the two doors is pressed, and it is deliberately NOT fired
@@ -5070,6 +5240,13 @@ const UI = (() => {
     // grounds as intelParts and coaRows — it is a pure read of G, so the probe
     // can hold it across stub() and measure what the room actually says.
     showNuclear, syncNuclearButton, nuclearBody,
+    // ...and the two dialogs in front of it, on the same terms and for the same
+    // reason: showNsaAlert holds the whole rest of the chain and showNuclearTest
+    // holds the assessment and the folder behind it, so both are SEAMS in any
+    // harness that stubs UI. A noop on either stalls the test turn forever,
+    // which is the exact bug the showNuclear note above already warns about —
+    // there are now three places to get it wrong instead of one.
+    showNsaAlert, showNuclearTest,
     // Exported for .claude/betatest/state.js and nothing else in the game calls
     // them from out here. Both are pure functions of G — no DOM, deliberately —
     // so the probe can hold a reference across stub(), which noops every UI
