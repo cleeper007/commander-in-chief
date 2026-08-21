@@ -5258,17 +5258,88 @@ const Game = (() => {
     return ev;
   }
 
-  // advance the mission clock and resolve everything reaching time-on-target,
-  // animating each impact in sequence. Missions resolve in the order they were
-  // laid on — a SEAD sweep queued first clears the air for packages behind it.
+  // How many packages are in the air at once, and how far the second one steps
+  // off behind the first. TWO, because the wall has two feeds — see the note
+  // above #strike-wall in index.html, which says outright that FEED 02 is "the
+  // package behind it, at the same time". It never was: this function laid on
+  // the next batch only once the last one had resolved, so the second screen
+  // only ever caught a card running out its egress beat, and the two feeds were
+  // showing one strike and one afterthought.
+  //
+  // The stagger exists because a simultaneous start is worse than a serial one.
+  // Two launch clips firing on the same frame is one loud noise rather than two
+  // packages, and both cards then walk their run in lockstep — same phase
+  // changes, same SAM break, same impact, which reads as a rendering artifact.
+  // Two seconds is enough offset that each card's beats land in the gaps of the
+  // other's and the wall reads as two crews on two problems.
+  const STRIKE_CONCURRENCY = 2;
+  const STRIKE_STAGGER_MS = 2000;
+
+  // advance the mission clock and resolve everything reaching time-on-target.
+  // Missions still resolve in the order they were laid on — a SEAD sweep queued
+  // first clears the air for packages behind it — but no longer ONE AT A TIME:
+  // up to STRIKE_CONCURRENCY batches fly together, STRIKE_STAGGER_MS apart.
+  //
+  // Nothing downstream had to change for that. Every scope run in map.js keeps
+  // its state on its own card and in its own closure, each batch already owned
+  // its own guard, watchdog re-arm and stall fallback, and the clip duck holds
+  // and the jet chatter are both refcounted (see overlayScopeClip's per-clip
+  // duckKey and missionMusicStart). What DID have to change is on either side
+  // of the pump: batches now finish out of order, so the report is assembled
+  // from ordered slots rather than by append order, and a batch does not free
+  // its place until its hit clip has played out rather than the instant BDA
+  // resolves. Both are argued where they happen below.
   function resolveMissions(done) {
     const due = [];
     for (const m of G.missions) { m.eta--; if (m.eta <= 0) due.push(m); }
     G.missions = G.missions.filter(m => m.eta > 0);
-    const events = [];
+    // One slot per batch, filled when that batch resolves and flattened in
+    // LAID-ON order at the end. Appending to a shared array would hand the BDA
+    // report back sorted by flight time — a TLAM that launched second and
+    // arrived first would print above the bomber it was sequenced behind, and
+    // the night would read back in an order the player never planned in.
+    const slots = [];
+    let live = 0;             // batches currently on the wall
+    const liveTargets = new Set();
+    let lastLaunch = 0;       // when the last package stepped off, for the stagger
+    let pumpTimer = 0;
+    let finished = false;
 
-    const next = () => {
-      if (due.length === 0) { done(events); return; }
+    // Fill every free slot the stagger allows, then stop. Re-entered when a
+    // batch frees its place, and on its own timer while the stagger is holding
+    // a package back.
+    const pump = () => {
+      // Supersede a stagger timer that is still pending: a batch freeing its
+      // place re-enters here directly, and the two must not both launch.
+      clearTimeout(pumpTimer); pumpTimer = 0;
+      if (finished) return;
+      if (!due.length) {
+        // The night's last package is off the wall: hand the whole report back,
+        // in the order the packages were laid on.
+        if (live === 0) { finished = true; done(slots.flat()); }
+        return;
+      }
+      if (live >= STRIKE_CONCURRENCY) return;
+      // A target already flying waits for its own card, however free the wall
+      // is. playStrikeHit finds its card by target id (there is no other handle
+      // on it), so a second card over the same aimpoint would send the hit clip
+      // to whichever of the two matched first — and the two batches would be
+      // drawn onto the same ring on the plot besides. Rare (it takes two
+      // different assets tasked against one target on one night) and cheap: the
+      // package flies next, exactly as it used to.
+      if (liveTargets.has(due[0].targetId)) return;
+      // The stagger is a piece of staging, so a skip does not pay for it: with
+      // fast-forward up there is no footage and no run to offset, and holding
+      // the last packages of a big night on a two-second clock each would be
+      // the skip visibly failing to land.
+      const wait = lastLaunch && !MapView.isFastForward()
+        ? lastLaunch + STRIKE_STAGGER_MS - Date.now() : 0;
+      if (wait > 0) { pumpTimer = setTimeout(pump, wait); return; }
+      launch();
+      pump();   // the wall may have another screen; the stagger will hold it
+    };
+
+    const launch = () => {
       // Batch adjacent same-target same-asset missions into one scope run so the
       // formation flies together with one silhouette per package. BDA still
       // resolves per-mission — the batching is purely an animation grouping.
@@ -5282,24 +5353,48 @@ const Game = (() => {
       }
       const target = TARGETS.find(t => t.id === head.targetId);
       const count = batch.reduce((n, m) => n + (m.pkg.qty || 1), 0);
+      const slot = slots.length;
+      slots.push([]);
+      live++;
+      liveTargets.add(head.targetId);
+      lastLaunch = Date.now();
       // watchdog: if the animation frame loop is throttled (background tab),
       // resolve anyway — a stalled animation must never hold up the war
       let resolved = false;
+      // This batch's place on the wall, given back ONCE — and given back when
+      // its footage is finished, not when its BDA resolves. With both feeds
+      // busy, the card that follows takes its screen from wallScreen(), which
+      // is allowed to force a card out from under a clip that is still playing.
+      // Releasing on BDA would hand that screen away in the same tick the hit
+      // clip started, so every strike but the last would be cut at its
+      // detonation. playStrikeHit's onDone fires whenever the clip leaves the
+      // screen — natural end, decode error, stall timeout or a skip — so this
+      // cannot strand the pump.
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        live = Math.max(0, live - 1);
+        liveTargets.delete(head.targetId);
+        pump();
+      };
       // A BATCH IS A HOP, and it has to be, for two reasons that are really one.
       //
       // The resolution watchdog gives each leg RESOLVE_TIMEOUT and re-arms on
       // every guard() — but until this wrapper existed there was no guard
       // between `resolveTurn` and `bda`, so the whole night's footage shared one
       // 45s budget. Every package's launch clip GATES its flight (see
-      // overlayScopeClip's onEnd in map.js), so the cost is serial and it is
-      // large: a TLAM is 10.7s, a fighter off a deck 14.6s, a BUFF 19.5s, and
-      // whenFootageDone then holds for the last hit clip's tail — up to 8s. At
-      // ATO.base alone that is ~48s for three carrier sorties, and the plan
-      // grows. A player who watched the footage instead of skipping it was shown
-      // TURN RESOLUTION FAULT on most nights of most campaigns, for a turn that
-      // was resolving perfectly well. The modal escape in armWatchdog could
-      // never cover it: a scope card lives in #flight-status and is not an
-      // .overlay, because it is not something the turn is waiting on a person to
+      // overlayScopeClip's onEnd in map.js), so the cost is serial WITHIN a
+      // card and it is large: a TLAM is 10.7s, a fighter off a deck 14.6s, a
+      // BUFF 19.5s, and whenFootageDone then holds for the last hit clip's
+      // tail — up to 8s. At ATO.base alone that is ~48s for three carrier
+      // sorties, and the plan grows. A player who watched the footage instead
+      // of skipping it was shown TURN RESOLUTION FAULT on most nights of most
+      // campaigns, for a turn that was resolving perfectly well. Flying two
+      // cards at once shortens the night but does not change this: the budget
+      // is per hop either way. The modal escape in armWatchdog could never
+      // cover it: a scope card lives in #flight-status and is not an .overlay,
+      // because it is not something the turn is waiting on a person to
       // dismiss — it is the turn happening.
       //
       // And this is the one part of the night that ran OUTSIDE the boundary at
@@ -5312,24 +5407,27 @@ const Game = (() => {
         resolved = true;
         AudioSys.play('impact');
         const batchEvents = batch.map(bm => resolveImpact(target, bm.pkg, bm));
-        for (const ev of batchEvents) events.push(ev);
+        const out = [...batchEvents];
         // The packages looked at more than the target on the way through. A
         // strike on a type some gap in the folder feeds off can come back with a
         // lead — rolled once per target per night rather than once per weapon,
         // because what produces the intelligence is the visit, not the tonnage.
         const lead = covertLead(target);
-        if (lead) events.push(lead);
+        if (lead) out.push(lead);
+        slots[slot] = out;
         // a successful hit plays the strike clip in the target's radar window —
         // the package decides which clip, so a torpedo lands as a torpedo, and
         // the batch's verdict decides whether a site with kill footage gets it.
         // Read off `outcome` rather than hp: a target already flat when the
         // package arrived resolves to a wasted sortie carrying neither field, so
         // a second formation over rubble cannot replay the site's death.
-        if (batchEvents.some(ev => ev.hit))
+        if (batchEvents.some(ev => ev.hit)) {
           MapView.playStrikeHit(target, head.pkg,
-            batchEvents.some(ev => ev.outcome === 'destroyed'));
+            batchEvents.some(ev => ev.outcome === 'destroyed'), release);
+        } else {
+          release();   // nothing to watch: the screen is free now
+        }
         UI.renderAll(G);
-        next();
       });
       const scopeExtra = MapView.animateStrike(head.pkg.asset, target, finishBatch, count, head.pkg) || 0;
       // The stall fallback, and it must land BEHIND the animation for every
@@ -5364,7 +5462,8 @@ const Game = (() => {
       const runDur = FLIGHT_DUR[head.pkg.sub ? 'sub' : head.pkg.asset] || 1000;
       setTimeout(finishBatch, runDur + launchClip + scopeExtra + 3500);
     };
-    next();
+
+    pump();
   }
 
   // ============================================================

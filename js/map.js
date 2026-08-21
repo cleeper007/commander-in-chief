@@ -2242,10 +2242,10 @@ const MapView = (() => {
   // decide. The orders are signed. The one thing the player can still do is
   // skip, and that button is in the sidebar, which the wall never covers.
   // ============================================================
-  // How long the wall holds open with no card on it. Packages resolve back to
-  // back — one card's egress beat overlaps the next one's launch — but a gap of
-  // a frame or two between batches is possible, and a wall that blinks out and
-  // straight back in is worse than one that waits a beat.
+  // How long the wall holds open with no card on it. Packages overlap by design
+  // — two fly at once and a third steps off behind them — but a gap of a frame
+  // or two between batches is possible at the end of a night, and a wall that
+  // blinks out and straight back in is worse than one that waits a beat.
   const WALL_LINGER = 900;
   let wallShut = 0;          // the pending close, cancelled if a card arrives
   let wallRAF = 0;
@@ -2267,12 +2267,17 @@ const MapView = (() => {
 
   // The screen a package gets. Empty ones first, in order, so the first card of
   // a night lands on FEED 01 and the second under it rather than beside a gap.
-  // With both busy the card that is FURTHEST THROUGH ITS RUN gives way: in
-  // practice that is always one already past its impact and running out its
-  // five-second egress hold, because game.js does not lay on the next package
-  // until the last one has resolved. `_done` says so explicitly rather than
-  // trusting that ordering, since a card evicted before its impact would never
-  // call back and the batch behind it would sit on the watchdog.
+  // With both busy the card that is FURTHEST THROUGH ITS RUN gives way, and
+  // `_done` — set at impact — is what says so. That flag is load-bearing now
+  // rather than a formality: game.js flies two packages at once (see
+  // STRIKE_CONCURRENCY), so at the moment a third card is built the wall is
+  // genuinely full, with one card past its impact and one still inbound.
+  // Evicting the inbound one would kill a run that had not called back yet and
+  // leave the batch behind it sitting on the watchdog.
+  //
+  // The other half of that bargain is kept on game.js's side: a batch does not
+  // free its place in the pump until its hit clip has finished, so the `_done`
+  // card this reclaims is never one with footage still on it.
   function wallScreen() {
     const feeds = wallFeeds();
     if (!feeds.length) return null;
@@ -3677,6 +3682,12 @@ const MapView = (() => {
     wallClose();
   }
 
+  // Whether the player has skipped. game.js reads it to drop the two-second
+  // stagger between packages: a skip means every remaining batch should resolve
+  // as fast as it can be pushed through, not step off on a clock built for
+  // footage nobody is watching any more.
+  function isFastForward() { return ff; }
+
   // Some targets have their own hit clip; everything else uses the generic one.
   const HIT_CLIPS = {
     'msl-shiraz': 'video/shiraz-hit.mp4',
@@ -3784,11 +3795,24 @@ const MapView = (() => {
   // Plays in the same window as the radar, then fades out to reveal the BDA state.
   // `killed` is the batch's verdict, not the package's — two sorties arrive as one
   // formation and the second one is often what finishes the site.
-  function playStrikeHit(target, pkg, killed) {
+  //
+  // `onDone` fires exactly once, when this package's footage is off the screen —
+  // on the clip's natural end, on a load error, on a stall timeout, or straight
+  // away when there is no card to play it on or the player has skipped. game.js
+  // waits on it before laying the NEXT package onto the wall: with two packages
+  // up, both feeds are busy at the moment a card resolves, and a third one
+  // arriving would evict this card while its hit clip was still rolling (see
+  // wallScreen, which is allowed to force a kill). Releasing on the clip rather
+  // than on BDA is what keeps every strike's footage intact.
+  function playStrikeHit(target, pkg, killed, onDone) {
+    const fire = typeof onDone === 'function' ? onDone : () => {};
     const entry = [...document.querySelectorAll('.scope-card')]
       .find(e => e._alive && e.dataset.tgt === target.id);
-    if (entry) overlayScopeClip(entry.querySelector('.scope-wrap'), hitClip(target, pkg, killed),
-      () => stopMissionMusic(entry));   // chatter cuts when the strike video ends
+    if (!entry) { fire(); return; }
+    overlayScopeClip(entry.querySelector('.scope-wrap'), hitClip(target, pkg, killed), () => {
+      stopMissionMusic(entry);   // chatter cuts when the strike video ends
+      fire();
+    });
   }
 
   // ============================================================
@@ -5257,7 +5281,7 @@ const MapView = (() => {
 
   return { render, updateTarget, syncCovert, setHormuz, setMandab, setGulfMood, flashAsset, animateStrike, playStrikeHit,
     whenFootageDone, updateTransit, animateIranianAttacks, alliedStrike,
-    setTargetClickHandler, setFastForward, syncSouthCue, focusSouth,
+    setTargetClickHandler, setFastForward, isFastForward, syncSouthCue, focusSouth,
     setCarrierPosture, setCarrierIngress, setAssetActive, raidOpen,
     csarOpen, setSurvivor };
 })();
