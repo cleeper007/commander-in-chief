@@ -3724,6 +3724,21 @@ const MapView = (() => {
       'video/airbase-hit-a.mp4',
       'video/airbase-hit-b.mp4',
     ],
+    // The belt is the MOST-STRUCK type in the game and was the last one with no
+    // footage of its own: air defense is the only thing on this board that
+    // returns from zero (`AD_RECONSTITUTION`), so its three sites are serviced
+    // again and again across a campaign, and every one of those packages played
+    // the generic inland aimpoint. Three clips of a site being worked over —
+    // a revetted complex of shelters and vehicles in berms that goes up whole on
+    // one weapon, a single erector held top-down inside its walled revetment,
+    // and a dispersed site on hardstand beside a road, taken from a wider field
+    // of view. Between them they say the three things the belt actually is: a
+    // fixed installation, one launcher, and a site that has spread out.
+    airdefense: [
+      'video/airdefense-hit-a.mp4',
+      'video/airdefense-hit-b.mp4',
+      'video/airdefense-hit-c.mp4',
+    ],
     naval: [
       'video/naval-hit-a.mp4',
       'video/naval-hit-b.mp4',
