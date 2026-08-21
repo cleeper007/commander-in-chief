@@ -2591,7 +2591,7 @@ const Game = (() => {
     cv.moving = cv.posture === 'forward' ? 'back' : 'forward';
     syncFleetCaps();
     MapView.setCarrierPosture(cv);
-    cable();
+    repositionCall();
     UI.renderAll(G);
     Save.write();
   }
@@ -2700,6 +2700,16 @@ const Game = (() => {
   // that says CENTCOM moved something, and it stays.
   let quietOrders = false;
   const cable = () => { if (!quietOrders) AudioSys.play('cable'); };
+
+  // ...and the one order that gets the floor's voice instead of the chirp. A
+  // deck changing station is the only thing on the force flow that MOVES on the
+  // map, so it is read back rather than beeped. It REPLACES the cable rather
+  // than stacking on it — the beep means "CENTCOM moved something", and the
+  // call says which thing and where it is going, so both is the same sentence
+  // twice with a beep in front of it. Same quietOrders gate for the same
+  // reason: autoTheater stands her forward inside start(), and a second voice
+  // under the opening sting reads as two openings rather than one.
+  const repositionCall = () => { if (!quietOrders) AudioSys.play('carrierReposition'); };
 
   // The two halves of the standing posture call, in the president's words.
   //

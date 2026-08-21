@@ -25,6 +25,7 @@ const AudioSys = (() => {
     strikeForce: 'strike-force-initiated.mp3',  // the night's packages step off
     hormuzClosure: 'hormuz-closure.mp3',        // the strait slams shut
     targetMarked: 'target-marked.mp3',          // a package is authorized onto a target
+    carrierReposition: 'carrier-reposition.mp3',// the deck ordered to a new station
     bdaReport: 'bda-report.mp3',                // the damage assessment lands on the table
     // The staff at the door of the folder, on the one level that has a folder:
     // played off READY FOR OPTIONS and nowhere else. Deliberately NOT in VOICE
@@ -115,6 +116,14 @@ const AudioSys = (() => {
     hormuzClosure: {
       who: 'DEPUTY DIRECTOR FOR OPERATIONS',
       says: 'Mr. President, Iran has moved to close the Strait of Hormuz.',
+    },
+    // Not addressed to the President either: the floor reading back an order
+    // that has just gone out to Fifth Fleet, which is the same act as the four
+    // rows above it and takes the same billet rather than an invented maritime
+    // watch. ~2.1 s.
+    carrierReposition: {
+      who: 'DEPUTY DIRECTOR FOR OPERATIONS',
+      says: 'Repositioning carrier strike group.',
     },
     // Not addressed to anybody: a controller keying a net to acknowledge that
     // the aimpoint is now on the tasking. One second of audio, which is why the
