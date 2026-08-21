@@ -4086,7 +4086,17 @@ const UI = (() => {
       `<p class="nuke-sit">A device was tested in the Dasht-e Lut on turn ${st.testedTurn}. ` +
       `It is being assembled, not yet mated to a launcher, and the assembly site is a place on a map. ` +
       `When this clock runs out the campaign ends — there is no version of this board that survives a ` +
-      `fielded Iranian weapon, and no conventional package that reaches the building in time.</p></div>`;
+      `fielded Iranian weapon, and no conventional package that reaches the building in time.<br><br>` +
+      `The duty aide has been asked into the room and the satchel is open on the table.</p></div>`;
+
+    // The letterhead. The three rows are not a menu this game invented — they
+    // are the Black Book, which is a real object: pre-formatted options carried
+    // in the satchel precisely so that nobody drafts a nuclear strike under a
+    // four-day clock. Saying so is what makes the middle rung read as a page
+    // somebody wrote in peacetime rather than as a thing the president thought
+    // of tonight, and it is why the trap rung is IN the book at all.
+    const book = `<div class="nuke-book"><span class="nuke-book-t">THE BLACK BOOK</span>` +
+      `<span class="nuke-book-s">PRE-FORMATTED OPTIONS — NOTHING HERE IS DRAFTED TONIGHT</span></div>`;
 
     const rows = opts.map(o => {
       // The trap rung is drawn as a different KIND of thing, not as a third
@@ -4125,7 +4135,7 @@ const UI = (() => {
         `</button></div>`;
     }).join('');
 
-    return head + `<div id="nuclear-buttons" class="nuke-rows">${rows}</div>`;
+    return head + book + `<div id="nuclear-buttons" class="nuke-rows">${rows}</div>`;
   }
 
   // ============================================================
@@ -4355,9 +4365,11 @@ const UI = (() => {
   // ambiguity in for the one order that has no other door out of it.
   function confirmTerminal() {
     const answer = window.prompt(
-      'STRATEGIC STRIKE — TEHRAN\n\n' +
+      'BLACK BOOK — MAJOR ATTACK OPTION — TEHRAN\n\n' +
       'This order kills roughly four million people and ends your presidency. It cannot be ' +
       'recalled, and there is no outcome after it in which any objective of this war is met.\n\n' +
+      'The aide is holding the biscuit open. The National Military Command Center will not move ' +
+      'without the authenticator off that card.\n\n' +
       'Type EXECUTE to authenticate the order, or cancel.');
     return (answer || '').trim().toUpperCase() === 'EXECUTE';
   }
@@ -4370,7 +4382,7 @@ const UI = (() => {
     if (!btn) return;
     const st = Game.nuclearState();
     btn.classList.toggle('hidden', !st.open);
-    if (st.open) btn.textContent = `RELEASE AUTHORITY — ${st.left} LEFT`;
+    if (st.open) btn.textContent = `THE FOOTBALL — ${st.left} LEFT`;
     btn.onclick = () => showNuclear(null);
   }
 

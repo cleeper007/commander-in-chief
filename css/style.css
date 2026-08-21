@@ -869,6 +869,17 @@ button { font-family: var(--mono); }
 
 .nuke-sit { margin: 0; font-size: 11px; line-height: 1.5; color: var(--text); }
 
+/* The Black Book's letterhead. A rule with a name on it rather than a heading,
+   because what it is dividing is the SITUATION from the OPTIONS — everything
+   above it is what happened, everything below it is a page somebody formatted
+   years ago against exactly this night. */
+.nuke-book {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  border-top: 1px solid var(--red-dark); padding-top: 8px; margin-bottom: 9px;
+}
+.nuke-book-t { font-size: 11px; letter-spacing: 0.12em; color: var(--red); font-weight: 700; }
+.nuke-book-s { font-size: 8px; letter-spacing: 0.08em; color: var(--dim); }
+
 /* One per line, not a three-column grid. The brief's rooms lay their orders out
    in columns because three courses of action are alternatives a president reads
    ACROSS; these are rungs of a ladder and are read DOWN, and putting them

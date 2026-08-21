@@ -1706,20 +1706,17 @@ const Game = (() => {
       sum: 'Iran has tested a device',
       outcome: 'miss',
       text: () =>
-        'At 0417 local the seismic array at Kabul registered a body-wave magnitude 4.6 event in the ' +
-        'Dasht-e Lut, shallow, with a signature that is not an earthquake. They did not bury it. A ' +
-        'reconnaissance aircraft on a standing track had the fireball and the column on film inside ' +
-        'four minutes, and a device shot above ground is a device somebody wants photographed. Iran ' +
-        'has tested a nuclear device, and the war that was fought to prevent exactly this did not ' +
-        'prevent it.\n\n' +
-        'A source inside the program confirmed the rest of it within the hour: the design works, and ' +
-        'there is a weapon. What the assessment says next is the only part of this that is still a ' +
-        'decision. A working device is not a fielded one — it is being assembled, and the assembly ' +
-        'building is a place on a map. The estimate is that they have on the order of ' +
-        Txt.plural(st, 'day') + ' of work before the weapon is mated to something that can carry it. ' +
-        'After that the board this war has been fought on stops existing.\n\n' +
-        'Release authority is unlocked. There are three options in the folder and the Chairman has ' +
-        'declined to recommend any of them.',
+        'At 0417 local the Kabul array registered a shallow body-wave magnitude 4.6 event in the '
+        + 'Dasht-e Lut, with a signature that is not an earthquake. They did not bury it, and a '
+        + 'reconnaissance aircraft on a standing track had the column on film inside four minutes — a '
+        + 'device shot above ground is a device somebody wants photographed. This war was fought to '
+        + 'prevent exactly this.\n\n'
+        + 'A source inside the program confirmed the rest within the hour: the design works. But a '
+        + 'working device is not a fielded one, and the assembly building is a place on a map. The '
+        + 'estimate is ' + Txt.plural(st, 'day') + ' of work before the weapon is mated to something '
+        + 'that can carry it.\n\n'
+        + 'Release authority is unlocked. Three options in the folder, and the Chairman has declined '
+        + 'to recommend any of them.',
     };
   }
 
