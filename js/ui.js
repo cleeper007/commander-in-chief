@@ -4308,6 +4308,430 @@ const UI = (() => {
     try { btn.focus(); } catch (e) { /* silent */ }
   }
 
+  // ============================================================
+  // NUCLEAR RELEASE — THE SHOT
+  // ------------------------------------------------------------
+  // Between the president pressing a row in the folder and the report saying
+  // what it cost, the order is executed on screen. It is the only footage in
+  // the game that plays for something the PLAYER did with a weapon nobody else
+  // in this war has, and it plays for all three rows — the demonstration over
+  // open water, the tactical shot on the weapons complex, and the one that ends
+  // the campaign — because a president who reaches into that satchel should not
+  // be able to tell from the screen which of the three they picked until the
+  // plot says where the weapon is going.
+  //
+  // NOTHING HERE DECIDES ANYTHING. Same contract as the test footage above:
+  // releaseNuclear() has already rolled, already charged the bill and already
+  // decided whether Tehran folds by the time this opens, so the button is a
+  // skip from the first frame and Escape is wired to it. What this owes the
+  // chain is `onDone`, exactly once — and a missing file, a refused autoplay, a
+  // throttled background tab and a muted game all have to arrive at it.
+  //
+  // THE VIEWER IS THE RADAR. Every other scope in this game is a 260px square
+  // in the corner of the chart with a card's worth of status lines under it.
+  // This one is the whole box, because a release is not one package among
+  // several and there is nothing to show it alongside. The build is the same
+  // one every strike card on the wall uses — a launch clip front-loaded over
+  // the scope, the run starting only once the clip is off, so the footage never
+  // eats into radar time (see overlayScopeClip and startFlight in map.js) —
+  // scaled up to own the frame edge to edge.
+  // ============================================================
+  const RELEASE_CLIP = 'video/nuke-launch.mp4';
+  const RELEASE_CLIP_MS = 16300;   // the clip is 16.3 s — see video/nuke-launch.mp4
+  const RELEASE_RUN_MS = 9000;     // the plot's own run, once the clip is off the glass
+  // What share of the bar the launch camera owns. The clip is most of the wall
+  // clock and a bar that crawled to 64% and then sprinted would read as broken.
+  const RELEASE_CLIP_SHARE = 0.55;
+
+  // Per-row furniture for the plot. The option's own `where` is prose written
+  // for the folder card and is far too long for a label on a scope, so each row
+  // gets a short aimpoint name and a grid line here. This is presentation and
+  // belongs with the display, not in NUCLEAR — data.js states what the option
+  // IS, and this states what the radar calls it.
+  const RELEASE_AIM = {
+    demo:     { name: 'OPEN WATER',      grid: 'SEA AREA — SOCOTRA GAP · NO AIMPOINT ASHORE' },
+    tactical: { name: 'WEAPONS COMPLEX', grid: 'DASHT-E LUT — ASSEMBLY SITE AND HALLS BENEATH' },
+    tehran:   { name: 'TEHRAN',          grid: '35°41′N 051°25′E — NATIONAL CAPITAL' },
+  };
+
+  // Boost is what the camera is showing, so the readout narrates the picture
+  // rather than duplicating it; the plot picks the flight up at separation.
+  const RELEASE_BOOST = [
+    [0.10, 'TUBE LAUNCH — MISSILE AWAY'],
+    [0.30, 'FIRST STAGE — BOOST'],
+    [0.62, 'SECOND STAGE'],
+    [1.01, 'THIRD STAGE — BURNOUT'],
+  ];
+  const RELEASE_PHASES = [
+    [0.12, 'POST-BOOST — BUS SEPARATION'],
+    [0.58, 'MIDCOURSE — EXOATMOSPHERIC'],
+    [0.87, 'RE-ENTRY'],
+    [0.99, 'TERMINAL'],
+    [1.01, 'DETONATION'],
+  ];
+  function phaseOf(table, p) {
+    for (const [at, name] of table) if (p < at) return name;
+    return table[table.length - 1][1];
+  }
+
+  // The plot's coordinate space. Wide rather than square — the frame is the
+  // launch clip's own 720x410 so the handover at the end of the clip reads as
+  // one screen changing what it shows rather than two boxes swapping places,
+  // and a 200x200 viewBox in a 1.76:1 box either letterboxes the polar plot or
+  // crops it. 360x206 IS that box, so the radar fills the viewer exactly.
+  const NS = { CX: 180, CY: 103, EDGE: 94, RINGS: [30, 56, 82], ENTRY: 216 };
+
+  const svgEl = (tag, attrs = {}) => {
+    const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  };
+
+  // Point the element at the clip without playing it. Called when the FOLDER
+  // opens rather than at boot, on the same argument the test footage is warmed
+  // from the alarm: most campaigns never reach breakout and none of them should
+  // pay 680KB for a satchel that is never opened. Reading the folder is the
+  // runway. Safe to call twice — a src the element already holds is not
+  // re-fetched, and setting the same value again does not restart the load.
+  function warmReleaseFootage() {
+    const v = $('nuke-strike-video');
+    if (!v || v.getAttribute('src') === RELEASE_CLIP) return;
+    v.setAttribute('src', RELEASE_CLIP);
+    try { v.load(); } catch (e) { /* silent */ }
+  }
+
+  // The static furniture, rebuilt per release: range rings, bearing ticks, the
+  // corner readouts and the aimpoint. Returns handles to the parts that move.
+  function buildReleaseScope(host, aim) {
+    host.innerHTML = '';
+    const svg = svgEl('svg', { class: 'ns-view', viewBox: '0 0 360 206' });
+    const { CX, CY } = NS;
+
+    const grid = svgEl('g', { class: 'ns-grid' });
+    for (const r of NS.RINGS) grid.appendChild(svgEl('circle', { cx: CX, cy: CY, r }));
+    for (let a = 0; a < 360; a += 30) {
+      const rad = a * Math.PI / 180;
+      const inner = a % 90 === 0 ? 86 : 90;
+      grid.appendChild(svgEl('line', {
+        x1: CX + Math.cos(rad) * inner, y1: CY + Math.sin(rad) * inner,
+        x2: CX + Math.cos(rad) * NS.EDGE, y2: CY + Math.sin(rad) * NS.EDGE,
+      }));
+    }
+    svg.appendChild(grid);
+
+    // The sweep, ours and therefore blue. Turned by the frame loop rather than
+    // by a CSS animation so it stops dead at detonation with everything else.
+    const sweep = svgEl('g', { class: 'ns-sweep-g' });
+    const span = 30 * Math.PI / 180, R = NS.RINGS[2];
+    const x1 = CX + Math.cos(-span) * R, y1 = CY + Math.sin(-span) * R;
+    sweep.appendChild(svgEl('path', {
+      class: 'ns-sweep',
+      d: `M${CX},${CY} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 0 1 ${CX + R},${CY} Z`,
+    }));
+    sweep.appendChild(svgEl('line', { class: 'ns-beam', x1: CX, y1: CY, x2: CX + R, y2: CY }));
+    svg.appendChild(sweep);
+
+    // THE AIMPOINT, amber and not red: red on this board is Iranian air defense
+    // and Iranian weapons, and the thing at the centre of this plot is where an
+    // American warhead is going.
+    const point = svgEl('g', { class: 'ns-aimpoint', transform: `translate(${CX},${CY})` });
+    point.appendChild(svgEl('circle', { r: 7 }));
+    for (const [x1b, y1b, x2b, y2b] of [[-12, 0, -8, 0], [8, 0, 12, 0], [0, -12, 0, -8], [0, 8, 0, 12]]) {
+      point.appendChild(svgEl('line', { x1: x1b, y1: y1b, x2: x2b, y2: y2b }));
+    }
+    svg.appendChild(point);
+    const label = svgEl('text', { class: 'ns-aim-label', x: CX, y: CY + 24 });
+    label.textContent = aim.name;
+    svg.appendChild(label);
+
+    // The track, drawn behind the weapon as it is flown.
+    const track = svgEl('path', { class: 'ns-track', d: '' });
+    svg.appendChild(track);
+
+    const rv = svgEl('g', { class: 'ns-rv-g', opacity: 0 });
+    rv.appendChild(svgEl('circle', { class: 'ns-rv-glow', r: 5 }));
+    rv.appendChild(svgEl('path', { class: 'ns-rv', d: 'M0,-3.4 L2.6,2.6 L0,1.4 L-2.6,2.6 Z' }));
+    svg.appendChild(rv);
+
+    // Corner readouts. Altitude and velocity are the two numbers that make a
+    // plot a ballistic one rather than an aircraft's, and the third is the only
+    // one the president is actually watching.
+    const mk = (x, y, anchor) => {
+      const t = svgEl('text', { class: 'ns-readout', x, y, 'text-anchor': anchor });
+      svg.appendChild(t);
+      return t;
+    };
+    // Both columns start below the frame's stamp. The stamp is CSS at a fixed
+    // 8.5px and these are SVG units that scale with the box, so on a phone the
+    // two converge: at the desktop width the readout clears AIRBORNE COLLECTION
+    // by 40px and at 390px it was printing through it. y=27 is what clears it at
+    // the smallest scale the frame is ever drawn at, and both columns take it
+    // rather than only the left one — two corner readouts on different baselines
+    // read as a misaligned display, which is worse than either of them being a
+    // few units lower than it needs to be.
+    const out = {
+      svg, sweep, track, rv,
+      glow: rv.querySelector('.ns-rv-glow'),
+      alt: mk(9, 27, 'start'),
+      vel: mk(9, 37, 'start'),
+      tti: mk(351, 27, 'end'),
+      wpn: mk(351, 37, 'end'),
+      fx: svgEl('g', { class: 'ns-fx' }),
+    };
+    svg.appendChild(out.fx);
+    host.appendChild(svg);
+    return out;
+  }
+
+  // The expanding rings at detonation. Same shape as the scope burst on a
+  // conventional impact, three deep and slower, because the picture it is
+  // standing in for is not the same size.
+  function releaseShock(root, delay) {
+    setTimeout(() => {
+      const c = svgEl('circle', { class: 'ns-shock', cx: NS.CX, cy: NS.CY, r: 1 });
+      root.appendChild(c);
+      const t0 = performance.now();
+      (function step(now) {
+        const p = Math.min(1, (now - t0) / 1100);
+        c.setAttribute('r', 1 + p * 150);
+        c.setAttribute('opacity', (0.85 * (1 - p)).toFixed(3));
+        if (p < 1) { requestAnimationFrame(step); return; }
+        c.remove();
+      })(performance.now());
+    }, delay);
+  }
+
+  // The set piece. `opt` is the row the president pressed — it is read for its
+  // id and its name only; every consequence of it was settled before this was
+  // called. `onDone` is the rest of the chain and fires exactly once.
+  function showNuclearStrike(opt, onDone) {
+    const modal = $('nuke-strike-modal');
+    const frame = $('nuke-strike-frame');
+    const scope = $('nuke-strike-scope');
+    const video = $('nuke-strike-video');
+    const btn = $('btn-nuke-strike-go');
+    const phaseEl = $('nuke-strike-phase');
+    const aimEl = $('nuke-strike-aim');
+    const fillEl = $('nuke-strike-fill');
+    const srcEl = $('nuke-strike-src');
+
+    const aim = RELEASE_AIM[opt.id] || { name: opt.name, grid: opt.where || '' };
+    frame.classList.remove('detonated', 'clip-live');
+    aimEl.textContent = aim.grid;
+    srcEl.textContent = 'LAUNCH CAMERA';
+    phaseEl.textContent = 'RELEASE AUTHENTICATED';
+    fillEl.style.width = '0%';
+    btn.textContent = 'SKIP ▸';
+
+    const view = buildReleaseScope(scope, aim);
+    view.wpn.textContent = opt.name;
+
+    // Where the weapon comes in from. Fixed rather than rolled: this display is
+    // shown once per campaign at most, so a random bearing buys nothing and
+    // costs the reproducibility of a set piece somebody is going to re-record.
+    const rad = NS.ENTRY * Math.PI / 180;
+    const SX = NS.CX + Math.cos(rad) * NS.EDGE, SY = NS.CY + Math.sin(rad) * NS.EDGE;
+
+    let over = false, settled = false, det = false;
+    const timers = [];
+    let raf = 0;
+
+    const setBar = (p) => { fillEl.style.width = Math.round(Math.min(1, p) * 100) + '%'; };
+
+    // Everything stops here, and it is deliberately separate from `go`: the
+    // detonation ends the FOOTAGE, and the player then presses a button to end
+    // the DIALOG. Settling a dialog that has already handed the chain on would
+    // take focus off whatever opened behind it.
+    const settle = () => {
+      if (settled || over) return;
+      settled = true;
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      btn.textContent = 'CONTINUE ▸';
+      try { btn.focus(); } catch (e) { /* silent */ }
+    };
+
+    const detonate = () => {
+      if (det || over) return;
+      det = true;
+      frame.classList.add('detonated');
+      phaseEl.textContent = 'DETONATION';
+      setBar(1);
+      releaseShock(view.fx, 0);
+      releaseShock(view.fx, 220);
+      releaseShock(view.fx, 460);
+      view.rv.setAttribute('opacity', 0);
+      // The sweep stops with everything else, and a 30° wedge frozen at
+      // whatever bearing it happened to be on reads as a stuck element rather
+      // than as a display that has finished. So it goes out with the weapon:
+      // there is nothing left on this plot to look for.
+      view.sweep.setAttribute('opacity', 0);
+      view.alt.textContent = 'ALT   000 KM';
+      view.vel.textContent = 'VEL   —';
+      view.tti.textContent = 'GROUND ZERO';
+      view.tti.classList.add('hot');
+      // A beat on the flash before the button changes under the president's
+      // hand: SKIP turning into CONTINUE at the same instant the screen goes
+      // white is the one moment in this dialog a mis-press actually costs
+      // something.
+      timers.push(setTimeout(settle, 1500));
+    };
+
+    // ---- the plot's own run, once the launch camera is off the glass ----
+    let runStarted = false, t0 = 0;
+    function startRun() {
+      if (runStarted || over) return;
+      runStarted = true;
+      t0 = performance.now();
+      const step = (now) => {
+        if (over) return;
+        const p = Math.min(1, (now - t0) / RELEASE_RUN_MS);
+        // eased in: a re-entry vehicle is not travelling at a constant rate,
+        // and a dot crossing the plot at a walk is the one thing this display
+        // must not look like
+        const e = Math.pow(p, 1.45);
+        const x = SX + (NS.CX - SX) * e, y = SY + (NS.CY - SY) * e;
+        view.track.setAttribute('d', `M${SX.toFixed(2)},${SY.toFixed(2)} L${x.toFixed(2)},${y.toFixed(2)}`);
+        view.rv.setAttribute('opacity', 1);
+        // The glyph is drawn pointing up, so the rotation that puts its nose on
+        // the run is the entry bearing less the quarter turn — NOT plus it,
+        // which is the same angle read backwards and flies the vehicle in tail
+        // first.
+        view.rv.setAttribute('transform',
+          `translate(${x.toFixed(2)},${y.toFixed(2)}) rotate(${(NS.ENTRY - 90).toFixed(1)})`);
+        view.glow.setAttribute('r', (5 - 3 * p).toFixed(2));
+        // the sweep keeps turning under it
+        const deg = ((now - t0) / 2600) * 360;
+        view.sweep.setAttribute('transform', `rotate(${deg.toFixed(1)} ${NS.CX} ${NS.CY})`);
+
+        phaseEl.textContent = phaseOf(RELEASE_PHASES, p);
+        setBar(RELEASE_CLIP_SHARE + p * (1 - RELEASE_CLIP_SHARE));
+        view.alt.textContent = 'ALT   ' + String(Math.round(1180 * (1 - e))).padStart(3, '0') + ' KM';
+        view.vel.textContent = 'VEL   ' + (6.1 + 17.4 * e).toFixed(1) + ' KM/S';
+        const left = Math.max(0, RELEASE_RUN_MS - (now - t0)) / 1000;
+        view.tti.textContent = 'IMPACT T−' + left.toFixed(1) + 'S';
+        view.tti.classList.toggle('hot', p > 0.87);
+
+        if (p < 1) { raf = requestAnimationFrame(step); return; }
+        raf = 0;
+        detonate();
+      };
+      raf = requestAnimationFrame(step);
+    }
+
+    // ---- the launch camera ----
+    // Front-loaded and gating the plot, exactly as a TLAM's launch clip gates
+    // its flight. Four independent things can end it — the clip, an error, the
+    // stall watchdog, and the skip — and every one of them has to reach the
+    // plot, or the president is left looking at a still frame of the sea.
+    const hasAudio = typeof AudioSys !== 'undefined';
+    const duckKey = 'release:' + Date.now();
+    let ducked = false;
+    const unduck = () => {
+      if (!ducked) return;
+      ducked = false;
+      if (hasAudio) AudioSys.duckRelease(duckKey);
+    };
+
+    let clipOver = false;
+    const clipDone = () => {
+      if (clipOver) return;
+      clipOver = true;
+      unduck();
+      // the fade is CSS; the plot starts under it, so the picture the fade
+      // reveals is a run already in progress rather than a parked dot
+      frame.classList.remove('clip-live');
+      // The stamp names what the glass is showing, and from here that is not a
+      // camera any more.
+      srcEl.textContent = 'NMCC — RELEASE PLOT';
+      try { video.pause(); } catch (e) { /* silent */ }
+      startRun();
+    };
+
+    warmReleaseFootage();
+    video.muted = hasAudio && AudioSys.isMuted();
+    if (hasAudio) { AudioSys.duckHold(duckKey); ducked = true; }
+    video.onended = clipDone;
+    video.onerror = clipDone;   // no footage: the plot carries the whole thing
+    // The rewind is its own try, apart from the play — an element that is not
+    // seekable yet throws here and is about to play perfectly well from zero.
+    try { video.currentTime = 0; } catch (e) { /* not seekable yet */ }
+    frame.classList.add('clip-live');
+    // A FAILURE THAT ALREADY HAPPENED FIRES NO EVENT. The element is warmed
+    // when the folder opens, several seconds before this runs, so a missing
+    // file or a codec the browser will not decode has already raised its
+    // `error` — and raised it at a moment when nothing was listening. Attaching
+    // onerror below that does not get it back: the event does not re-fire, and
+    // the set piece would sit on a black box for the full length of a clip that
+    // was never going to play, waiting on the stall watchdog. So the state is
+    // read directly, which is the only form of this question that is true
+    // whether the failure is behind us or ahead.
+    if (video.error) { clipDone(); }
+    else {
+      try {
+        const p = video.play();
+        if (p && p.catch) p.catch(() => {
+          // an audible autoplay was refused — take it muted rather than losing it
+          video.muted = true;
+          const q = video.play();
+          // ...and a muted play refused as well is a clip that is not going to
+          // run at all. Hand over to the plot now rather than on the watchdog.
+          if (q && q.catch) q.catch(() => clipDone());
+        });
+      } catch (e) { clipDone(); }
+    }
+
+    // The clip's own narration, and the bar under it. Parked on a clock rather
+    // than on timeupdate so a clip that never decoded still walks the readout
+    // through boost and hands over on the watchdog.
+    const clipT0 = performance.now();
+    const clipTick = () => {
+      if (over || clipOver) return;
+      const p = Math.min(1, (performance.now() - clipT0) / RELEASE_CLIP_MS);
+      phaseEl.textContent = phaseOf(RELEASE_BOOST, p);
+      setBar(p * RELEASE_CLIP_SHARE);
+      view.alt.textContent = 'ALT   ' + String(Math.round(1180 * Math.pow(p, 1.8))).padStart(3, '0') + ' KM';
+      view.vel.textContent = 'VEL   ' + (0.2 + 5.9 * p).toFixed(1) + ' KM/S';
+      view.tti.textContent = 'BOOST PHASE';
+      timers.push(setTimeout(clipTick, 120));
+    };
+    clipTick();
+
+    // `ended` does not fire in a hidden tab and a clip that never decoded fires
+    // nothing at all. Armed against the clip's real length once that is known,
+    // with slack, so a slow decode is not cut off mid-boost.
+    let stall = setTimeout(clipDone, RELEASE_CLIP_MS + 2500);
+    timers.push(stall);
+    video.onloadedmetadata = () => {
+      if (clipOver || !isFinite(video.duration)) return;
+      clearTimeout(stall);
+      stall = setTimeout(clipDone, video.duration * 1000 + 2500);
+      timers.push(stall);
+    };
+
+    // ---- the one door out ----
+    // Pressed once it is over, this hands the chain on. Pressed while the
+    // footage is running it is a skip, and a skip goes STRAIGHT to the report:
+    // a player who has said they do not want to watch this should not then be
+    // made to watch the last four seconds of it.
+    const go = () => {
+      if (over) return;
+      over = true;
+      if (raf) cancelAnimationFrame(raf);
+      for (const id of timers) clearTimeout(id);
+      video.onended = video.onerror = video.onloadedmetadata = null;
+      unduck();
+      try { video.pause(); } catch (e) { /* silent */ }
+      frame.classList.remove('clip-live', 'detonated');
+      modal.classList.add('hidden');
+      if (onDone) onDone();
+    };
+
+    btn.onclick = go;
+    modal.classList.remove('hidden');
+    try { btn.focus(); } catch (e) { /* silent */ }
+  }
+
   // `onClose` is the turn chain's `close` on the night of the test and absent
   // every time the president comes back through RELEASE AUTHORITY. It is held
   // by whichever of the two doors is pressed, and it is deliberately NOT fired
@@ -4318,6 +4742,10 @@ const UI = (() => {
     const body = $('nuclear-body');
     body.innerHTML = nuclearBody();
     body.scrollTop = 0;
+    // 680KB, warmed on the folder rather than at boot: most campaigns never get
+    // here, and reading three rows of a satchel is the runway the launch camera
+    // needs to have arrived by the time a row is pressed.
+    warmReleaseFootage();
 
     const shut = (run) => {
       modal.classList.add('hidden');
@@ -4336,19 +4764,27 @@ const UI = (() => {
         if (!out) return;
         modal.classList.add('hidden');
         syncNuclearButton();
+        // What the report is going to say, held behind the footage. The order
+        // is already given and already charged — see showNuclearStrike, which
+        // decides nothing and is a skip from the first frame — so the only
+        // thing the set piece owes this chain is to run it exactly once.
+        //
         // An order that ended the campaign goes straight to the endgame screen
         // and never runs the chain's `close`: there is no next turn to hand on
         // to, and nextTurn() behind an endgame screen is the bug that leaves a
         // finished war accepting orders.
-        if (out.result) {
-          if (out.events.length) {
-            showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => Game.finish(out.result), { prose: true });
-          } else {
-            Game.finish(out.result);
+        const report = () => {
+          if (out.result) {
+            if (out.events.length) {
+              showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => Game.finish(out.result), { prose: true });
+            } else {
+              Game.finish(out.result);
+            }
+            return;
           }
-          return;
-        }
-        showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => shut(true), { prose: true });
+          showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => shut(true), { prose: true });
+        };
+        showNuclearStrike(opt, report);
       };
     }
 
@@ -5258,7 +5694,12 @@ const UI = (() => {
     // harness that stubs UI. A noop on either stalls the test turn forever,
     // which is the exact bug the showNuclear note above already warns about —
     // there are now three places to get it wrong instead of one.
-    showNsaAlert, showNuclearTest,
+    // ...and now four. showNuclearStrike sits INSIDE showNuclear's own button
+    // handler rather than in the turn chain, so it holds the report and — on
+    // the countervalue row — the endgame screen behind it. Same seam rule: a
+    // harness that noops it never prints the release report and never ends a
+    // campaign that was ordered ended.
+    showNsaAlert, showNuclearTest, showNuclearStrike,
     // Exported for .claude/betatest/state.js and nothing else in the game calls
     // them from out here. Both are pure functions of G — no DOM, deliberately —
     // so the probe can hold a reference across stub(), which noops every UI

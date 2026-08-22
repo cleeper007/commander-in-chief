@@ -3693,6 +3693,25 @@ const MapView = (() => {
     'msl-shiraz': 'video/shiraz-hit.mp4',
     'naval-bandar': 'video/naval-bandar-hit.mp4',
     'tabriz-ab': 'video/tabriz-hit.mp4',
+    // THE PROGRAM THE WAR IS ABOUT, and until now every package that reached it
+    // played the generic inland aimpoint — the same four seconds of desert a
+    // TEL gets. These four are the primary objective; three of them are holes
+    // in the ground with halls under them, and the picture of a weapon reaching
+    // a buried hall is not a building coming down, it is the ground itself
+    // lifting and coming back. That is the one thing no other clip in this
+    // library says, and it is why the four share it rather than each waiting
+    // for footage of its own.
+    //
+    // BUSHEHR IS DELIBERATELY NOT HERE. It is type 'nuclear' and nothing else
+    // about it is: a live civil power plant on the Gulf coast with Russian
+    // technicians in it (see data.js, which is emphatic about the difference).
+    // A subsidence dome in a desert over the BDA line for a cracked reactor
+    // would have the picture contradicting the words printed under it, which is
+    // the whole argument KILL_CLIPS below is built on. It keeps the generic.
+    'natanz': 'video/nuclear-hit.mp4',
+    'fordow': 'video/nuclear-hit.mp4',
+    'nuc-covert': 'video/nuclear-hit.mp4',
+    'arak': 'video/nuclear-hit.mp4',
   };
   // The weapon can outrank the target: a torpedo hit is a column of water going
   // up under a hull, and no aimpoint footage says that.
