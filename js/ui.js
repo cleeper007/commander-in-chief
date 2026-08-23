@@ -4582,10 +4582,20 @@ const UI = (() => {
     function startRun() {
       if (runStarted || over) return;
       runStarted = true;
-      t0 = performance.now();
+      // THE CLOCK IS THE FRAME'S, NOT THIS INSTANT'S. A requestAnimationFrame
+      // callback is handed the timestamp of the frame it belongs to, and that
+      // can be EARLIER than a performance.now() read taken just before the
+      // frame was requested. Starting the run from the second clock therefore
+      // put `now - t0` slightly negative on the first frame — and a negative
+      // base under a fractional exponent is NaN, so Math.pow(p, 1.45) handed
+      // NaN straight into the track's `d` and the vehicle's transform. One
+      // frame of it, at the exact moment the launch camera hands over. Taking
+      // t0 off the first frame makes the two clocks the same clock; the clamp
+      // below is belt and braces for a timestamp that arrives out of order.
       const step = (now) => {
         if (over) return;
-        const p = Math.min(1, (now - t0) / RELEASE_RUN_MS);
+        if (!t0) t0 = now;
+        const p = Math.min(1, Math.max(0, (now - t0) / RELEASE_RUN_MS));
         // eased in: a re-entry vehicle is not travelling at a constant rate,
         // and a dot crossing the plot at a walk is the one thing this display
         // must not look like
