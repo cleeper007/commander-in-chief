@@ -2701,15 +2701,24 @@ const Game = (() => {
   let quietOrders = false;
   const cable = () => { if (!quietOrders) AudioSys.play('cable'); };
 
-  // ...and the one order that gets the floor's voice instead of the chirp. A
-  // deck changing station is the only thing on the force flow that MOVES on the
-  // map, so it is read back rather than beeped. It REPLACES the cable rather
-  // than stacking on it — the beep means "CENTCOM moved something", and the
-  // call says which thing and where it is going, so both is the same sentence
-  // twice with a beep in front of it. Same quietOrders gate for the same
-  // reason: autoTheater stands her forward inside start(), and a second voice
-  // under the opening sting reads as two openings rather than one.
-  const repositionCall = () => { if (!quietOrders) AudioSys.play('carrierReposition'); };
+  // ...and the one order that gets more than the chirp. A deck changing station
+  // is the only thing on the force flow that MOVES on the map, so it is
+  // announced the way the board announces a move: the sea alongside her as she
+  // comes about, then the floor reading the order back. It REPLACES the cable
+  // rather than stacking on it — the beep means "CENTCOM moved something", and
+  // these two beats say which thing and where it is going, so both is the same
+  // sentence twice with a beep in front of it.
+  //
+  // playThen rather than two play() calls and a timer: the wash fades out on
+  // its own, so the beat before the voice is the clip's own length and cannot
+  // drift out of step with the file the way a hardcoded delay would. Same
+  // quietOrders gate as cable() for the same reason — autoTheater stands her
+  // forward inside start(), and five seconds of sea under the opening sting
+  // reads as two openings rather than one.
+  const repositionCall = () => {
+    if (quietOrders) return;
+    AudioSys.playThen('shipUnderway', () => AudioSys.play('carrierReposition'));
+  };
 
   // The two halves of the standing posture call, in the president's words.
   //

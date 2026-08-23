@@ -25,7 +25,15 @@ const AudioSys = (() => {
     strikeForce: 'strike-force-initiated.mp3',  // the night's packages step off
     hormuzClosure: 'hormuz-closure.mp3',        // the strait slams shut
     targetMarked: 'target-marked.mp3',          // a package is authorized onto a target
-    carrierReposition: 'carrier-reposition.mp3',// the deck ordered to a new station
+    // The deck getting under way, in two beats: the sea alongside her, then the
+    // floor reading the order back. The wash is a NOISE — no VOICE row, nothing
+    // to caption — and it is one wave rather than a signal blast: in at -40 dB,
+    // up to -23 across the middle two seconds, and fading out on its own by the
+    // end. That shape is why the call is chained on `ended` rather than laid
+    // over the top — the voice lands in the clip's own decay, which is the only
+    // second of it quiet enough to talk through.
+    shipUnderway: 'ship-underway.mp3',           // ~5.0 s
+    carrierReposition: 'carrier-reposition.mp3', // the deck ordered to a new station
     bdaReport: 'bda-report.mp3',                // the damage assessment lands on the table
     // The staff at the door of the folder, on the one level that has a folder:
     // played off READY FOR OPTIONS and nowhere else. Deliberately NOT in VOICE
