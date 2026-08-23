@@ -63,6 +63,60 @@ body {
   padding: 1px 4px; opacity: 0.85;
 }
 
+/* ---- the corner ribbon ----
+   Diagonal across the top-right corner, mirroring the version badge at the
+   top-left. The geometry is the standard corner-ribbon one and the four numbers
+   are load-bearing together: the clip box is 170px square and the band is
+   centred on the corner bisector ~83px in from the corner, which leaves ~168px
+   of ribbon between the two edges it is cut by. "WEEKLY UPDATES" at 9.5px with
+   2px of tracking runs ~108px in the mono stack, so the ends sit about 16px
+   clear of the screen corner. The first cut sat at 66px in and MEASURED clean —
+   nothing was clipped — but at 3px of clearance the text read as though it had
+   been sliced, which is the number to keep an eye on: change the wording, the
+   size or the tracking and `top`/`right` move with it.
+
+   pointer-events: none because it is fixed over the whole corner and the title
+   card runs under it on a narrow window — a decorative 170px square must not
+   eat a tap meant for the box behind it. */
+.update-ribbon {
+  position: fixed;
+  top: 0; right: 0;
+  width: 170px; height: 170px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 101;
+}
+.update-ribbon span {
+  position: absolute;
+  top: 47px; right: -50px;
+  width: 220px;
+  transform: rotate(45deg);
+  display: block; text-align: center;
+  padding: 5px 0;
+  font-size: 9.5px; letter-spacing: 2px;
+  color: var(--amber);
+  background: rgba(122, 68, 12, 0.42);
+  border-top: 1px solid var(--amber);
+  border-bottom: 1px solid var(--amber);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+  animation: ribbon-pulse 2.6s ease-in-out infinite;
+}
+/* Breathing, not blinking. It sits beside the war's own red alerts, where a
+   hard on/off is a warning; this is an advertisement and has to read as the
+   quieter of the two. */
+@keyframes ribbon-pulse {
+  0%, 100% {
+    opacity: 0.72;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+    text-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 179, 71, 0.45);
+    text-shadow: 0 0 8px rgba(255, 179, 71, 0.6);
+  }
+}
+
 .title-box {
   max-width: 640px;
   padding: 40px;
@@ -3943,6 +3997,16 @@ body.mobile-ui .pkg-option { min-height: 46px; padding: 9px 11px; }
   /* the badge is over scrolling text now rather than over a dead background,
      so it stops being translucent */
   .version-badge { background: var(--bg); top: 8px; left: 8px; }
+  /* And the ribbon likewise, plus a size: at 170px the corner box covers most
+     of the top-right of a portrait phone and the title card scrolls under it.
+     Same geometry re-solved at 128px, with the type and the tracking cut to
+     hold the same ~10px of clearance at the ends. */
+  .update-ribbon { width: 128px; height: 128px; }
+  .update-ribbon span {
+    top: 38px; right: -42px; width: 180px;
+    font-size: 8.5px; letter-spacing: 1.2px; padding: 4px 0;
+    background: #3a2308;
+  }
 }
 
 /* The tallest portrait phones can spare the chart a little more; the shortest
@@ -3978,7 +4042,7 @@ body.mobile-ui .pkg-option { min-height: 46px; padding: 9px 11px; }
   .csar-survivors.csar-contact .csar-ring, .call-phone, .call-levels i,
   .call-modal.connected .lc-wave, .rotate-icon, .transit-dot,
   .nsa-dot, .nf-rec, .nf-levels i,
-  .vc-meter i {
+  .vc-meter i, .update-ribbon span {
     animation: none !important;
   }
   /* Same argument as the watch card below, one dialog over. A still red dot on
