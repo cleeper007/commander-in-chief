@@ -34,6 +34,11 @@ const AudioSys = (() => {
     // the swell still under it rather than after the sea has gone.
     shipUnderway: 'ship-underway.mp3',           // ~5.0 s
     carrierReposition: 'carrier-reposition.mp3', // the deck ordered to a new station
+    // ...and the one order that sends a deck the game does not yet have. Same
+    // two beats as the reposition above and for the same reason — surging the
+    // Ford is the other thing on the force flow that MOVES on the map — so it
+    // rides the same wash at the same offset. ~3.2 s.
+    fordOrdered: 'ford-ordered.mp3',             // the Ford surged for the Red Sea
     bdaReport: 'bda-report.mp3',                // the damage assessment lands on the table
     // The staff at the door of the folder, on the one level that has a folder:
     // played off READY FOR OPTIONS and nowhere else. Deliberately NOT in VOICE
@@ -132,6 +137,15 @@ const AudioSys = (() => {
     carrierReposition: {
       who: 'DEPUTY DIRECTOR FOR OPERATIONS',
       says: 'Repositioning carrier strike group.',
+    },
+    // The order out to the Ford, read back off the same watch floor. The
+    // caption is the transcript and not the tidy version of it: the clip says
+    // "Strike Group" without the "Carrier", and a card that quietly corrects
+    // the recording is a card that does not match what a player with the sound
+    // on just heard. ~3.2 s.
+    fordOrdered: {
+      who: 'DEPUTY DIRECTOR FOR OPERATIONS',
+      says: 'The Gerald R. Ford Strike Group has been ordered to the Red Sea.',
     },
     // Not addressed to anybody: a controller keying a net to acknowledge that
     // the aimpoint is now on the tasking. One second of audio, which is why the

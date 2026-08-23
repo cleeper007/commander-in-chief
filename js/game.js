@@ -2569,7 +2569,7 @@ const Game = (() => {
     G.secondCarrierEta = FORD_TRANSIT_TURNS;
     G.deployTurn = G.turn;
     syncCarrierMap();
-    cable();
+    underwayCall('fordOrdered');   // replaces the cable chirp, same as repositionCall
     UI.renderAll(G);
     Save.write();
   }
@@ -2728,12 +2728,20 @@ const Game = (() => {
   // reads as two openings rather than one. play() judges a delayed clip against
   // the room it lands in, so a call placed while the secure line is open is
   // dropped rather than talking over the Prime Minister.
+  //
+  // Two orders take this shape, which is why the wash is a parameterless
+  // helper and the voice is its argument: a deck changing station, and the
+  // Ford being surged out of the Mediterranean. They are the same act — an
+  // order to Fifth Fleet that moves a hull on the map — and reading one of
+  // them back over the sea and the other over the cable beep would say the
+  // two were different kinds of thing.
   const REPOSITION_READBACK_MS = 3500;
-  const repositionCall = () => {
+  const underwayCall = (clip) => {
     if (quietOrders) return;
     AudioSys.play('shipUnderway');
-    AudioSys.play('carrierReposition', REPOSITION_READBACK_MS);
+    AudioSys.play(clip, REPOSITION_READBACK_MS);
   };
+  const repositionCall = () => underwayCall('carrierReposition');
 
   // The two halves of the standing posture call, in the president's words.
   //
