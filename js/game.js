@@ -2704,20 +2704,35 @@ const Game = (() => {
   // ...and the one order that gets more than the chirp. A deck changing station
   // is the only thing on the force flow that MOVES on the map, so it is
   // announced the way the board announces a move: the sea alongside her as she
-  // comes about, then the floor reading the order back. It REPLACES the cable
-  // rather than stacking on it — the beep means "CENTCOM moved something", and
-  // these two beats say which thing and where it is going, so both is the same
-  // sentence twice with a beep in front of it.
+  // comes about, and the floor reading the order back over it. It REPLACES the
+  // cable rather than stacking on it — the beep means "CENTCOM moved
+  // something", and these two say which thing and where it is going, so both is
+  // the same sentence twice with a beep in front of it.
   //
-  // playThen rather than two play() calls and a timer: the wash fades out on
-  // its own, so the beat before the voice is the clip's own length and cannot
-  // drift out of step with the file the way a hardcoded delay would. Same
-  // quietOrders gate as cable() for the same reason — autoTheater stands her
-  // forward inside start(), and five seconds of sea under the opening sting
-  // reads as two openings rather than one.
+  // The read-back OVERLAPS the wash rather than waiting it out, and the offset
+  // is what makes this sound like a bridge instead of two files in a row.
+  // Measured, the wave is in at -40 dB, crests around -23 across its middle two
+  // seconds and is decaying from 3.0; chained on `ended` the voice landed at
+  // 5.1, which is a second of near-silence after the sea has gone and reads as
+  // a duty officer in a quiet room. At 3.5 it lands in the decay with the swell
+  // still under it.
+  //
+  // A literal rather than something derived off `duration`: what this number
+  // tracks is where THIS recording crests, and a fraction of the length would
+  // put the voice in the wrong place on any clip with a different envelope
+  // just as surely. Re-cut the wash and re-measure it — the second-by-second
+  // figures above are the whole argument for 3.5.
+  //
+  // Same quietOrders gate as cable() for the same reason: autoTheater stands
+  // her forward inside start(), and five seconds of sea under the opening sting
+  // reads as two openings rather than one. play() judges a delayed clip against
+  // the room it lands in, so a call placed while the secure line is open is
+  // dropped rather than talking over the Prime Minister.
+  const REPOSITION_READBACK_MS = 3500;
   const repositionCall = () => {
     if (quietOrders) return;
-    AudioSys.playThen('shipUnderway', () => AudioSys.play('carrierReposition'));
+    AudioSys.play('shipUnderway');
+    AudioSys.play('carrierReposition', REPOSITION_READBACK_MS);
   };
 
   // The two halves of the standing posture call, in the president's words.

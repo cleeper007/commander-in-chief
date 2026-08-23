@@ -29,9 +29,9 @@ const AudioSys = (() => {
     // floor reading the order back. The wash is a NOISE — no VOICE row, nothing
     // to caption — and it is one wave rather than a signal blast: in at -40 dB,
     // up to -23 across the middle two seconds, and fading out on its own by the
-    // end. That shape is why the call is chained on `ended` rather than laid
-    // over the top — the voice lands in the clip's own decay, which is the only
-    // second of it quiet enough to talk through.
+    // end. That shape is what the read-back's offset is measured against — see
+    // REPOSITION_READBACK_MS in game.js, which puts the voice in the decay with
+    // the swell still under it rather than after the sea has gone.
     shipUnderway: 'ship-underway.mp3',           // ~5.0 s
     carrierReposition: 'carrier-reposition.mp3', // the deck ordered to a new station
     bdaReport: 'bda-report.mp3',                // the damage assessment lands on the table
