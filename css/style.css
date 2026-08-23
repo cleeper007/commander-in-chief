@@ -1006,8 +1006,11 @@ button { font-family: var(--mono); }
 .nsa-line { margin: 0; font-size: 12px; line-height: 1.55; }
 
 /* ---- the footage ---- */
-/* Wide, because the clip is 720x350 and a 560px box would letterbox a set
-   piece. Matched to .modal.nuclear behind it so the two read as one room. */
+/* Wide, because these clips are 720 across and a 560px box would letterbox a
+   set piece. Matched to .modal.nuclear behind it so the two read as one room.
+   The two release beats are cut to ONE aspect (720x410) deliberately: the shell
+   re-dresses in place between them, and a launch and an impact of different
+   heights step the whole box up and down mid-set-piece. */
 .modal.nuke-feed { width: 760px; border-color: var(--red); }
 .modal.nuke-feed .modal-header { border-bottom-color: var(--red-dark); }
 .modal.nuke-feed .panel-title { color: var(--red); }
@@ -1041,6 +1044,11 @@ button { font-family: var(--mono); }
 }
 .nf-frame.no-visual .nf-video { display: none; }
 .nf-frame.no-visual .nf-novisual { display: block; }
+
+/* A feed with no voice over it — the nuclear release. The strip is not emptied,
+   it is taken off: an empty green SECURE LINE header with a dead meter under it
+   over silent footage reads as a call that failed to connect. */
+.nf-frame.no-call .nf-call { display: none; }
 
 .nf-stamp {
   position: absolute; top: 9px; left: 11px;

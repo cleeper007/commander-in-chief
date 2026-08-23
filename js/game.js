@@ -1624,6 +1624,9 @@ const Game = (() => {
       id: o.id, name: o.name, where: o.where, ends: !!o.ends,
       coerce: o.coerce, defuses: !!o.defuses, iranDead: o.iranDead,
       approval: o.approval, erode: o.erode, world: o.world,
+      // Identity, carried through untouched so the dialog can film the order it
+      // just gave — see the NUCLEAR feed note in data.js. Nothing below reads it.
+      feed: o.feed || null,
       spent: G.nuclear.used.indexOf(o.id) >= 0,
     }));
   }
@@ -1729,11 +1732,11 @@ const Game = (() => {
     const folded = r.folded;
     const bodies = {
       demo: () =>
-        'A single weapon was delivered by a B-2 out of Diego Garcia and detonated at altitude over ' +
-        'open water southeast of Socotra, six hundred miles from the nearest inhabited coast. The ' +
-        'flash was visible from three continents. Nobody was killed, which is the entire point and ' +
-        'is also the argument every critic of the decision will make against it for the rest of your ' +
-        'life.\n\n' +
+        'A single weapon was put up off a boat on patrol in the North Arabian Sea and detonated at ' +
+        'altitude over open water southeast of Socotra, six hundred miles from the nearest inhabited ' +
+        'coast. The flash was visible from three continents. Nobody was killed, which is the entire ' +
+        'point and is also the argument every critic of the decision will make against it for the ' +
+        'rest of your life.\n\n' +
         (folded
           ? 'Tehran understood the sentence. Within nine hours the Swiss channel carried an offer of ' +
             'immediate and unconditional terms — the device surrendered, the program opened, the war ' +
@@ -1744,10 +1747,11 @@ const Game = (() => {
             'desperation by a government that had run out of conventional options, which is not a ' +
             'wholly unfair reading of it. The assembly clock is still running.'),
       tactical: () =>
-        'One B61-11 earth-penetrator, delivered by a single aircraft, on the assembly site and the ' +
-        'halls beneath it. The device Iran spent thirty years building was destroyed roughly four ' +
-        'hours before it would have been mated to a transporter erector launcher, along with what ' +
-        'remained of the enrichment program underneath it and something on the order of ' +
+        'One low-yield penetrating warhead, off a boat on patrol in the North Arabian Sea, on the ' +
+        'assembly site and the halls beneath it. The device Iran spent thirty years building was ' +
+        'destroyed roughly four hours before it would have been mated to a transporter erector ' +
+        'launcher, along with what remained of the enrichment program underneath it and something ' +
+        'on the order of ' +
         o.iranDead.toLocaleString() + ' ' + Txt.pluralize(o.iranDead, 'Iranian') + '.\n\n' +
         'The military problem this war existed to solve is solved. There is no device, there is no ' +
         'program, and there is no timeline. ' +

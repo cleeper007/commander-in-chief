@@ -4206,65 +4206,114 @@ const UI = (() => {
     'confirmed it: they have a functional nuclear weapon. This isn\u2019t a projection anymore. ' +
     'It\u2019s real.';
 
-  // Point the element at the clip without playing it. Safe to call twice — the
-  // browser will not re-fetch a src it already holds, and setting the same
+  // Point the shared element at a clip without playing it. Safe to call twice —
+  // the browser will not re-fetch a src it already holds, and setting the same
   // value again does not restart the load.
-  function warmTestFootage() {
-    const v = $('nuke-test-video');
-    if (!v || v.getAttribute('src') === TEST_CLIP) return;
-    v.setAttribute('src', TEST_CLIP);
+  function setFeedClip(v, src) {
+    if (!v || v.getAttribute('src') === src) return;
+    v.setAttribute('src', src);
     try { v.load(); } catch (e) { /* silent */ }
   }
 
-  // The footage, with Reyes across the bottom of it.
+  function warmTestFootage() { setFeedClip($('nuke-feed-video'), TEST_CLIP); }
+
+  // Warming a clip that is NOT going in the shared element yet. The release
+  // folder holds two of them and there is one <video> between them, so the
+  // second beat cannot be parked in the markup the way the test's is — this
+  // primes the HTTP cache off a detached element instead and the real one picks
+  // the file up out of it. `hold` keeps the element alive: a detached video
+  // collected mid-fetch takes the fetch with it, which is a warm that warms
+  // nothing and is invisible until a slow connection stalls on the impact.
+  const warmed = new Set();
+  const warmHold = [];
+  function warmFootage(src) {
+    if (!src || warmed.has(src)) return;
+    warmed.add(src);
+    const v = document.createElement('video');
+    v.preload = 'auto';
+    v.muted = true;
+    v.src = src;
+    warmHold.push(v);
+    try { v.load(); } catch (e) { /* silent */ }
+  }
+
+  // ============================================================
+  // THE FEED — ONE SHELL, RE-DRESSED
+  // ------------------------------------------------------------
+  // Footage in a box with a stamp on it, and optionally a voice across the
+  // bottom. Two set pieces use it: the collection that opens the breakout
+  // window (Reyes talking over Dasht-e Lut) and the release the president gives
+  // in answer to it (silent, one or two beats). It is ONE function on the same
+  // grounds BRIEF_STAGES is one shell — the title, the stamp, the clip, the
+  // watchdog and the button's next-room label all come off the descriptor, so a
+  // third set piece is a spec and never a second copy of this latch.
   //
   // THE TRANSCRIPT IS ON THE GLASS, not only in the speaker, and it is up from
   // the first frame rather than revealed line by line. That is the same rule
   // the watch-floor card is written to — with sound off, or for a player who
   // cannot hear it at all, the caption is the only place the content exists —
   // and a caption that arrives in pieces is a caption that a player reading
-  // rather than listening is being made to wait for.
+  // rather than listening is being made to wait for. A feed with no `says` puts
+  // the whole frame in `no-call` rather than leaving an empty green header over
+  // the picture.
   //
-  // NOTHING HERE DECIDES ANYTHING. The clip, the call and the button are
-  // theatre over a bill that was already charged in resolve; skipping costs the
-  // player nothing, which is why Escape is wired to the skip. The one thing it
-  // must not do is fail to hand the chain on: a missing file, a refused
-  // autoplay, a throttled background tab and a muted game all have to arrive at
-  // the same `onDone`, so the end of the set piece is a latch fed by four
-  // independent sources and the button works from the first frame.
-  const TEST_RUN_MS = 16500;   // the clip is 16.0 s — see video/nuclear-test.mp4
+  // NOTHING HERE DECIDES ANYTHING. The clip and the button are theatre over a
+  // bill that was already charged — in resolve for the test, in releaseNuclear
+  // for the release — so skipping costs the player nothing, which is why Escape
+  // is wired to the skip. The one thing it must not do is fail to hand the
+  // chain on: a missing file, a refused autoplay, a throttled background tab and
+  // a muted game all have to arrive at the same `onDone`, so the end of a beat
+  // is a latch fed by four independent sources and the button works from the
+  // first frame.
+  //
+  // IT DOES NOT CLOSE THE BOX. `onDone(ended)` hands back whether the clip ran
+  // out or was skipped and the caller decides — a two-beat release re-dresses
+  // this shell in place rather than shutting it and opening it again, which
+  // flashes the map between the launch and the impact.
+  function runFeed(spec, onDone) {
+    const modal = $('nuke-feed-modal');
+    const frame = $('nuke-feed-frame');
+    const btn = $('btn-nuke-feed-go');
+    const video = $('nuke-feed-video');
 
-  function showNuclearTest(onDone) {
-    const modal = $('nuclear-test-modal');
-    const frame = $('nuke-test-frame');
-    const btn = $('btn-nuke-test-go');
-    const video = $('nuke-test-video');
+    $('nuke-feed-title').textContent = spec.title;
+    $('nuke-feed-stamp').textContent = spec.stamp;
+    $('nuke-feed-says').textContent = spec.says || '';
+    frame.classList.remove('ended', 'no-visual', 'connected');
+    frame.classList.toggle('no-call', !spec.says);
+    if (spec.says) frame.classList.add('connected');
+    btn.textContent = 'SKIP ▸';
 
-    $('nuke-test-says').textContent = NSA_SAYS;
-    frame.classList.remove('ended', 'no-visual');
-    frame.classList.add('connected');
-    btn.textContent = 'SKIP \u25B8';
-
-    warmTestFootage();
-    AudioSys.lineOpen(['nsaCall']);
+    setFeedClip(video, spec.clip);
+    // Only a feed that HAS a voice touches the line. A silent one is bracketed
+    // by its caller across the whole set piece — lineOpen no-ops while a hold is
+    // already standing, so a beat that opened one here would drop somebody
+    // else's on the way out.
+    if (spec.voice) AudioSys.lineOpen([spec.voice]);
 
     let ended = false, over = false;
     const timers = [];
 
-    // The set piece is finished: the meter stops, the frame goes cold, and the
-    // button stops offering to skip something that is no longer running.
+    // The beat is finished: the meter stops, the frame goes cold, and the button
+    // stops offering to skip something that is no longer running.
     //
     // `over` is checked as well as `ended` because this runs off four
     // independent sources and one of them is a timer the skip cannot unhook in
-    // time on every engine. Settling a dialog that has already handed the chain
-    // on would take FOCUS off whatever opened behind it — the button it focuses
-    // is by then a hidden control in a closed box.
+    // time on every engine. Settling a beat that has already handed the chain on
+    // would take FOCUS off whatever opened behind it — the button it focuses is
+    // by then a hidden control in a closed box.
     const settle = () => {
       if (ended || over) return;
       ended = true;
+      // A beat with another behind it RUNS ON into it. A launch and the impact
+      // it is the first half of are one piece of film, and a button between
+      // them is a cut — worse, it is a button the president has to press to be
+      // shown the thing they just ordered. Only the last beat stops, and the
+      // skip is live over all of them either way.
+      if (spec.auto) { go(); return; }
       frame.classList.remove('connected');
       frame.classList.add('ended');
-      btn.textContent = 'RELEASE AUTHORITY \u25B8';
+      btn.textContent = spec.next;
       try { btn.focus(); } catch (e) { /* silent */ }
     };
 
@@ -4272,19 +4321,20 @@ const UI = (() => {
       if (over) return;
       over = true;
       for (const id of timers) clearTimeout(id);
-      // Safe on a clip that already finished, and on one that never started.
-      // A skip is the player saying they have heard this one.
-      AudioSys.cut('nsaCall');
-      AudioSys.lineClose();
+      if (spec.voice) {
+        // Safe on a clip that already finished, and on one that never started.
+        // A skip is the player saying they have heard this one.
+        AudioSys.cut(spec.voice);
+        AudioSys.lineClose();
+      }
       try { video.pause(); } catch (e) { /* silent */ }
-      modal.classList.add('hidden');
-      if (onDone) onDone();
+      if (onDone) onDone(ended);
     };
 
-    // Reyes gates nothing — playThen falls straight through when the clip
+    // The voice gates nothing — playThen falls straight through when the clip
     // cannot play, so a muted game reaches `settle` on the watchdog below and
     // never waits on a voice nobody is going to hear.
-    AudioSys.playThen('nsaCall', () => { /* the voice is done; the clip may not be */ });
+    if (spec.voice) AudioSys.playThen(spec.voice, () => { /* the voice is done; the clip may not be */ });
 
     video.onended = () => settle();
     video.onerror = () => { frame.classList.add('no-visual'); settle(); };
@@ -4293,19 +4343,97 @@ const UI = (() => {
     // which is where it already is. Folded into the play's catch it put NO
     // VISUAL over a picture that then ran underneath it.
     try { video.currentTime = 0; } catch (e) { /* not seekable yet; it starts at 0 anyway */ }
-    try {
-      const p = video.play();
-      if (p && p.catch) p.catch(() => { /* autoplay refused — the watchdog still lands */ });
-    } catch (e) { frame.classList.add('no-visual'); }
+    const tryPlay = () => {
+      try {
+        const p = video.play();
+        if (p && p.catch) p.catch(() => { /* refused or aborted — canplay is the second chance */ });
+      } catch (e) { frame.classList.add('no-visual'); }
+    };
+    // THE SECOND CHANCE, and it is not about autoplay policy. Setting a src runs
+    // load(), and a play() issued in the same statement is ABORTED by it — which
+    // the test set piece never hit because showNsaAlert points the element at its
+    // clip a whole dialog earlier, and which a release beat hits every time it is
+    // the first thing to touch the element. The rejection is silent, the element
+    // sits at frame zero, and the only symptom is a still picture under a
+    // watchdog. Idempotent: play() on something already playing does nothing, and
+    // `over` keeps it from restarting a beat the president has skipped past.
+    video.oncanplay = () => { if (!over && video.paused) tryPlay(); };
+    tryPlay();
 
     // The fourth source. `ended` does not fire in a hidden tab, and a clip that
     // never decoded fires nothing at all; without this the button would sit on
     // SKIP over a black box forever.
-    timers.push(setTimeout(settle, TEST_RUN_MS));
+    timers.push(setTimeout(settle, spec.ms));
 
     btn.onclick = go;
     modal.classList.remove('hidden');
     try { btn.focus(); } catch (e) { /* silent */ }
+  }
+
+  function hideFeed() {
+    const modal = $('nuke-feed-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  const TEST_RUN_MS = 16500;   // the clip is 16.0 s — see video/nuclear-test.mp4
+
+  // The collection, with Reyes across the bottom of it. The title and the stamp
+  // live here rather than in the markup because the shell is shared now and the
+  // markup's copies are only what the box says before anybody dresses it.
+  function showNuclearTest(onDone) {
+    warmTestFootage();
+    runFeed({
+      title: 'NATIONAL TECHNICAL MEANS — DASHT-E LUT',
+      stamp: 'AIRBORNE COLLECTION',
+      clip: TEST_CLIP, ms: TEST_RUN_MS,
+      says: NSA_SAYS, voice: 'nsaCall',
+      next: 'RELEASE AUTHORITY ▸',
+    }, () => { hideFeed(); if (onDone) onDone(); });
+  }
+
+  // ============================================================
+  // THE RELEASE, FILMED
+  // ------------------------------------------------------------
+  // What the president is shown after an order that has already been charged.
+  // The clips come off the option (see the NUCLEAR feed note in data.js) and
+  // this walks them; an option with no feed hands straight on, which is what
+  // makes the whole set piece deletable from data.js alone.
+  //
+  // THE LINE IS HELD ACROSS THE SET PIECE AND NOT PER BEAT. There is no voice
+  // over any of this, so the hold is doing the other thing lineOpen does: it
+  // takes the score and the mission bed to silence rather than ducking them,
+  // which is the treatment a nuclear detonation gets and the campaign music
+  // running under one would be the single worst sound in the game. Bracketed
+  // out here so the gap between the launch and the impact is not a gap in it.
+  //
+  // A SKIP SKIPS THE SET PIECE, not the beat. The alternative is a president who
+  // has seen this before pressing the same button twice to get past two clips,
+  // which is what the skip exists to spare them.
+  function showNuclearRelease(opt, onDone) {
+    const feed = opt && opt.feed;
+    const clips = feed && feed.clips ? feed.clips : [];
+    if (!clips.length) { if (onDone) onDone(); return; }
+
+    AudioSys.lineOpen();
+    const done = () => {
+      AudioSys.lineClose();
+      hideFeed();
+      if (onDone) onDone();
+    };
+
+    let i = 0;
+    const step = () => {
+      const c = clips[i++];
+      const last = i >= clips.length;
+      runFeed({
+        title: feed.title, stamp: c.stamp, clip: c.clip, ms: c.ms,
+        auto: !last, next: last ? feed.end : 'TERMINAL ▸',
+      }, (ended) => {
+        if (ended && !last) { step(); return; }
+        done();
+      });
+    };
+    step();
   }
 
   // `onClose` is the turn chain's `close` on the night of the test and absent
@@ -4325,6 +4453,21 @@ const UI = (() => {
       if (run && onClose) onClose();
     };
 
+    // The folder being open is the runway for the footage behind it, exactly as
+    // the alarm is for the test's. It is ~770KB across two clips that most
+    // campaigns never reach, so none of it is in the markup and none of it is
+    // fetched at boot; a president reading three cards is the moment it costs
+    // nothing. Deduped inside warmFootage — the launch is on all three rows.
+    for (const o of Game.releaseOptions()) {
+      if (o.feed) for (const c of o.feed.clips) warmFootage(c.clip);
+    }
+    // The FIRST beat goes into the shared element itself and not a detached one,
+    // so that by the time a card is pressed the src is already set and the play
+    // is not racing its own load(). Exactly what warmTestFootage does, and the
+    // reason the test set piece has never had that race.
+    const lead = Game.releaseOptions().find(o => o.feed);
+    if (lead) setFeedClip($('nuke-feed-video'), lead.feed.clips[0].clip);
+
     for (const btn of modal.querySelectorAll('.nuke-do')) {
       btn.onclick = () => {
         const id = btn.getAttribute('data-nuke');
@@ -4340,15 +4483,22 @@ const UI = (() => {
         // and never runs the chain's `close`: there is no next turn to hand on
         // to, and nextTurn() behind an endgame screen is the bug that leaves a
         // finished war accepting orders.
-        if (out.result) {
-          if (out.events.length) {
-            showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => Game.finish(out.result), { prose: true });
-          } else {
-            Game.finish(out.result);
+        //
+        // The footage goes in FRONT of both doors and holds them, on the same
+        // grounds the test's does: the bill is already spent, and the report is
+        // the accounting for a thing the president has not been shown yet.
+        const after = () => {
+          if (out.result) {
+            if (out.events.length) {
+              showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => Game.finish(out.result), { prose: true });
+            } else {
+              Game.finish(out.result);
+            }
+            return;
           }
-          return;
-        }
-        showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => shut(true), { prose: true });
+          showReport('NUCLEAR RELEASE — EXECUTED', out.events, () => shut(true), { prose: true });
+        };
+        showNuclearRelease(opt, after);
       };
     }
 
@@ -5251,7 +5401,7 @@ const UI = (() => {
     // nuclearBody is exported for .claude/betatest/nuclear.js on the same
     // grounds as intelParts and coaRows — it is a pure read of G, so the probe
     // can hold it across stub() and measure what the room actually says.
-    showNuclear, syncNuclearButton, nuclearBody,
+    showNuclear, syncNuclearButton, nuclearBody, showNuclearRelease,
     // ...and the two dialogs in front of it, on the same terms and for the same
     // reason: showNsaAlert holds the whole rest of the chain and showNuclearTest
     // holds the assessment and the folder behind it, so both are SEAMS in any

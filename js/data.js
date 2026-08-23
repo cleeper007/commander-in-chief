@@ -2321,6 +2321,46 @@ const BREAKOUT = {
 // again about this. Those two together are what "extremely costly" has to mean
 // now that approval has a shape — a nuclear release is the only decision in the
 // game that lowers the president's own floor, and the floor is the whole model.
+// THE RELEASE IS FILMED, AND THE FOOTAGE IS IDENTITY (v2.31)
+// ------------------------------------------------------------
+// The test the president is TOLD about has had a set piece since v2.23 — alert,
+// collection, assessment, folder — and the order the president GIVES had none.
+// So the most consequential decision in the game resolved into a paragraph, and
+// the only nuclear detonation anybody actually watched was Iran's.
+//
+// `feed` is what is shown after an order that has already been charged, on the
+// same terms MARITIME_WEAPONS is written on: it is IDENTITY, never tuning.
+// Nothing in releaseNuclear, buildResult or the grade reads it, and an option
+// without one simply goes straight to its report — which is what `tehran` did
+// before this block existed and would do again if these three keys were deleted.
+//
+// THE CLIP HAS TO BE TRUE OF THE ORDER, which is the whole reason the delivery
+// moved off the bomber. Both surviving rungs used to be flown by a B-2 out of
+// Diego Garcia, and a launch that a president can watch is a missile leaving the
+// water — put those two together and the film contradicts the report underneath
+// it by one screen. The boat is also the better fiction on this board: a bomber
+// has to survive a SAM belt this game models in detail and an atoll this game
+// makes the player send for, so a B-2 answer to a four-turn window quietly
+// depended on a force-flow decision taken twelve turns earlier. A hull already
+// on patrol depends on nothing.
+//
+// Only the tactical strike gets two beats. The demonstration is an airburst over
+// open water six hundred miles from anywhere and there is no ground to film; the
+// countervalue strike ends the campaign on the press and what follows it is the
+// endgame screen. That asymmetry is the ladder said in the medium — the middle
+// rung is the one the war has a picture of.
+const NUKE_LAUNCH = {
+  clip: 'video/slbm-launch.mp4',
+  // The clip is 10.0 s. This is the watchdog, not the schedule — see runFeed.
+  ms: 10500,
+  stamp: 'CHASE AIRCRAFT — LAUNCH AREA',
+};
+const NUKE_IMPACT = {
+  clip: 'video/nuclear-strike.mp4',
+  ms: 16700,   // the clip is 16.2 s
+  stamp: 'AIRBORNE COLLECTION — TERMINAL',
+};
+
 const NUCLEAR = {
   // Turns from the test to the ending firing. Four is two days of war, which is
   // long enough to be a decision and short enough that it is never a phase of
@@ -2348,17 +2388,27 @@ const NUCLEAR = {
       // being capped is the fact of an American nuclear detonation, and that
       // fact is the same size whatever it did or did not achieve.
       gradeCap: 64,
+      feed: {
+        title: 'NUCLEAR RELEASE — DEMONSTRATION SHOT',
+        clips: [NUKE_LAUNCH],
+        end: 'ASSESSMENT ▸',
+      },
     },
     {
       id: 'tactical',
       name: 'TACTICAL STRIKE — WEAPONS COMPLEX',
-      where: 'a single B61-11 on the assembly site and the halls beneath it',
+      where: 'a single low-yield penetrating warhead on the assembly site and the halls beneath it',
       coerce: 0.70,
       defuses: true,
       approval: -34, erode: 9, world: -38, iranDead: 9000,
       // A D+. The war's object was achieved and the means will define the
       // presidency, every biography of it, and the sixty years after it.
       gradeCap: 49,
+      feed: {
+        title: 'NUCLEAR RELEASE — WEAPONS COMPLEX',
+        clips: [NUKE_LAUNCH, NUKE_IMPACT],
+        end: 'DAMAGE ASSESSMENT ▸',
+      },
     },
     {
       id: 'tehran',
@@ -2371,6 +2421,13 @@ const NUCLEAR = {
       // control in this game that asks for one.
       ends: true,
       iranDead: 4200000,
+      // One beat and then the endgame screen. There is no report to hand on to
+      // and nothing after it to film — which is the order, stated.
+      feed: {
+        title: 'NUCLEAR RELEASE — TEHRAN',
+        clips: [NUKE_LAUNCH],
+        end: 'CONTINUE ▸',
+      },
     },
   ],
 };
