@@ -64,55 +64,60 @@ body {
 }
 
 /* ---- the corner ribbon ----
-   Diagonal across the top-right corner, mirroring the version badge at the
-   top-left. The geometry is the standard corner-ribbon one and the four numbers
-   are load-bearing together: the clip box is 170px square and the band is
-   centred on the corner bisector ~83px in from the corner, which leaves ~168px
-   of ribbon between the two edges it is cut by. "WEEKLY UPDATES" at 9.5px with
-   2px of tracking runs ~108px in the mono stack, so the ends sit about 16px
-   clear of the screen corner. The first cut sat at 66px in and MEASURED clean —
-   nothing was clipped — but at 3px of clearance the text read as though it had
-   been sliced, which is the number to keep an eye on: change the wording, the
-   size or the tracking and `top`/`right` move with it.
+   A diagonal bar in the top-right, the version badge's opposite number. It is
+   FREE-STANDING rather than the usual corner ribbon: the first version was cut
+   off by the screen edges at both ends, and it should read as a bar pinned onto
+   the card, not as tape across the corner. So there is no clip box — the bar is
+   whole, both ends are finished, and it stands clear of the two edges.
 
-   pointer-events: none because it is fixed over the whole corner and the title
-   card runs under it on a narrow window — a decorative 170px square must not
-   eat a tap meant for the box behind it. */
+   The three numbers are solved together and have to move together. A bar of
+   length L and thickness h turned 45 degrees occupies a square bounding box of
+   (L + h) / root 2, and `top`/`right` place the bar BEFORE it is turned, so they
+   are offsets to that box rather than to anything visible. At L 148 and h 30
+   the box is ~126px and the offsets below leave ~12px of air at the top edge and
+   ~12px at the right. Change the wording, the type size or the padding and both
+   offsets have to be re-solved, or the bar drifts into a corner it is supposed
+   to be clear of. Measured in the browser, not derived — the mono stack's real
+   advance width is what sets L.
+
+   pointer-events: none because the title card scrolls under this corner on a
+   narrow window, and a decorative bar must not eat a tap meant for the box
+   behind it. */
 .update-ribbon {
   position: fixed;
-  top: 0; right: 0;
-  width: 170px; height: 170px;
-  overflow: hidden;
+  top: 60px; right: 1px;
+  width: 148px;
+  transform: rotate(45deg);
+  padding: 8px 0;
+  text-align: center;
   pointer-events: none;
   z-index: 101;
+  color: var(--amber);
+  background: rgba(122, 68, 12, 0.55);
+  border: 1px solid var(--amber);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
+  animation: ribbon-pulse 0.9s ease-in-out infinite;
 }
 .update-ribbon span {
-  position: absolute;
-  top: 47px; right: -50px;
-  width: 220px;
-  transform: rotate(45deg);
-  display: block; text-align: center;
-  padding: 5px 0;
-  font-size: 9.5px; letter-spacing: 2px;
-  color: var(--amber);
-  background: rgba(122, 68, 12, 0.42);
-  border-top: 1px solid var(--amber);
-  border-bottom: 1px solid var(--amber);
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
-  animation: ribbon-pulse 2.6s ease-in-out infinite;
+  display: block;
+  font-size: 10px; letter-spacing: 2px;
 }
-/* Breathing, not blinking. It sits beside the war's own red alerts, where a
-   hard on/off is a warning; this is an advertisement and has to read as the
-   quieter of the two. */
+/* Flashing, not breathing. The first cut deliberately kept this quieter than
+   the war's own red alerts — a slow 2.6s swell between 0.72 and 1 — on the
+   argument that an advertisement should not shout as loudly as a warning. That
+   was overruled: this is the one thing on the title card that is trying to be
+   noticed, it is amber rather than red so it cannot be mistaken for an alert,
+   and at that rate and that depth it read as a gradient rather than as
+   movement. Faster and deeper, and the trough is what does the work. */
 @keyframes ribbon-pulse {
   0%, 100% {
-    opacity: 0.72;
+    opacity: 0.38;
     box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
     text-shadow: none;
   }
   50% {
     opacity: 1;
-    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 179, 71, 0.45);
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55), 0 0 20px rgba(255, 179, 71, 0.55);
     text-shadow: 0 0 8px rgba(255, 179, 71, 0.6);
   }
 }
@@ -4005,16 +4010,21 @@ body.mobile-ui .pkg-option { min-height: 46px; padding: 9px 11px; }
   /* the badge is over scrolling text now rather than over a dead background,
      so it stops being translucent */
   .version-badge { background: var(--bg); top: 8px; left: 8px; }
-  /* And the ribbon likewise, plus a size: at 170px the corner box covers most
-     of the top-right of a portrait phone and the title card scrolls under it.
-     Same geometry re-solved at 128px, with the type and the tracking cut to
-     hold the same ~10px of clearance at the ends. */
-  .update-ribbon { width: 128px; height: 128px; }
-  .update-ribbon span {
-    top: 38px; right: -42px; width: 180px;
-    font-size: 8.5px; letter-spacing: 1.2px; padding: 4px 0;
+  /* And the ribbon likewise, cut as hard as the text allows. A free-standing
+     45-degree bar reaches L / root 2 into the screen, and on a 375px card that
+     is the top-right of the H1 — so this is solved for the smallest L that
+     still holds "WEEKLY UPDATES": L 97, h 22, a ~84px box on ~7px of air. It
+     still crosses the corner of the title's first line, which no bar of a
+     readable size in this corner can avoid on a phone; portrait is the
+     secondary orientation here and that is the trade. Opaque ground for the
+     same reason the badge has one — it is over scrolling text, not over a dead
+     background. */
+  .update-ribbon {
+    top: 42px; right: 0; width: 97px;
+    padding: 5px 0;
     background: #3a2308;
   }
+  .update-ribbon span { font-size: 8px; letter-spacing: 1px; }
 }
 
 /* The tallest portrait phones can spare the chart a little more; the shortest
@@ -4050,7 +4060,7 @@ body.mobile-ui .pkg-option { min-height: 46px; padding: 9px 11px; }
   .csar-survivors.csar-contact .csar-ring, .call-phone, .call-levels i,
   .call-modal.connected .lc-wave, .rotate-icon, .transit-dot,
   .nsa-dot, .nf-rec, .nf-levels i,
-  .vc-meter i, .update-ribbon span {
+  .vc-meter i, .update-ribbon {
     animation: none !important;
   }
   /* Same argument as the watch card below, one dialog over. A still red dot on
