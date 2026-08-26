@@ -7757,6 +7757,13 @@ const Game = (() => {
   }
 
   // ============================================================
+  // Is this session rigged for the breakout branch? Read fresh rather than
+  // cached at load: a player who starts a rigged war, then a normal one from
+  // the endgame screen, has not changed the URL and should still get the rig —
+  // and one who edits it out and reloads has.
+  const nukeRig = () => typeof location !== 'undefined' &&
+    /[?&]nuke\b/.test(location.search || '');
+
   // KICKOFF
   // ------------------------------------------------------------
   // What is randomized, and why. A war that opens identically every time is a
@@ -7830,6 +7837,21 @@ const Game = (() => {
     // a campaign that inherited the last one's would open with the release
     // folder already half spent.
     G.nuclear = { tested: false, testedTurn: -1, used: [], defused: false };
+
+    // ---- the rig: ?nuke on the URL ----
+    // Breakout is the one branch of this game that is hard to reach on purpose
+    // and impossible to reach at all on hard (0 of 144 campaigns — see the
+    // NUCLEAR block in CLAUDE.md), so the four beats after the test, the
+    // release folder and everything the window changes are the least-played
+    // and least-checked screens in the build. This puts the clock one tick
+    // short of the device, which fires the whole chain on the first END TURN.
+    //
+    // Deliberately a URL flag and not a difficulty knob or a saved field:
+    // nothing in a normal campaign can reach it, it does not survive being
+    // typed out of the address bar, and the harness — which has no `location`
+    // at all — cannot see it either, so no probe's numbers move because this
+    // exists.
+    if (nukeRig()) G.breakout.progress = G.breakout.need - 1;
 
     // Jerusalem's temper is not a constant either. What is rolled is where the
     // gauge STARTS, not how long it takes — the rate comes off the target list
