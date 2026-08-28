@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>WORLD CHART</title>
+<meta name="description" content="Globe-to-flat world chart — WORLDMAP-SPEC, branch world-map.">
+<!--
+  Standalone. This page loads NOTHING from the game: not index.html's
+  shell, not css/style.css, not js/map.js. The only shared files are the
+  two generated geodata blobs, which are data. css/world.css copies the
+  handful of tokens and rules it needs (see the note at the top of it).
+
+  Cache stamps match the game's convention — GitHub Pages serves these
+  with a ten-minute cache and no revalidation hint, so a change shipped
+  without moving the stamp looks exactly like a change that never
+  shipped. worldgeo-50m.js is stamped in js/globe.js's loader instead,
+  because it is fetched on demand rather than declared here.
+-->
+<link rel="stylesheet" href="css/world.css?v=1.0">
+</head>
+<body>
+
+<header id="bar">
+  <span id="title">WORLD CHART</span>
+  <span id="sub">NATURAL EARTH · EQUIRECTANGULAR 28N · GLOBE ⇄ FLAT</span>
+  <div id="controls">
+    <button id="zoom-out" title="Zoom out (−)">−</button>
+    <button id="zoom-in" title="Zoom in (+)">+</button>
+    <button id="zoom-reset" title="Reset (0)">RESET</button>
+  </div>
+</header>
+
+<div id="frame">
+  <!--
+    viewBox is the game's 1000x760 with xMidYMid meet, so every token and
+    every stroke width in css/world.css means the same thing here as it
+    does on the chart in index.html.
+
+    Layer order, and why: #space and #atmosphere and #disc sit OUTSIDE
+    #cam because their geometry is measured in screen pixels (the disc's
+    radius is k*R, not R), and everything inside #cam is measured in
+    projection units. #labels sits outside for the same reason — a name
+    is a statement about a place and not a measurement of one, so it is
+    positioned per frame in screen space rather than counter-scaled
+    against a transform it does not ride.
+  -->
+  <svg id="world" viewBox="0 0 1000 760" preserveAspectRatio="xMidYMid meet"
+       role="img" aria-label="World chart">
+    <defs>
+      <radialGradient id="atmo-grad">
+        <stop offset="0.86" stop-color="#4da3ff" stop-opacity="0"/>
+        <stop offset="0.93" stop-color="#4da3ff" stop-opacity="0.16"/>
+        <stop offset="1"    stop-color="#4da3ff" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <rect id="space" x="-5000" y="-5000" width="11000" height="11000"/>
+    <circle id="atmosphere" cx="500" cy="380" r="0" fill="url(#atmo-grad)"/>
+    <circle id="disc" cx="500" cy="380" r="0"/>
+
+    <g id="cam">
+      <path id="graticule" d=""/>
+      <g id="countries"></g>
+    </g>
+
+    <g id="sea-labels"></g>
+    <g id="labels"></g>
+  </svg>
+
+  <div id="hud" style="display:none"></div>
+  <div id="hint">DRAG TO SPIN · SCROLL TO ZOOM · 0 RESETS</div>
+</div>
+
+<script src="js/worldgeo.js?v=1.0"></script>
+<script src="js/globe.js?v=1.0"></script>
+<script>
+  // ?fixture swaps the real data for the built-in test boxes (equator,
+  // polar, antimeridian, a wide one, one with a hole). ?debug puts the
+  // frame-time readout up — that is where §8's numbers came from.
+  (function () {
+    const q = new URLSearchParams(location.search);
+    const info = Globe.init({ fixture: q.has('fixture'), hud: q.has('debug') });
+    if (q.has('debug')) console.log('globe:', info);
+    // the hint is for the first gesture and then it is clutter
+    const hint = document.getElementById('hint');
+    const drop = () => { hint.classList.add('gone'); };
+    ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(
+      ev => window.addEventListener(ev, drop, { once: true, passive: true }));
+    setTimeout(drop, 9000);
+  })();
+</script>
+</body>
+</html>

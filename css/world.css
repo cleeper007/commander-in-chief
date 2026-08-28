@@ -1,0 +1,159 @@
+/* ============================================================
+   world.css — the standalone world chart's stylesheet.
+
+   COPIED from css/style.css, not imported. §6 of WORLDMAP-SPEC lists
+   what is wanted and the list is short: eight colour tokens, the mono
+   stack, .country, .country-label, .sea-label, and the 26px zoom button
+   box. Importing the game's stylesheet instead would drag in 4,100
+   lines of panels, modals, tickers and endgame screens for eight
+   variables, and would tie a back-pocket branch to every future edit of
+   a file it is not allowed to touch.
+
+   The values below are the game's exactly. If they drift there, they
+   drift here on purpose or not at all — this page is meant to look like
+   the same chart at a different altitude.
+   ============================================================ */
+
+:root {
+  --bg: #060a12;
+  --bg-panel: #0b1220;
+  --bg-panel2: #0e1729;
+  --line: #1d2c47;
+  --text: #c8d4e8;
+  --dim: #6d7d99;
+  --blue: #4da3ff;
+  --water: #0a1626;
+  --land: #16233b;
+  --land-line: #2a3d5f;
+  --mono: "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--bg); color: var(--text);
+  font-family: var(--mono);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { display: flex; flex-direction: column; }
+
+/* ---- header ----
+   The game's map header row, trimmed to what this page has in it. */
+#bar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 12px; height: 40px; flex: none;
+  background: var(--bg-panel); border-bottom: 1px solid var(--line);
+}
+#title { font-size: 12px; letter-spacing: 3px; color: var(--text); }
+#sub {
+  font-size: 10px; letter-spacing: 1.5px; color: var(--dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#controls { margin-left: auto; display: flex; gap: 6px; flex: none; }
+#controls button {
+  height: 26px; min-width: 26px; padding: 0 8px;
+  background: var(--bg-panel2); border: 1px solid var(--line);
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  letter-spacing: 1px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#controls button:hover { border-color: var(--blue); }
+#controls button:active { background: var(--line); }
+#zoom-reset { font-size: 10px; }
+
+/* ---- the chart ---- */
+#frame { flex: 1; position: relative; overflow: hidden; background: var(--water); }
+
+/* touch-action: none for the same reason the game's #map carries it —
+   the page owns pan and pinch, and the browser's own must not fire
+   underneath it. */
+#world { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#world.grabbing { cursor: grabbing; }
+
+/* ---- space, the limb, the atmosphere (§6) ----
+   #space is the only reason the page background is --water rather than
+   --bg: outside the disc is space, inside it is ocean, and once the
+   morph is done there is no outside. So the water is the floor and
+   space is a layer over it that fades away, rather than the other way
+   round — which would need the disc to stay a disc, and it stops being
+   one. Both are near-black and eight units apart in each channel; the
+   cue that reads is the limb line and the atmosphere, not the fill. */
+#space { fill: var(--bg); }
+#disc { fill: var(--water); stroke: #35618f; stroke-width: 1.1; }
+#atmosphere { pointer-events: none; }
+
+/* ---- geography ----
+   .country is copied verbatim from css/style.css:1646, vector-effect
+   included, and that last part is load-bearing rather than inherited:
+   #cam carries scale(k) up to 10, so without it a 1.2-unit border comes
+   out twelve units wide at the bottom of the zoom and the Gulf states
+   render as their own coastlines. Same reason the game's rule has it. */
+.country {
+  fill: var(--land); stroke: var(--land-line); stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+#graticule {
+  fill: none; stroke: var(--line); stroke-width: 1;
+  vector-effect: non-scaling-stroke; pointer-events: none;
+}
+
+/* ---- labels (§6) ----
+   .country-label and .sea-label are the game's rules. They are NOT
+   counter-scaled here the way map.js counter-scales its island names,
+   because they do not ride the world transform at all: globe.js writes
+   their screen position every frame the camera moves. Same intent — a
+   name is a statement about a place and not a measurement of one —
+   reached one step earlier, which is available here only because the
+   projector already runs per frame. */
+.country-label {
+  fill: #55688a; font-size: 13px; letter-spacing: 2.4px; font-family: var(--mono);
+  pointer-events: none; text-anchor: middle;
+}
+.sea-label {
+  fill: #2c4569; font-size: 11px; letter-spacing: 2px; font-style: italic;
+  pointer-events: none; text-anchor: middle; font-family: var(--mono);
+}
+
+/* ---- readouts ---- */
+#hud {
+  position: absolute; left: 8px; bottom: 8px; z-index: 5;
+  background: rgba(11, 18, 32, 0.85); border: 1px solid var(--line);
+  padding: 4px 8px; font-size: 10px; letter-spacing: 0.6px; color: var(--dim);
+  pointer-events: none; white-space: nowrap;
+}
+#hint {
+  position: absolute; right: 10px; bottom: 10px; z-index: 5;
+  font-size: 9px; letter-spacing: 2px; color: var(--dim);
+  opacity: 0.75; transition: opacity 0.5s; pointer-events: none;
+}
+#hint.gone { opacity: 0; }
+
+/* ---- short viewports ----
+   A landscape phone has about 200px of vertical room once the header is
+   off it, which is the number css/style.css's mobile section is written
+   against. Nothing here scrolls, so the only thing that has to give is
+   the header: the subtitle goes, the title shortens by tracking, and
+   the buttons keep their 26px box because a finger does not get
+   smaller. The labels thin themselves by area against the arc, so they
+   need no rule here — but the hint does, or it lands under a thumb. */
+@media (max-height: 460px) {
+  #bar { height: 32px; }
+  #sub { display: none; }
+  #title { font-size: 11px; letter-spacing: 2px; }
+  #hint { display: none; }
+  #hud { font-size: 9px; padding: 3px 6px; }
+}
+@media (max-width: 520px) {
+  #sub { display: none; }
+}
+
+/* Coarse pointers get no hover state — on touch it latches on after a
+   tap and stays until something else is pressed, which reads as a
+   button stuck down. Same rule the game's stylesheet makes. */
+@media (hover: none) {
+  #controls button:hover { border-color: var(--line); }
+}
