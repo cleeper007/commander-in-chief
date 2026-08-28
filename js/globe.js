@@ -967,6 +967,11 @@ const Globe = (function () {
   function buildNodes(t) {
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     const lg = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    // the ids ride the new groups across a tier swap: replaceChild drops
+    // whatever was on the old node, and a selector written against
+    // #countries in the console or a harness must not stop working the
+    // moment 50m lands
+    g.id = 'countries'; lg.id = 'labels';
     for (const c of t.countries) {
       const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       p.setAttribute('class', 'country');
@@ -1220,6 +1225,12 @@ const Globe = (function () {
 
   return {
     init, bench, invalidate, reset,
+    // draw this instant rather than on the next frame. invalidate() is
+    // what the gestures use and it is the right default — it coalesces a
+    // burst of pointermoves into one reprojection. This is for a probe
+    // that has to READ the result of a camera move in the same tick it
+    // made it, which a scheduled frame cannot give it.
+    render: () => draw(),
     // read/drive the camera from the console or a harness
     cam: () => ({ lon: cam.lon, lat: cam.lat, k: cam.k }),
     goto: (lon, lat, k) => { cam.lon = lon; cam.lat = lat; if (k) cam.k = k; invalidate(); },
