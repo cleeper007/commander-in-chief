@@ -102,7 +102,6 @@ const Globe = (function () {
   let lastVis = { x: 0, y: 0, w: 1000, h: 760 };
   let dirty = true, rafId = 0;
   let chartBuiltFor = null;   // which tier's static flat paths are in the DOM
-  let lastT = -1, lastK = -1;
   const times = [];           // ring buffer of draw() durations, for §8
 
   const VW = 1000, VH = 760;  // viewBox — the game's, so the tokens transfer
@@ -727,7 +726,14 @@ const Globe = (function () {
   // at a 180° frame only the eight continental states qualify, at 25°
   // roughly everything down to Belgium, at 5° everything. Tuned by eye
   // against the shape of the count rather than against any one country.
-  const LABEL_BASE = 3.0e6, LABEL_POW = 2.2, LABEL_MAX = 90;
+  // LABEL_REF is the arc the base threshold is calibrated at, and the arc
+  // is CLAMPED to it before the ratio is taken. Without the clamp a tall
+  // narrow window opens at a 330 degree arc rather than 240, the
+  // threshold goes to 11.6 million km2, and the fully-zoomed-out globe —
+  // the first thing anybody sees — carries two labels. There is no more
+  // world to show past a hemisphere, so there is nothing for the
+  // threshold to keep rising against.
+  const LABEL_BASE = 3.0e6, LABEL_POW = 2.2, LABEL_MAX = 90, LABEL_REF = 180;
 
   // Sea labels are hand-written here rather than carried in the data
   // file: an ocean has no polygon, its name belongs to a region of the
@@ -753,8 +759,29 @@ const Globe = (function () {
     { n: 'CASPIAN SEA', lon: 51, lat: 41.5, band: [2, 16] },
     { n: 'PERSIAN GULF', lon: 51.5, lat: 27, band: [1, 14] },
     { n: 'GULF OF OMAN', lon: 58.5, lat: 24.5, band: [1, 10] },
-    { n: 'STRAIT OF HORMUZ', lon: 56.4, lat: 26.6, band: [0, 4] }
+    { n: 'STRAIT OF HORMUZ', lon: 56.4, lat: 26.6, band: [0, 9] }
   ];
+
+  // Natural Earth abbreviates most long names already ("Dem. Rep. Congo",
+  // "Bosnia and Herz."), and where it does its form is kept. These are
+  // the ones it leaves at full length that are also big enough to be
+  // drawn early: at 13px with 2.4px of tracking, UNITED STATES OF AMERICA
+  // is 245 viewBox units of label — a quarter of the frame — and because
+  // labels are placed largest-first it does not lose the collision, it
+  // WINS it, and takes Canada and Mexico off the map with it. A shorter
+  // name is the fix; suppressing the long one would be deleting the
+  // country most likely to be looked for.
+  const SHORT_NAME = {
+    'United States of America': 'UNITED STATES',
+    'United Arab Emirates': 'U.A.E.',
+    'Papua New Guinea': 'PAPUA NEW GUINEA',
+    'Fr. S. Antarctic Lands': 'FR. S. ANTARCTIC',
+    'Bosnia and Herz.': 'BOSNIA',
+    'Central African Rep.': 'CENTRAL AFR. REP.',
+    'Dominican Rep.': 'DOMINICAN REP.',
+    'Solomon Is.': 'SOLOMON IS.',
+    'Eq. Guinea': 'EQ. GUINEA'
+  };
 
   // screen boxes of the labels already placed this frame
   const taken = [];
@@ -883,7 +910,7 @@ const Globe = (function () {
   // ---- labels ----
   function drawLabels(vis, arc, chart) {
     taken.length = 0;
-    const thresh = LABEL_BASE * Math.pow(arc / 180, LABEL_POW);
+    const thresh = LABEL_BASE * Math.pow(Math.min(arc, LABEL_REF) / LABEL_REF, LABEL_POW);
     const size = 13, sp = 2.4;
     let used = 0;
     const pad = 30;
@@ -904,7 +931,7 @@ const Globe = (function () {
           }
           const sx = VW / 2 + cam.k * _lp[0], sy = VH / 2 + cam.k * _lp[1];
           if (sx > vis.x - pad && sx < vis.x + vis.w + pad && sy > vis.y - pad && sy < vis.y + vis.h + pad
-            && tryPlace(sx, sy, c.name, size, sp)) {
+            && tryPlace(sx, sy, el.textContent, size, sp)) {
             el.setAttribute('x', sx.toFixed(1));
             el.setAttribute('y', sy.toFixed(1));
             show = true; used++;
@@ -1018,7 +1045,7 @@ const Globe = (function () {
       c.node = p;
       const l = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       l.setAttribute('class', 'country-label');
-      l.textContent = c.name.toUpperCase();
+      l.textContent = SHORT_NAME[c.name] || c.name.toUpperCase();
       l.style.display = 'none'; l._on = false;
       lg.appendChild(l);
       c.label = l;
@@ -1184,8 +1211,32 @@ const Globe = (function () {
     window.addEventListener('resize', invalidate);
   }
 
+  // The opening view is the game's theater at the centre of a whole
+  // globe: 38.5E is geodata.js's own origin meridian, and 24N puts the
+  // Gulf a little above the middle of the disc rather than on the
+  // equator, which is where the interesting half of the land is.
+  //
+  // k is set to the measured floor rather than to 0 and left for
+  // clampCam to raise on the next frame. A camera is three numbers and
+  // anything may read them — stats(), a probe, the next gesture — and
+  // k = 0 is a zoom nothing can divide by. Leaving an invalid camera
+  // standing between a call and the frame that fixes it is the kind of
+  // hole that only ever shows up as a NaN somewhere else.
   function reset() {
-    cam.lon = 38.5; cam.lat = 24; cam.k = 0;   // clamped up to the floor
+    cam.lon = 38.5; cam.lat = 24; cam.k = minZoom(visibleBox());
+    invalidate();
+  }
+
+  // ?at=lon,lat,zoom — a view is a link. Three numbers is the whole
+  // camera (see the note above it), so a deep link needs no encoding and
+  // no state: ?at=51.5,26.5,2.4 is the Gulf and ?at=-70,5 is the
+  // Americas at whatever zoom the window can hold. Omitting the zoom
+  // takes the floor, which is the globe.
+  function readHash(q) {
+    const a = (q.get('at') || '').split(',').map(Number);
+    if (a.length < 2 || !isFinite(a[0]) || !isFinite(a[1])) return;
+    cam.lon = wrapLon(a[0]); cam.lat = a[1];
+    if (a.length > 2 && isFinite(a[2]) && a[2] > 0) cam.k = a[2];
     invalidate();
   }
 
@@ -1258,6 +1309,7 @@ const Globe = (function () {
 
     initInput();
     reset();
+    if (opts.at) readHash(opts.at);
     return { verts: tier.verts, rings: tier.rings, countries: tier.countries.length, prepMs: tier.prepMs };
   }
 

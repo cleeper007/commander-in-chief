@@ -78,12 +78,18 @@
   // ?fixture swaps the real data for the built-in test boxes (equator,
   // polar, antimeridian, a wide one, one with a hole). ?debug puts the
   // frame-time readout up — that is where §8's numbers came from.
+  // ?at=lon,lat,zoom opens on a view; the zoom is optional and defaults
+  // to the floor, which is the globe.
   (function () {
     const q = new URLSearchParams(location.search);
-    const info = Globe.init({ fixture: q.has('fixture'), hud: q.has('debug') });
+    const info = Globe.init({ fixture: q.has('fixture'), hud: q.has('debug'), at: q });
     if (q.has('debug')) console.log('globe:', info);
     // the hint is for the first gesture and then it is clutter
     const hint = document.getElementById('hint');
+    // the readout sits in the same corner strip; on a narrow window the
+    // two write over each other, and the readout is the one somebody
+    // asked for
+    if (q.has('debug')) hint.style.display = 'none';
     const drop = () => { hint.classList.add('gone'); };
     ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(
       ev => window.addEventListener(ev, drop, { once: true, passive: true }));
