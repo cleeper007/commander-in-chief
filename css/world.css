@@ -69,8 +69,20 @@ body { display: flex; flex-direction: column; }
 
 /* touch-action: none for the same reason the game's #map carries it —
    the page owns pan and pinch, and the browser's own must not fire
-   underneath it. */
-#world { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+   underneath it.
+
+   user-select: none is the same argument one layer up, and it was a real
+   bug rather than a precaution: every country and ocean name is a live
+   <text> node, so a drag that starts anywhere near one spins the globe AND
+   sweeps a text selection behind it. Four labels come back lit in selection
+   blue over a chart whose whole palette is two greys and a navy, which
+   reads as the map having broken rather than as text being selected. The
+   drag is the primary gesture here; there is nothing on this page anyone
+   wants to select. */
+#world {
+  width: 100%; height: 100%; display: block; cursor: grab; touch-action: none;
+  user-select: none; -webkit-user-select: none;
+}
 #world.grabbing { cursor: grabbing; }
 
 /* ---- space, the limb, the atmosphere (§6) ----
