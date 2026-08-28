@@ -148,6 +148,10 @@ const Globe = (function () {
     let m = Math.hypot(sx, sy, sz);
     if (m < 1e-9) { sx = 0; sy = 0; sz = 1; m = 1; }
     const cx = sx / m, cy = sy / m, cz = sz / m;
+    // circular mean longitude, free out of the vector sum already taken.
+    // wrapOrigin() below uses it to decide which way round the world this
+    // ring sits from the camera.
+    const lonMid = Math.atan2(sy, sx) * R2D;
     let capCos = 1;
     for (let j = 0; j < n; j++) {
       const d = vx[j] * cx + vy[j] * cy + vz[j] * cz;
@@ -155,7 +159,7 @@ const Globe = (function () {
     }
     // sin of the cap radius, precomputed because both horizon tests want it
     const capSin = Math.sqrt(Math.max(0, 1 - capCos * capCos));
-    return { n, vx, vy, vz, fx, fy, cx, cy, cz, capCos, capSin, bx0, by0, bx1, by1 };
+    return { n, vx, vy, vz, fx, fy, cx, cy, cz, capCos, capSin, lonMid, bx0, by0, bx1, by1 };
   }
 
   // ---- the antimeridian (§2) ----
@@ -474,7 +478,34 @@ const Globe = (function () {
   // single fx0 read by both was the first bug in this file, and it looks
   // exactly like a graticule offset by half the world.
   const F = { vx: 0, vy: 0, vz: 0, ex: 0, ey: 0, ez: 0, nx: 0, ny: 0, nz: 0,
-              fx0: 0, fy0: 0, px0: 0, py0: 0, t: 0, ot: 0 };
+              fx0: 0, fy0: 0, px0: 0, py0: 0, rx0: 0, t: 0, ot: 0 };
+
+  // ---- which way round the world (§2's seam, from the camera's side) ----
+  //
+  // The flat projection lays the world out once, from 180W to 180E, and
+  // ends. So a ring at 179W is 358 degrees of flat map away from a camera
+  // at 179E — and while t is between 0 and 1 that ring is drawn 358
+  // degrees away, which is off the frame, which is Chukotka and the
+  // eastern half of Fiji simply missing from a chart that is otherwise
+  // showing the dateline.
+  //
+  // The fix is not to move the seam: §2 fixes it in the empty Pacific and
+  // geodata.js is authored against that. It is to notice that the
+  // RECENTRED flat projection has no reason to prefer one representative
+  // of a longitude over another. Each ring is placed at whichever of
+  // lon, lon+360 or lon-360 is nearest the camera, as a whole — per ring
+  // and never per vertex, because a ring with some vertices wrapped and
+  // some not is the horizontal scar this exists to prevent, drawn one
+  // level further down.
+  //
+  // At t == 1 this stops mattering: the longitude clamp has the frame's
+  // own edge exactly on the seam by then, so there is nothing past it to
+  // fetch. The two rules meet there rather than handing over.
+  function wrapOrigin(lon) {
+    let d = lon - cam.lon;
+    if (d > 180) d -= 360; else if (d < -180) d += 360;
+    return F.px0 - ((cam.lon + d) - lon) * DEG_X;
+  }
 
   function setFrame(t, chart) {
     const l = cam.lon * D2R, p = cam.lat * D2R;
@@ -484,6 +515,7 @@ const Globe = (function () {
     F.nx = -sp * cl; F.ny = -sp * sl; F.nz = cp;    // north
     F.fx0 = flatX(cam.lon); F.fy0 = flatY(cam.lat);
     F.px0 = chart ? 0 : F.fx0; F.py0 = chart ? 0 : F.fy0;
+    F.rx0 = F.px0;
     F.t = t; F.ot = 1 - t;
   }
 
@@ -491,8 +523,8 @@ const Globe = (function () {
   // projection space. Thirteen multiplies; no trigonometry.
   function projIdx(r, j, out) {
     const x = r.vx[j], y = r.vy[j], z = r.vz[j];
-    out[0] = F.ot * (R * (x * F.ex + y * F.ey + z * F.ez)) + F.t * (r.fx[j] - F.fx0);
-    out[1] = F.ot * (-R * (x * F.nx + y * F.ny + z * F.nz)) + F.t * (r.fy[j] - F.fy0);
+    out[0] = F.ot * (R * (x * F.ex + y * F.ey + z * F.ez)) + F.t * (r.fx[j] - F.rx0);
+    out[1] = F.ot * (-R * (x * F.nx + y * F.ny + z * F.nz)) + F.t * (r.fy[j] - F.py0);
   }
 
   // project an arbitrary unit vector, which needs its lon/lat back for
@@ -504,7 +536,7 @@ const Globe = (function () {
     if (F.t === 0) { out[0] = ox; out[1] = oy; return; }
     const lat = Math.asin(Math.max(-1, Math.min(1, z))) * R2D;
     const lon = Math.atan2(y, x) * R2D;
-    out[0] = F.ot * ox + F.t * (flatX(lon) - F.px0);
+    out[0] = F.ot * ox + F.t * (flatX(lon) - F.rx0);
     out[1] = F.ot * oy + F.t * (flatY(lat) - F.py0);
   }
 
@@ -626,8 +658,12 @@ const Globe = (function () {
     const dens = 3 + t * 57;                      // 3° on the globe, 60° flat
     const chart = t >= 1;
     for (let lon = -180; lon < 180; lon += GRAT_STEP) {
+      F.rx0 = chart ? 0 : wrapOrigin(lon);
       strand(lon, lon, -80, 80, dens, true, chart);
     }
+    // A parallel already spans the whole world, so it has no near side to
+    // be fetched to and wrapping one would cut it in half at the seam.
+    F.rx0 = F.px0;
     for (let lat = -75; lat <= 75; lat += GRAT_STEP) {
       strand(-180, 180, lat, lat, dens, false, chart);
     }
@@ -807,6 +843,7 @@ const Globe = (function () {
           if (behindHorizon(r)) continue;
           if (ringOffscreen(r, vis)) continue;
           const whollyFront = r.vx0 > r.capSin;
+          F.rx0 = wrapOrigin(r.lonMid);   // see wrapOrigin — per ring, never per vertex
           const at = dbuf.length;
           dbuf.push('M');
           if (whollyFront) {
@@ -861,7 +898,8 @@ const Globe = (function () {
           if (chart) {
             _lp[0] = c.lx - F.fx0; _lp[1] = c.ly - F.fy0;
           } else {
-            _lp[0] = F.ot * (R * (c.lvx * F.ex + c.lvy * F.ey + c.lvz * F.ez)) + F.t * (c.lx - F.fx0);
+            const rx = wrapOrigin(c.lon);   // the name follows its country round the seam
+            _lp[0] = F.ot * (R * (c.lvx * F.ex + c.lvy * F.ey + c.lvz * F.ez)) + F.t * (c.lx - rx);
             _lp[1] = F.ot * (-R * (c.lvx * F.nx + c.lvy * F.ny + c.lvz * F.nz)) + F.t * (c.ly - F.fy0);
           }
           const sx = VW / 2 + cam.k * _lp[0], sy = VH / 2 + cam.k * _lp[1];
@@ -882,7 +920,7 @@ const Globe = (function () {
       if (arc >= s.band[0] && arc <= s.band[1]) {
         const cc = chart ? 1 : s.vx * F.vx + s.vy * F.vy + s.vz * F.vz;
         if (cc >= 0.05) {
-          const px = F.ot * (R * (s.vx * F.ex + s.vy * F.ey + s.vz * F.ez)) + F.t * (s.fx - F.fx0);
+          const px = F.ot * (R * (s.vx * F.ex + s.vy * F.ey + s.vz * F.ez)) + F.t * (s.fx - (chart ? F.fx0 : wrapOrigin(s.lon)));
           const py = F.ot * (-R * (s.vx * F.nx + s.vy * F.ny + s.vz * F.nz)) + F.t * (s.fy - F.fy0);
           const sx = VW / 2 + cam.k * px, sy = VH / 2 + cam.k * py;
           if (sx > vis.x && sx < vis.x + vis.w && sy > vis.y && sy < vis.y + vis.h
