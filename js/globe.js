@@ -96,6 +96,22 @@ const Globe = (function () {
   const LOD_UP_ARC = 22, LOD_DOWN_ARC = 24;
 
   // ---- state ----
+  //
+  // `embed` is the whole difference between the standalone page and the
+  // game's chart, and it is one flag rather than a second file because
+  // everything below it is already written the way the game needs it.
+  // Chart mode's transform is `translate(VW/2 - k*fx0, VH/2 - k*fy0)
+  // scale(k)`, which IS map.js's `translate(view.x, view.y) scale(k)`
+  // written in the other of the two equivalent ways — the camera here
+  // and the camera there are one object, and `follow` below is the
+  // conversion between the two spellings. So embedding does not need a
+  // second projector, a second clamp or a second input layer; it needs
+  // this file to stop owning three things it owns on its own page: the
+  // clamp (the game's crop rules the near half of the range), the input
+  // (the game's gestures are already the choke point), and the tier swap
+  // (the game never zooms the globe in far enough to want 50m, and its
+  // own geodata.js is the authority down there anyway).
+  let embed = false, embedT = 1;
   let svg, camG, spaceEl, atmoEl, discEl, gratEl, countriesG, labelsG, hudEl;
   let cam = { lon: 38.5, lat: 24, k: 0.2 };   // centre of the frame + zoom
   let tier = null, tier110 = null, tier50 = null, lodPending = false;
@@ -829,7 +845,12 @@ const Globe = (function () {
   function draw() {
     const t0 = performance.now();
     const vis = visibleBox();
-    const t = clampCam(vis);
+    // Embedded, the morph is the game's to decide: map.js blends it against
+    // its OWN crop floor, so the world starts curving exactly where today's
+    // chart used to stop and not at an arc this file picked. clampCam is
+    // skipped with it — a clamp that ran here as well would fight the one in
+    // clampView, and two clamps on one camera is a camera that jitters.
+    const t = embed ? embedT : clampCam(vis);
     const chart = t >= 1;
     setFrame(t, chart);
     const arc = arcDeg(vis, cam.k);
@@ -925,7 +946,12 @@ const Globe = (function () {
     const ms = performance.now() - t0;
     times.push(ms); if (times.length > 120) times.shift();
     if (hudEl) hud(arc, t, ms, drawn, verts);
-    maybeLod(arc);
+    // 50m is 764KB and would only ever be fetched at an arc the embedded
+    // layer is invisible at — below the crop floor the game draws its own
+    // geodata.js, which is the same Natural Earth 50m and is the authority
+    // there. Loading a second copy of it to render underneath an opaque one
+    // is the whole cost of the tier for none of the benefit.
+    if (!embed) maybeLod(arc);
   }
 
   // ---- labels ----
@@ -1065,7 +1091,14 @@ const Globe = (function () {
     g.id = 'countries'; lg.id = 'labels';
     for (const c of t.countries) {
       const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      p.setAttribute('class', 'country');
+      // Embedded, Iran takes the theater fill the game already gives it on
+      // its own chart (.country.iran). It is one class rather than a new
+      // marker because that is the answer to "where is the war" the player
+      // has been reading all campaign — a second symbology invented for the
+      // globe would be a thing to learn at the one altitude nothing is
+      // decided at. Everything else is plain land: the Gulf council's moods
+      // are a statement about a plot you can frag from.
+      p.setAttribute('class', embed && c.iso === 'IRN' ? 'country iran' : 'country');
       p.setAttribute('d', '');
       g.appendChild(p);
       c.node = p;
@@ -1309,6 +1342,160 @@ const Globe = (function () {
   }
 
   // ============================================================
+  // embedded in the game's chart
+  // ============================================================
+  //
+  // The game owns the camera, the gestures and the clamp. This layer
+  // owns the geography behind them, and it is only ever visible below
+  // the zoom at which map.js's own crop runs out — so at every zoom a
+  // player actually fights at, `follow` is never called and this file
+  // costs nothing at all.
+  //
+  // Two conveniences and no cleverness: `attach` builds the nodes, and
+  // `follow` converts one spelling of the camera into the other and
+  // draws. There is deliberately no second projector, no second set of
+  // tuning constants and no second copy of geodata.js's projection —
+  // that last one is the whole reason this merge is a hundred lines
+  // rather than a rewrite. flat() here and geodata.js's generator are
+  // the same function, so a point drawn by this layer and the same point
+  // drawn by map.js land on the same pixel.
+
+  let layerG = null, geoG = null, waterEl = null;
+
+  function svgEl(tag, attrs) {
+    const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const k in attrs || {}) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+
+  // Build the layer in code rather than asking index.html for it. Every
+  // id world.html uses is already spoken for in the game's shell — #world
+  // is the camera GROUP there, and #labels, #countries and #space are
+  // exactly the kind of name a 990-line document reuses — so the layer
+  // holds its nodes by reference and puts a class on the ones the
+  // stylesheet has to reach. The single id that survives is the
+  // atmosphere gradient's, because url(#…) is the only way an SVG paint
+  // server can be named at all.
+  function attach(host) {
+    embed = true;
+    svg = host.ownerSVGElement || host;
+
+    layerG = svgEl('g', { class: 'globe-layer' });
+    layerG.style.display = 'none';
+
+    const defs = svgEl('defs');
+    const grad = svgEl('radialGradient', { id: 'globe-atmo-grad' });
+    for (const st of [[0.86, 0], [0.93, 0.16], [1, 0]]) {
+      grad.appendChild(svgEl('stop',
+        { offset: st[0], 'stop-color': '#4da3ff', 'stop-opacity': st[1] }));
+    }
+    defs.appendChild(grad);
+    layerG.appendChild(defs);
+
+    // Same layer order and the same reason as world.html's: space, the
+    // atmosphere and the disc are measured in SCREEN pixels (the disc's
+    // radius is k*R, not R) and so sit outside the camera group, and the
+    // labels sit outside it because a name is a statement about a place
+    // and not a measurement of one.
+    // The water goes on FIRST and, alone in this layer, does not ride the
+    // fade. Two backdrops meet at the handover and only one of them can be
+    // right at a given altitude: map.js's is a flat rect and knows nothing
+    // about a horizon, and this layer's disc is a horizon and is invisible
+    // until the morph is well under way (see `edge` in draw()). So the
+    // ocean is handed over in one step at t = 1 — map.js hides its rect,
+    // this one appears at full strength, and they are the same token, so
+    // the swap is not visible.
+    //
+    // It has to be independent of the fade or that swap has a hole in it:
+    // one notch past the old floor the geography is barely faded in, and a
+    // water backdrop at four per cent is the panel's own background showing
+    // through a chart that has not started dissolving yet.
+    //
+    // And it is why the chart's rect has to go at all rather than simply
+    // fade: an opaque water rect over this layer's LAND washes every
+    // continent the crop does not carry toward the sea, so the exact
+    // outline of geodata.js's coverage appears as a lighter box across the
+    // middle of the world for as long as the dissolve lasts. That box is
+    // the "edge of the world" this whole merge exists to remove, drawn in
+    // negative.
+    waterEl = svgEl('rect',
+      { class: 'globe-water', x: -5000, y: -5000, width: 11000, height: 11000 });
+    geoG = svgEl('g');
+    spaceEl = svgEl('rect',
+      { class: 'globe-space', x: -5000, y: -5000, width: 11000, height: 11000 });
+    atmoEl = svgEl('circle',
+      { class: 'globe-atmo', cx: VW / 2, cy: VH / 2, r: 0, fill: 'url(#globe-atmo-grad)' });
+    discEl = svgEl('circle', { class: 'globe-disc', cx: VW / 2, cy: VH / 2, r: 0 });
+    camG = svgEl('g');
+    gratEl = svgEl('path', { class: 'globe-grat', d: '' });
+    camG.appendChild(gratEl);
+    const seaG = svgEl('g');
+    layerG.appendChild(waterEl);
+    layerG.appendChild(geoG);
+    geoG.appendChild(spaceEl);
+    geoG.appendChild(atmoEl);
+    geoG.appendChild(discEl);
+    geoG.appendChild(camG);
+    geoG.appendChild(seaG);
+
+    const src = typeof WORLD_GEO !== 'undefined' ? WORLD_GEO : FIXTURE;
+    tier110 = prepTier(src);
+    tier = tier110;
+    buildNodes(tier);
+    // buildNodes hands back a countries group and a labels group; both
+    // ride into the layer here rather than replacing placeholders,
+    // because the tier never swaps under an embedded layer (see the
+    // note in draw()) and there is nothing to replace.
+    camG.appendChild(tier.group);
+    countriesG = tier.group;
+    geoG.appendChild(tier.labels);
+    labelsG = tier.labels;
+    buildSeaNodes(seaG);
+
+    host.appendChild(layerG);
+    return { verts: tier.verts, rings: tier.rings,
+             countries: tier.countries.length, prepMs: tier.prepMs };
+  }
+
+  // Drive the layer from map.js's camera.
+  //
+  // `view` is (x, y, k): a translate and a scale in flat projection
+  // units. `cam` is (lon, lat, k): the geographic point at the centre of
+  // the frame. Chart mode's transform is
+  //   translate(VW/2 - k*flatX(lon), VH/2 - k*flatY(lat)) scale(k)
+  // so view.x = VW/2 - k*flatX(lon) and the inverse below is exact, not
+  // an approximation. That is the merge in four lines.
+  //
+  // The longitude is WRAPPED here and nowhere else. map.js's view.x is a
+  // linear coordinate with no notion of going round, so spinning east
+  // past the dateline walks it off toward infinity; wrapping it there
+  // would move the game's own flat chart under a player, and wrapping it
+  // here costs nothing because wrapOrigin already places every ring
+  // relative to cam.lon. The game's chart is fully faded out by the time
+  // this can matter, so the two never disagree on screen.
+  function follow(view, t) {
+    if (!layerG) return;
+    const on = t < 1;
+    // display:none rather than opacity 0 alone — a hidden layer must not
+    // cost a hit test or a composite on the ninety-odd per cent of
+    // frames a war is actually fought at.
+    if (layerG.style.display === 'none' && !on) return;
+    layerG.style.display = on ? '' : 'none';
+    if (!on) return;
+    // The geography fades in over the top of the band while the chart is
+    // dissolving off it; the water underneath does not (see attach). Full
+    // strength by t = 0.93, which is well before the chart is thin enough
+    // to see much through — the dissolve should reveal a world that is
+    // already there, not two half-drawn maps meeting in the middle.
+    geoG.style.opacity = (1 - smoothstep(0.93, 1, t)).toFixed(3);
+    cam.k = view.k;
+    cam.lon = wrapLon(LON0 + ((VW / 2 - view.x) / view.k) / DEG_X);
+    cam.lat = LAT0 - ((VH / 2 - view.y) / view.k) / DEG_Y;
+    embedT = t;
+    draw();
+  }
+
+  // ============================================================
   function init(opts) {
     opts = opts || {};
     svg = document.getElementById('world');
@@ -1341,6 +1528,34 @@ const Globe = (function () {
 
   return {
     init, bench, invalidate, reset,
+    // ---- the embedded layer (js/map.js) ----
+    attach, follow,
+    // the widest the frame may open before it is showing more than a
+    // globe plus its margin. map.js's own minZoom is the crop's floor
+    // and this is what sits under it, so the number has one home.
+    floorZoom: () => minZoom(visibleBox()),
+    // The projection constants, exported rather than copied. map.js has
+    // to convert a latitude clamp into a view.y bound, and a second
+    // literal 37.753020 in a second file is the drift this avoids —
+    // geodata.js, globe.js and map.js are one coordinate system or the
+    // markers do not sit on the coastlines.
+    C: { LON0, LAT0, DEG_X, DEG_Y, R, VW, VH },
+    // Where a lon/lat lands on the frame RIGHT NOW, in viewBox units,
+    // and whether it is on the near face of the earth. Read AFTER
+    // follow() — it uses the frame draw() has just built rather than
+    // building one of its own, so a caller cannot be shown a different
+    // camera than the geography was. Same three lines the country and
+    // ocean names are placed with, which is the point: a marker the game
+    // owns has to land where this file would have put a label.
+    at: (lon, lat) => {
+      const la = lat * D2R, lo = lon * D2R, cl = Math.cos(la);
+      const vx = cl * Math.cos(lo), vy = cl * Math.sin(lo), vz = Math.sin(la);
+      const rx = F.t >= 1 ? F.fx0 : wrapOrigin(lon);
+      const px = F.ot * (R * (vx * F.ex + vy * F.ey + vz * F.ez)) + F.t * (flatX(lon) - rx);
+      const py = F.ot * (-R * (vx * F.nx + vy * F.ny + vz * F.nz)) + F.t * (flatY(lat) - F.fy0);
+      return { x: VW / 2 + cam.k * px, y: VH / 2 + cam.k * py,
+               front: vx * F.vx + vy * F.vy + vz * F.vz };
+    },
     // draw this instant rather than on the next frame. invalidate() is
     // what the gestures use and it is the right default — it coalesces a
     // burst of pointermoves into one reprojection. This is for a probe

@@ -1646,6 +1646,53 @@ button { font-family: var(--mono); }
 .country { fill: var(--land); stroke: var(--land-line); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
 .country.iran { fill: #1d2a3f; }
 
+/* ---- the world behind the theater (js/globe.js) ----
+   Live only below the crop's own zoom floor, where the chart cross-fades out
+   and the projection rolls from flat to orthographic. Four rules, because the
+   geography itself needs none: the globe's countries carry .country and its
+   names carry .country-label and .sea-label, so they are drawn by the three
+   rules above this comment and the chart at two altitudes is one chart.
+
+   pointer-events off on the whole layer. The globe is scenery — every gesture
+   on this chart is already handled on #map itself, and a paint that answered a
+   hit test would put the country under the cursor ahead of the svg's own
+   listener for no purpose.
+
+   #space is the only reason there is a --bg fill anywhere on this map: outside
+   the disc is space and inside it is ocean, and once the morph is done there
+   is no outside. So the water is the floor and space is a layer over it that
+   fades away, rather than the other way round — which would need the disc to
+   stay a disc, and it stops being one. */
+.globe-layer { pointer-events: none; }
+.globe-water { fill: var(--water); }
+.globe-space { fill: var(--bg); }
+.globe-disc { fill: var(--water); stroke: #35618f; stroke-width: 1.1; }
+.globe-grat {
+  fill: none; stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke;
+}
+/* The two label rules above are written for the theater chart at 15px/3px.
+   globe.js sizes its own collision boxes off 13px/2.4px — the numbers world.css
+   was authored against — so a name here that rendered at 15 would be measured
+   at 13 and the thinning would let two of them overlap. The type is set where
+   the arithmetic that places it can see it. */
+.globe-layer .country-label { font-size: 13px; letter-spacing: 2.4px; }
+.globe-layer .sea-label { font-size: 11px; }
+
+/* ---- the theater, marked on the globe ----
+   Amber, which on this chart is the alert colour and nothing else's: the
+   blue belongs to US assets and the red to Iranian ones, and this is neither
+   — it is the frame the player just left. Quiet enough not to read as a
+   target (no fill, a one-unit stroke) and the only thing on the globe with a
+   colour in it at all, which is what makes it findable in a frame that is
+   otherwise two greys and a navy. */
+.theater-mark { pointer-events: none; }
+.tm-ring { fill: none; stroke: var(--amber); stroke-width: 1.1; opacity: 0.85; }
+.tm-tick { stroke: var(--amber); stroke-width: 1.1; opacity: 0.55; }
+.tm-label {
+  fill: var(--amber); font-size: 9px; letter-spacing: 2.5px; font-family: var(--mono);
+  text-anchor: middle; opacity: 0.75;
+}
+
 /* The Gulf council, on the plot. These are deliberately quiet — a few points off
    the base land fill, not a political map — because the countries sit UNDER the
    target markers, the base markers and the strike animations, and a saturated

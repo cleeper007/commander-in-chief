@@ -5,6 +5,14 @@ language as the game's Middle East chart: a globe when fully zoomed out, an
 ordinary flat chart when zoomed in, morphing continuously between the two the
 way Google Earth does.
 
+**MERGED at v2.36 (Task C).** The three paragraphs below described the branch
+while it was a back-pocket one, and §1's "do not edit" list was the rule for
+Tasks A and B. Both are kept as written, because they are the record of why the
+engine is shaped the way it is — and because every one of those constraints is
+the reason the merge came to a hundred lines rather than a rewrite. What Task C
+actually did is in §11 at the bottom. `world.html` still runs standalone and is
+unchanged.
+
 Nothing here is wired into the game. No existing file is edited. This is a
 back-pocket branch to be merged deliberately later.
 
@@ -246,3 +254,84 @@ compare the bbox to the `Iran` entry already in `js/geodata.js`. They come from
 the same source at the same resolution and must agree within a unit or two. If
 they do not, the projection constants above are wrong and everything downstream
 inherits it — report rather than adjust.
+
+---
+
+## 11. Task C — the merge (v2.36)
+
+The claim in §2 turned out to be the whole design: because the flat end state
+is byte-compatible with `js/geodata.js`, the game's camera and this engine's
+camera are **one object written two ways**. Chart mode's transform is
+`translate(VW/2 − k·flatX(lon), VH/2 − k·flatY(lat)) scale(k)`, and map.js's is
+`translate(view.x, view.y) scale(k)`. So `view.x = VW/2 − k·flatX(lon)`, exactly,
+and `Globe.follow` is that inverse in four lines. No second projector, no second
+set of constants, no second copy of the projection.
+
+**The crop's floor became a handover rather than a wall.** At and above
+`cropZoom` — what every version before this called "zoomed all the way out" —
+nothing changed at all: same clamp, same transform, same paths. Below it the
+theater chart dissolves, the world appears behind it, and the projection rolls
+flat → orthographic until the earth is a disc. Proven rather than asserted:
+216 campaigns produced `results.json` **byte-identical** to the committed
+baseline, and `proselint.js`, `saveload.js` and `adversarial.js` report exactly
+what HEAD reports. The harness never loads `globe.js`, so `mountGlobe()` no-ops,
+`globeT()` returns 1 and the simulation cannot see any of this.
+
+**Five things are load-bearing.**
+
+**The morph is measured against the CROP's floor, not against an arc.** §3's
+`MORPH_WIDE`/`MORPH_TIGHT` are right for a page that is only a globe and wrong
+here: the game's chart already spans ~54° of arc at its own floor, so an
+arc-keyed morph would start curving the board a player is fragging targets on.
+`globeT` is `smoothstep` on `log(k)` between `cropZoom` and `GLOBE_ROUND ×
+cropZoom`, which puts the entire morph below the old stop by construction and
+needs no constant tied to a window shape. Log and not linear because zoom is
+multiplicative — a linear ramp spends most of the gesture at one end and crosses
+the middle in a frame.
+
+**`GLOBE_ROUND` is 0.30 because 0.5 was measured and was wrong.** One octave —
+the obvious first guess — fits the whole handover into three notches of a 1.3×
+wheel on a 16:9 panel and the cross-fade into less than one of them, so the
+theater did not roll out flat, it blinked out and a globe blinked in. The band
+has to be wider than the gesture that crosses it.
+
+**The clamp BLENDS, it does not switch.** Below the crop the crop rect is
+smaller than the frame and its bounds have crossed over, so the globe's rule
+takes over — a ±80° latitude stop and no longitude stop. The two are lerped on
+the same `t` as the morph. Switch at `t == 1` instead and a player who spun to
+Brazil and zoomed back in is snapped to the Gulf in one frame; blended, the
+camera is drawn home over the octave in which the world flattens, which is the
+honest thing for it to do — there is no chart of Brazil to zoom into.
+
+**Two water backdrops meet, and only one of them may be painting.** This one
+cost a debugging pass and looks nothing like its cause. map.js's ocean is an
+opaque 5000-unit rect and this layer's is a disc that is invisible until the
+morph is well under way, so during the dissolve the chart's rect washed every
+continent the crop does not carry toward the sea — and the exact outline of
+`geodata.js`'s coverage appeared as a lighter box across the middle of the
+world. Which is the "edge of the world" §7's own comment in map.js exists to
+prevent, drawn in negative. The ocean is now handed over whole at `t == 1`:
+map.js hides `.chart-water`, `.globe-water` appears at full strength, same
+token, invisible. And `.globe-water` sits OUTSIDE the layer's fade, or the swap
+has a hole in it one notch past the floor.
+
+**Longitude wraps in `follow` and nowhere else.** `view.x` is linear and has no
+notion of going round, so spinning east past the dateline walks it toward
+infinity; wrapping it in map.js would move the game's own chart under a player's
+hand. `wrapOrigin` already places every ring relative to `cam.lon`, so wrapping
+the derived longitude costs nothing, and the chart is faded out by the time it
+can matter.
+
+**What survives the handover, and what does not.** Every marker, base, carrier
+and strike animation fades with the chart and takes `pointer-events` with it —
+forty 44px hit discs stacked into a hundred-pixel cluster is a strike dialog
+opening on whichever happened to be on top. One thing crosses: an amber THEATER
+ring on central Iran, placed through `Globe.at()` — the same three lines that
+place a country name, so a marker the game owns lands where this engine would
+have put a label. Iran also takes `.country.iran`, which is free and, at a
+thousand miles, not findable on its own.
+
+**`worldgeo-50m.js` is deliberately not loaded.** 764KB, and the only arc it
+would be wanted at is one this layer is invisible at, because `geodata.js` is
+already the Natural Earth 50m authority down there. `maybeLod` is skipped when
+embedded. 110m alone is 143KB and draws in 4–6ms median at 10,306 vertices.
