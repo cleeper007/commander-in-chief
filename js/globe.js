@@ -540,7 +540,6 @@ const Globe = (function () {
   }
 
   const _p = [0, 0], _p2 = [0, 0];
-  let pz = 0;                 // z of the previous graticule sample; see strand()
   // the three points a clip pass has to remember: where the ring left
   // the visible hemisphere, and where it first came back
   const _exit = [0, 0, 0], _entry = [0, 0, 0], _x3 = [0, 0, 0];
@@ -672,11 +671,36 @@ const Globe = (function () {
   // one meridian or parallel, broken into visible runs. Open polylines,
   // so no limb closing: a graticule strand that vanished behind the
   // earth simply stops.
+  // One meridian or parallel, broken into visible runs. These are OPEN
+  // polylines, so there is no limb closing to do — a strand that went
+  // behind the earth simply stops. But it must stop ON the limb at both
+  // ends, and that is the part that was wrong first: interpolating the
+  // crossing on the way in and not on the way out leaves every strand
+  // reaching the limb on one side and stopping up to a whole segment
+  // short on the other, which at 3 degrees a segment is a visibly ragged
+  // edge on the half of the disc the camera is spinning towards.
   function strand(lon0, lon1, lat0, lat1, dens, meridian, chart) {
     const span = meridian ? (lat1 - lat0) : (lon1 - lon0);
     const steps = Math.max(1, Math.ceil(span / dens));
-    let open = false;
-    let px = 0, py = 0, pc = 0, first = true;
+    let open = false, first = true, run = 0;
+    let px = 0, py = 0, pz = 0, pc = 0;
+
+    const put = (a, b) => dbuf.push(Math.round(a * 10) / 10, Math.round(b * 10) / 10);
+    // the point on the great circle between the last sample and this one
+    function crossTo(x, y, z, c) {
+      const u = pc / (pc - c);
+      const ix = px + (x - px) * u, iy = py + (y - py) * u, iz = pz + (z - pz) * u;
+      const m = Math.hypot(ix, iy, iz) || 1;
+      projVec(ix / m, iy / m, iz / m, _p2);
+      put(_p2[0], _p2[1]);
+    }
+    // L is written before the point that needs it, never after the point
+    // that might have been the last one: a run that opens on the final
+    // sample would otherwise leave a command with no coordinates behind
+    // it, which is a parse error, and a parser that hits one throws away
+    // the rest of the string.
+    function lineTo(fn) { if (run === 1) dbuf.push('L'); fn(); run++; }
+
     for (let s = 0; s <= steps; s++) {
       const u = s / steps;
       const lon = meridian ? lon0 : lon0 + (lon1 - lon0) * u;
@@ -687,21 +711,18 @@ const Globe = (function () {
       projVec(x, y, z, _p);
       if (c >= 0) {
         if (!open) {
-          // step back to the crossing so the strand ends on the limb
-          // rather than a whole segment short of it
-          if (!first && pc < 0) {
-            const u2 = pc / (pc - c);
-            let ix = px + (x - px) * u2, iy = py + (y - py) * u2, iz = pz + (z - pz) * u2;
-            const m = Math.hypot(ix, iy, iz) || 1;
-            projVec(ix / m, iy / m, iz / m, _p2);
-            dbuf.push('M', Math.round(_p2[0] * 10) / 10, Math.round(_p2[1] * 10) / 10, 'L');
+          dbuf.push('M'); open = true; run = 1;
+          if (!first && pc < 0) {                 // start ON the limb, not a segment inside it
+            crossTo(x, y, z, c);
+            lineTo(() => put(_p[0], _p[1]));
           } else {
-            dbuf.push('M', Math.round(_p[0] * 10) / 10, Math.round(_p[1] * 10) / 10, 'L');
+            put(_p[0], _p[1]);
           }
-          open = true;
+        } else {
+          lineTo(() => put(_p[0], _p[1]));
         }
-        dbuf.push(Math.round(_p[0] * 10) / 10, Math.round(_p[1] * 10) / 10);
       } else if (open) {
+        lineTo(() => crossTo(x, y, z, c));        // and end on it
         open = false;
       }
       px = x; py = y; pz = z; pc = c; first = false;
@@ -999,7 +1020,12 @@ const Globe = (function () {
   function loadFine() {
     lodPending = true;
     const s = document.createElement('script');
-    s.src = 'js/worldgeo-50m.js';
+    // Stamped like every URL in world.html and for the same reason: Pages
+    // serves these with a ten-minute cache and no revalidation hint, so a
+    // regenerated tier shipped without moving the stamp looks exactly
+    // like one that never shipped. It is here rather than in the markup
+    // because this file is fetched on demand and has no tag to carry it.
+    s.src = 'js/worldgeo-50m.js?v=1.0';
     s.onload = () => {
       lodPending = false;
       if (typeof WORLD_GEO_50M === 'undefined') return;
