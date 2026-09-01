@@ -536,6 +536,13 @@ const Game = (() => {
     leaderCalls: [],
     negotiationsAccepted: false, negotiationMomentum: 0,
     diploUsed: false, intelUsed: false, over: false,
+    // Tonight's electromagnetic picture. `id`/`sup`/`hit` are TONIGHT's and are
+    // cleared at the turn boundary — suppression is never anything but tonight,
+    // which is the whole reason it is allowed to be as strong as it is (see EW
+    // in data.js). `burn` is the campaign's and is cleared only in newWar: it
+    // counts network attacks attempted, hit or miss, and it is what retires
+    // that option rather than a rule saying it may only be used so often.
+    ew: { id: null, sup: 0, hit: false, burn: 0 },
     // Israel: a semi-autonomous actor, not an American asset, live for all 30
     // turns. `israelPressure` is Jerusalem's patience as a gauge rather than a
     // countdown — see ISRAEL in data.js for what moves it and why the posture
@@ -1009,7 +1016,7 @@ const Game = (() => {
     // approval, and NaN fails every comparison, so the collapse check, the
     // Hill's vote and the grade all quietly stop firing. Nothing on screen
     // would say why.
-    const VERSION = 30;
+    const VERSION = 31;
     const FIELDS = [
       // `approval` is absent on purpose and must stay absent — it is a getter
       // with a throwing setter, and read() assigns every name in this list
@@ -1032,6 +1039,7 @@ const Game = (() => {
       'timeline', 'bdaLog', 'adapt', 'adaptSeen', 'turnStartHp', 'tlamPool', 'torpedoes',
       'bmdPool', 'bmdRearm', 'nsmPool', 'pgm',
       'houthi', 'mandab', 'mandabClosedTurns',
+      'ew',
     ];
 
     function write() {
@@ -2020,13 +2028,44 @@ const Game = (() => {
   // Air defense degrades in proportion to what is still standing, so a SAM belt
   // worn down to 40% screens the skies at 40% — there is no cliff between
   // "damaged" and "destroyed" for the player to game.
-  function airDefenseWeight() {
+  // ---- tonight's electromagnetic picture ----
+  // How much of the belt is off the air tonight, 0..1. On hard this is whatever
+  // the president ordered and nothing otherwise; on easy and normal it is the
+  // standing jam CENTCOM flies without being asked (DIFFICULTY.ew).
+  //
+  // Cheap and side-effect free on purpose: airDefenseWeight() is on the hot
+  // path — every package priced, every render of the air picture — and this is
+  // read inside it.
+  function ewSuppression() {
+    if (G.ew && G.ew.id) return G.ew.sup || 0;
+    const cfg = diff().ew;
+    return (cfg && cfg.auto) || 0;
+  }
+
+  // `structural` asks what the belt IS, rather than what it can do tonight.
+  // Same split, and for the same reason, as IranAI.missileStrength(legalOnly):
+  // almost everything wants tonight's flying conditions, so that is the
+  // default, and the exceptions have to ask.
+  //
+  // There are exactly THREE structural callers and all three are statements
+  // about the CAMPAIGN rather than about tonight — airPhaseEvents(), which
+  // announces the night the sky changes hands, and the two heavy-bomber
+  // deployment gates in orderHeavies() and autoTheater(). Left on the default
+  // reading, the first announces "AIR DEFENSES DEGRADED" every night a jam is
+  // ordered and announces losing the sky back every night one is not, and the
+  // other two let one night's jamming release a five-turn deployment out of
+  // CONUS. Anything else added here almost certainly wants the default.
+  function airDefenseWeight(structural) {
     let w = 0;
     for (const t of TARGETS) {
       if (t.type !== 'airdefense') continue;
       w += wt(t) * t.hp / 100;
     }
-    return w; // 0..AD_SITES
+    // Suppression scales the SAM term and NOTHING else — never the airbase
+    // term in airSuperiority() below. That restraint is what makes jamming
+    // unable to reach superiority at any value (see EW in data.js), and it is
+    // the property the design rests on rather than an oversight to tidy up.
+    return structural ? w : w * (1 - ewSuppression()); // 0..AD_SITES
   }
 
   // The denominator that turns the weight above into a fraction. Summed rather
@@ -2052,8 +2091,8 @@ const Game = (() => {
   // campaign: the heavy force is not a reward you unlock, it is a condition you
   // maintain, and the night you look away is the night the plan gets smaller.
   // ============================================================
-  function airSuperiority() {
-    const sam = AD_SITES ? airDefenseWeight() / AD_SITES : 0;
+  function airSuperiority(structural) {
+    const sam = AD_SITES ? airDefenseWeight(structural) / AD_SITES : 0;
     let ab = 0, n = 0;
     for (const t of TARGETS) {
       if (t.type !== 'airbase') continue;
@@ -2063,15 +2102,15 @@ const Game = (() => {
     return clamp(1 - iranian, 0, 1);
   }
 
-  function airPhase() {
-    const s = airSuperiority();
+  function airPhase(structural) {
+    const s = airSuperiority(structural);
     return s >= AIR_PHASE.superiority ? 'superiority'
       : s >= AIR_PHASE.degraded ? 'degraded' : 'contested';
   }
 
   // ordering, so "is this phase at least that phase" is one comparison
   const PHASE_RANK = { contested: 0, degraded: 1, superiority: 2 };
-  const phaseAtLeast = (need) => PHASE_RANK[airPhase()] >= PHASE_RANK[need || 'contested'];
+  const phaseAtLeast = (need, structural) => PHASE_RANK[airPhase(structural)] >= PHASE_RANK[need || 'contested'];
 
   const PHASE_LABEL = {
     contested: 'AIRSPACE CONTESTED',
@@ -2084,7 +2123,10 @@ const Game = (() => {
   // player is actually reading — and because losing it back is the event that
   // has to land hardest.
   function airPhaseEvents() {
-    const now = airPhase();
+    // STRUCTURAL. This is the night the sky changed hands, which is a fact
+    // about the campaign — a jam ordered tonight is not the fourth-gen force
+    // being released, and the night after it is not the sky being lost back.
+    const now = airPhase(true);
     const was = G.airPhaseSeen;
     G.airPhaseSeen = now;
     if (now === was) return [];
@@ -2533,7 +2575,9 @@ const Game = (() => {
   // ============================================================
   function orderHeavies() {
     if (G.over || G.heaviesOrdered || transitCommitted() || busy()) return;
-    if (!phaseAtLeast('degraded')) return;
+    // STRUCTURAL: a five-turn deployment out of CONUS is not unlocked by one
+    // night's jamming. The belt has to actually be broken.
+    if (!phaseAtLeast('degraded', true)) return;
     G.heaviesOrdered = true;
     G.heavyEta = HEAVY_TRANSIT_TURNS;
     G.deployTurn = G.turn;
@@ -2857,7 +2901,7 @@ const Game = (() => {
       theaterNotes.push(`${cvShort(G.carriers.find(c => !c.arrived) || G.carriers[0])} has been surged ` +
         'out of the Mediterranean and down through the canal. Five turns out, and a second air wing ' +
         'when she gets there.');
-    } else if (!G.heaviesOrdered && phaseAtLeast('degraded')) {
+    } else if (!G.heaviesOrdered && phaseAtLeast('degraded', true)) {   // structural, as orderHeavies
       orderHeavies();
       theaterNotes.push('The belt is breaking, so Air Combat Command has released the heavies. B-1s ' +
         'and B-52s are moving to RAF Fairford against the night the sky is finally ours.');
@@ -4363,6 +4407,220 @@ const Game = (() => {
     UI.renderAll(G);
     Save.write();
     return true;
+  }
+
+  // ============================================================
+  // THE ELECTROMAGNETIC HALF OF THE NIGHT
+  // ------------------------------------------------------------
+  // See EW in data.js for the design and DIFFICULTY.ew for who is offered it.
+  // What lives here is the ORDER — the three profiles, their price, and the
+  // one roll the network attack makes.
+  //
+  // A JAM IS NOT ON G.missions AND CANNOT BE SCRUBBED, and that is a
+  // deliberate exception to the invariant that tonight's order is a document
+  // until the turn ends. recallMission exists to hand back exactly what a
+  // package booked; a jam books something no refund can reach. It is not an
+  // aircraft flying to an aimpoint, it is the electromagnetic condition of the
+  // night, and every other package on tonight's order was planned and priced
+  // against a suppressed belt. Handing it back would silently re-price
+  // missions already fragged. So it resolves immediately, the panel says
+  // plainly that it cannot be recalled, and the price is stated before the
+  // press rather than discovered after it.
+  //
+  // THERE IS NO SEQUENCING TRAP AND NOTHING HERE GUARDS AGAINST ONE.
+  // resolveImpact calls computeStrike at RESOLUTION, so tonight's suppression
+  // covers every package landing tonight whatever order they were fragged in.
+  // The only thing read at frag time is pkgBlock's gate — and hard is the only
+  // level with these orders and hard sets softGate, so that gate never refuses
+  // anything here anyway.
+  // ============================================================
+  const ewSpec = (id) => EW.missions.find(m => m.id === id) || null;
+
+  // Is this level doing its own jamming? The others have it flown for them and
+  // are never offered the orders (DIFFICULTY.ew).
+  function ewOrders() {
+    const cfg = diff().ew;
+    return !!(cfg && cfg.orders);
+  }
+
+  // The odds a network attack lands, given what has already been burned. Read
+  // during a render — see the purity note on ewState — so it must never roll.
+  function ewNetworkOdds() {
+    const spec = ewSpec('network');
+    if (!spec) return 0;
+    const burn = (G.ew && G.ew.burn) || 0;
+    return Math.max(spec.floor, spec.odds - burn * spec.burnStep);
+  }
+
+  // What the panel reads.
+  //
+  // PURE. This runs on every renderSidebar draw, so a Math.random() in here
+  // makes the campaign depend on how many times the player opened a drawer,
+  // and a write to G makes it depend on how many times it was DRAWN. That is
+  // not a hypothetical: coaScore called carrierRisk() — the resolver — from
+  // v1.77 to v1.81, rolling and consuming the telegraphed anti-ship shot during
+  // a render, and nothing caught it because nothing looked. ew.js asserts a
+  // signature of G and TARGETS either side of twenty-five calls and a counter
+  // round Math.random.
+  function ewState() {
+    const flown = ewSpec(G.ew && G.ew.id);
+    const belt = airDefenseWeight(true);
+    const wall = atoWall();
+    return {
+      orders: ewOrders(),
+      // the standing jam, on the levels that fly one without being asked
+      auto: ewOrders() ? 0 : ewSuppression(),
+      flown: flown ? { id: flown.id, name: flown.name, short: flown.short,
+        sup: G.ew.sup, hit: G.ew.hit } : null,
+      burn: (G.ew && G.ew.burn) || 0,
+      belt,
+      missions: EW.missions.map(m => {
+        const tanker = m.tanker || 0;
+        // Each refusal names its own cause, because they are three different
+        // problems and the player fixes them three different ways: the wall
+        // waits for tomorrow, the fuel waits for the turn, and a jam already
+        // flown waits for nothing at all.
+        const blocked = !ewOrders() ? 'Not this level\'s decision — CENTCOM flies the jamming.'
+          : G.ew.id ? 'ONE ELECTRONIC WARFARE MISSION A NIGHT — the Growlers are already committed.'
+          : wall ? wall
+          : G.tankers < tanker ? 'TANKER PLAN SPENT — there is no fuel left airborne to hold a jamming orbit.'
+          : null;
+        return {
+          id: m.id, name: m.name, short: m.short, desc: m.desc,
+          sup: m.sup, tanker,
+          // the loss roll the escort jam would actually make tonight, off the
+          // belt that is STANDING — a jammer is not protected by its own jamming
+          loss: m.loss ? m.loss * (AD_SITES ? belt / AD_SITES : 0) : 0,
+          odds: m.id === 'network' ? ewNetworkOdds() : 1,
+          failSup: m.failSup || 0,
+          blocked,
+        };
+      }),
+    };
+  }
+
+  // The order. The only impure thing in here.
+  function orderEw(id) {
+    if (G.over || busy()) return;
+    if (!ewOrders()) return;
+    if (G.ew.id) return;                       // one a night
+    const spec = ewSpec(id);
+    if (!spec) return;
+    const tanker = spec.tanker || 0;
+    if (G.tankers < tanker) return;
+    if (atoWall()) return;
+
+    // The price. A slot off the tasking order — read by atoOver, so a jam
+    // genuinely pushes the rest of the night toward the late-frag penalties
+    // and the wall — and fuel in the air, booked like any other package.
+    G.tankers -= tanker;
+    G.strikesThisTurn++;
+
+    const events = [];
+    let sup = spec.sup, hit = true;
+
+    if (id === 'network') {
+      // Rolled ONCE, here, at the order — never in ewState. The access is
+      // spent whether or not it worked, which is what `burn` counts.
+      const p = ewNetworkOdds();
+      hit = Math.random() < p;
+      G.ew.burn++;
+      sup = hit ? spec.sup : spec.failSup;
+      if (hit) {
+        const relief = IranAI.ewNetworkHit(G);
+        if (relief) events.push(relief);
+      }
+    }
+
+    G.ew.id = id;
+    G.ew.sup = sup;
+    G.ew.hit = hit;
+
+    events.unshift(ewReport(spec, sup, hit));
+
+    // The escort jam is the one with people inside the rings. The roll is off
+    // the belt that is STANDING rather than the suppressed reading — a jammer
+    // does not shelter under its own jamming — and the loss goes through the
+    // same csar.js path a shot-down strike aircraft does, because a roster
+    // entry is a SEAT and the two-seat pairing is what csar's partial-recovery
+    // branch is built on. Inventing a second casualty path here would break it.
+    if (spec.loss > 0) {
+      const risk = spec.loss * (AD_SITES ? airDefenseWeight(true) / AD_SITES : 0);
+      if (risk > 0 && Math.random() < risk) {
+        // an escort jammer goes down over the belt it was penetrating, which
+        // also gives the recovery somewhere real to run to
+        const site = TARGETS.filter(t => t.type === 'airdefense' && t.hp > 0)
+          .sort((a, b) => (wt(b) * b.hp) - (wt(a) * a.hp))[0];
+        if (site) {
+          const pkg = { asset: 'fighter', qty: 1, label: 'EA-18G Growler' };
+          const crew = Aircrew.frag(G, pkg);
+          const loss = CSAR.aircraftDown(site, { pkg, crew });
+          G.stats.aircraftLost++;
+          const ev = {
+            cls: 'iran', title: 'ELECTRONIC ATTACK AIRCRAFT LOST', internal: true,
+            sum: 'Growler down over the belt', outcome: 'miss',
+            aircraftLost: true,
+            dApproval: movePublic(-4),
+            text: 'The jamming aircraft was inside the engagement rings when the shot came. ' + loss.text,
+          };
+          if (loss.casualties) {
+            G.casualties.us += loss.casualties;
+            ev.casualties = loss.casualties;
+          }
+          events.push(ev);
+          AudioSys.play('aircraftLost', 600);
+        }
+      }
+    }
+
+    G.stats.ewMissions = (G.stats.ewMissions || 0) + 1;
+    UI.showReport('ELECTRONIC WARFARE', events);
+    UI.renderAll(G);
+    Save.write();
+  }
+
+  // What the president is told. Internal traffic in every branch — a jamming
+  // orbit is not something CENTCOM announces and not something Iran admits to,
+  // so none of this belongs on the press ticker (see headlines in ai.js).
+  function ewReport(spec, sup, hit) {
+    const pct = Math.round(sup * 100);
+    if (spec.id === 'network' && !hit) {
+      return {
+        cls: 'iran', title: 'NETWORK ATTACK — ACCESS COLD', internal: true,
+        sum: 'Access burned, little suppression', outcome: 'miss',
+        text: (ev) => 'The access was not there. Either they had already closed it or they were waiting to see ' +
+          'who walked through it, and the effects never reached the engagement radars. The aircraft went in ' +
+          'configured to exploit a network that stayed up, which is worth less tonight than if they had simply ' +
+          `been jamming: the belt is degraded ${pct}%. The access is spent either way, and they will harden ` +
+          'behind it.',
+      };
+    }
+    if (spec.id === 'network') {
+      return {
+        cls: 'friendly', title: 'NETWORK ATTACK — IADS BLINDED', internal: true,
+        sum: `Command network down, belt −${pct}%`, outcome: 'destroyed',
+        text: (ev) => 'The command network is not passing tracks. Individual sites still have their own radars ' +
+          'and their own crews, but nothing is handing an engagement between them and nothing is telling them ' +
+          `what is coming — the belt is degraded ${pct}% until they get it back. They will, and they will be ` +
+          'harder to reach next time.',
+      };
+    }
+    if (spec.id === 'escort') {
+      return {
+        cls: 'friendly', title: 'ESCORT JAMMING — GROWLERS INSIDE THE RINGS', internal: true,
+        sum: `Escort jam on station, belt −${pct}%`, outcome: 'destroyed',
+        text: (ev) => 'The Growlers are flying the package in and jamming the engagement radars from inside ' +
+          `their own coverage. It is the deepest suppression that can be relied on — the belt is degraded ` +
+          `${pct}% tonight — and the aircraft doing it are in the threat for as long as the package is.`,
+      };
+    }
+    return {
+      cls: 'friendly', title: 'BARRIER JAM ESTABLISHED', internal: true,
+      sum: `Standoff jam up, belt −${pct}%`, outcome: 'destroyed',
+      text: (ev) => 'A barrier orbit is up outside the engagement rings, burning through from standoff. ' +
+        `Nobody is in the threat and nothing has been destroyed: the belt is degraded ${pct}% until sunrise, ` +
+        'and in the morning it is exactly what it was.',
+    };
   }
 
   // ============================================================
@@ -7180,6 +7438,10 @@ const Game = (() => {
     G.atoPlan = planSize(G.fatigue);
     G.diploUsed = false;
     G.intelUsed = false;
+    // Suppression is tonight's and only tonight's. `burn` is deliberately not
+    // cleared here — it is the campaign's, and it is what retires the network
+    // attack (see EW in data.js).
+    G.ew.id = null; G.ew.sup = 0; G.ew.hit = false;
     G.strikesThisTurn = 0;
     G.struckThisTurn = [];
     G.raidThisTurn = false;
@@ -7924,11 +8186,15 @@ const Game = (() => {
     G.nsmPool = NSM_LOAD;
     // what the depots opened the war holding, on the one level that counts it
     G.pgm = diff().pgm || 0;
+    // and nobody has jammed anything yet. `burn` above all: a campaign that
+    // inherited the last one's would open with the network attack already
+    // spent, the same leak class as the per-war fields on TARGETS.
+    G.ew = { id: null, sup: 0, hit: false, burn: 0 };
     // and last night's brief belongs to last night's war
     coaCache = { turn: -1, list: null };
     syncFleetCaps();
     G.res.f35 = G.caps.f35;
-    G.airPhaseSeen = airPhase();
+    G.airPhaseSeen = airPhase(true);
 
     G.tankerCap = tankerCapacity();
     G.tankers = G.tankerCap;
@@ -8043,6 +8309,9 @@ const Game = (() => {
     gulfHawkDrivers, gulfDoveDrivers, gulfEta, gulfSummitCost, gulfPriorities,
     gulfStates, gulfFoldThreshold,
     airDefenseWeight, orderCarrier, toggleCarrierPosture, carrierFactor, carrierExposure, navalForward,
+    // electronic warfare: the suppression is state, everything else here is a
+    // reading off it, and orderEw is the one door that may write any of it
+    ewSuppression, ewOrders, ewState, orderEw,
     // exported for .claude/betatest/lincoln.js, which is the only thing that can
     // see whether the standing posture call ever uses the middle of its band
     antiShipRisk, forwardWorth,

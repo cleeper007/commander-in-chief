@@ -1590,6 +1590,114 @@ const ATO = {
 };
 
 // ============================================================
+// ELECTRONIC WARFARE — WHAT IS BOUGHT FOR TONIGHT AND FOR NO LONGER
+// ------------------------------------------------------------
+// Until this existed the game modelled air defense as DESTRUCTION and nothing
+// else: the belt goes down when somebody bombs it, and comes back out of a
+// national reserve four quiet nights later (AD_RECONSTITUTION). There was no
+// way to make a SAM site stop shooting tonight without killing it, which is
+// half of what an air campaign actually does — the distinction between
+// destructive and suppressive SEAD, and the reason the real Growler community
+// exists at all.
+//
+// So suppression is the other half of the reconstitution argument. That
+// invariant says destruction is never permanent; this one says suppression is
+// never anything BUT tonight — not by a rule that expires it, but because it
+// is a fraction stored on the turn and cleared at the boundary. It can be made
+// strong without ever ratcheting, which is exactly what the belt's own
+// come-back-from-zero rule cannot afford to allow anything else to be.
+//
+// HARD ORDERS IT. EASY AND NORMAL HAVE IT DONE FOR THEM. Same shape as
+// DIFFICULTY.pgm (hard keeps a munitions ledger, and only hard) and
+// DIFFICULTY.autoTheater (easy has CENTCOM make the theater calls) — see
+// DIFFICULTY.ew below for what each level gets and the argument for the split.
+//
+// TWO PROPERTIES FALL OUT OF THE ARITHMETIC, and both are the design rather
+// than side effects of it. airSuperiority() is 1 - (0.75 * SAM + 0.25 *
+// airbase), degraded at 0.40 and superiority at 0.80 (AIR_WEIGHT/AIR_PHASE):
+//
+//   * A suppression of 0.533 opens the DEGRADED gate — the entire
+//     fourth-generation force — off a belt nobody has touched. That is the
+//     number `escort` is priced against and the number `barrier` is
+//     deliberately priced under.
+//   * No amount of suppression EVER reaches superiority. With the Iranian
+//     airbases standing their term alone is 0.25 against a budget of 0.20, so
+//     there is no value of s that gets there. Jamming opens the fighter gate;
+//     only destroying the fighter bases releases the heavies. This is why
+//     suppression is applied inside airDefenseWeight() and never to the
+//     airbase term — the restraint is load-bearing, not tidiness, and ew.js
+//     asserts it can never pass.
+//
+// A JAM COSTS ONE PACKAGE SLOT on the tasking order (see orderEw), which is
+// the price that makes the whole thing a decision: one of tonight's three
+// packages buys better odds, a lower aircrew roll and the fourth-gen gate for
+// the other two. On effects alone that trade never quite pays — two packages
+// at p+d beat three at p only when d > p/2, which no honest suppression value
+// reaches. It pays on the GATE and on the aircrew roll, which is the correct
+// shape: EW is what makes a night survivable and a tier available, not what
+// makes a bomb hit harder.
+const EW = {
+  missions: [
+    // The reliable floor. Growlers in a barrier orbit outside the engagement
+    // rings, burning through from standoff — which is why the number is
+    // modest and why nobody is exposed: they never enter the threat. Priced
+    // deliberately BELOW the 0.533 gate. A guaranteed key to the fourth-gen
+    // force for one package and no risk would end the argument this table
+    // exists to have.
+    { id: 'barrier', name: 'STANDOFF BARRIER JAM', short: 'BARRIER',
+      sup: 0.35, tanker: 1, loss: 0,
+      desc: 'EA-18G Growlers hold a barrier orbit outside the engagement rings and burn through from standoff. ' +
+        'Nobody enters the threat, nothing is destroyed, and the belt is degraded across the theater until sunrise.' },
+
+    // Certainty bought with blood. The Growlers go in WITH the package, inside
+    // the rings, and 0.60 is over the gate — this is the order that puts the
+    // fourth-generation squadrons over an untouched belt tonight. The loss
+    // roll scales with the belt that is actually standing (never the suppressed
+    // reading — a jammer is not protected by its own jamming), so it is ~10% on
+    // night one and near nothing once the belt is broken. That decay is right:
+    // nobody shoots down a Growler over a dead SAM network, and an escort jam
+    // late in a campaign should quietly become the safe option it deserves to be.
+    { id: 'escort', name: 'PENETRATING ESCORT JAM', short: 'ESCORT',
+      sup: 0.60, tanker: 1, loss: 0.10,
+      desc: 'The Growlers fly the package in, inside the rings, jamming the engagement radars from within their ' +
+        'own coverage. It is the deepest suppression that can be relied on — and the aircraft doing it are ' +
+        'inside the threat for the duration.' },
+
+    // The gamble, against a resource that does not refill. Non-kinetic effects
+    // against the IADS command network, delivered with the airborne package
+    // rather than instead of it. On a failure the aircraft went in configured
+    // to exploit an access that was not there, which is worth LESS than a
+    // straight barrier jam — that is what stops this strictly dominating the
+    // first row.
+    //
+    // `burn` increments on every attempt, hit or miss: Iran hardens the network
+    // whether the intrusion worked or was merely detected. The curve is the
+    // whole argument for the option. At burn 0 it is worth 0.70*0.80 +
+    // 0.30*0.15 = 0.605 in expectation against barrier's guaranteed 0.35; by
+    // the fourth attempt the odds are 0.25 and the expectation is 0.35 —
+    // exactly barrier, at variance, for the same package. The option retires
+    // ITSELF rather than being taken away, and no counter anywhere needs to
+    // say so. Do not raise `odds` or lower `burnStep` to make it last longer:
+    // what is being modelled is an access, and an access that survives being
+    // used is not one.
+    { id: 'network', name: 'IADS NETWORK ATTACK', short: 'NETWORK',
+      sup: 0.80, failSup: 0.15, tanker: 1, loss: 0,
+      odds: 0.70, burnStep: 0.15, floor: 0.15,
+      desc: 'Non-kinetic effects against the integrated air defense command network, cued and exploited by the ' +
+        'airborne package. A blinded network cannot hand a track between sites — but the access is spent whether ' +
+        'or not it works, and they harden behind it either way.' },
+  ],
+
+  // What a successful network attack does to what Iran has LEARNED. A command
+  // network that cannot cue itself cannot build a pattern either, so the
+  // adaptation counters go back by one full level across every platform (see
+  // IranAI.ewNetworkHit). This is the second currency the option pays in and
+  // the reason it is worth taking early rather than hoarding: adaptation is
+  // the one penalty in the strike math that otherwise only ever goes up.
+  adaptRelief: 1,
+};
+
+// ============================================================
 // JERUSALEM'S CLOCK
 // ------------------------------------------------------------
 // Israel is a second actor with its own war aims, not an American asset — and
@@ -3041,11 +3149,37 @@ const INTEL_SLATE = {
 // is simply not shown the arithmetic, exactly as `railPanels` trims drawers off
 // a war that is otherwise the same war. A level that quietly simulated less
 // would break the one claim that makes this table testable.
+//
+// ELECTRONIC WARFARE — WHO DECIDES, NOT HOW MUCH.
+//
+//   ew  { auto, orders } — the standing suppression CENTCOM flies without
+//       being asked, and whether this level is offered the orders at all.
+//
+// Hard is `{ auto: 0, orders: true }`: nobody jams anything until the air
+// component commander says so, and then it costs a package off the tasking
+// order. Easy and normal are `{ auto: 0.30 | 0.22, orders: false }` — the
+// staff flies a standing barrier jam, it costs the president nothing, and
+// there is no dialog.
+//
+// THE LEVEL THAT DOES NOT MAKE THE DECISION DOES NOT PAY ITS PRICE AND DOES
+// NOT GET ITS UPSIDE. That is the whole argument for the asymmetry and it is
+// the same one autoTheater makes. The automatic jam must not come off the
+// plan — on easy a course of action fills the WHOLE tasking order (coaFill:
+// 'full'), so charging it a slot would quietly shrink every night by a third
+// on the level with no ATO gauge to show it. And it is deliberately well
+// under the 0.533 gate: a president who never hears the word "Growler" does
+// not get the fourth-generation force handed to them, which is what `escort`
+// costs a hard player a package and an aircrew roll to buy.
+//
+// It needs no fade rule. Suppression is multiplicative against a belt that is
+// itself falling, so 0.30 of nearly nothing is nearly nothing — it is a
+// tailwind through the contested opening week, where these campaigns are
+// actually lost, and it decays into irrelevance on its own.
 const DIFFICULTY = {
   easy:   { name: 'EASY', casualties: 320, repair: 0.75, coord: 0.85, breakout: 1.25, israel: 0.75, bmd: 1.35, covert: 1.3, retaliation: 0.55, softGate: false,
     coa: 3, coaFill: 'full', freeTargeting: false, recommend: true, pgm: 0,
     coaSigns: 1, coaSurge: 2, strike: { base: 1.30, perFlow: 0.08, edge: 0.03 }, dealBar: 2.5,
-    plainAssets: true, intelSlate: 3,
+    plainAssets: true, intelSlate: 3, ew: { auto: 0.30, orders: false },
     public: { base: 32, opposed: 26, erode: 0.6 }, pollDetail: false,
     railPanels: ['advisors', 'resources', 'specops'],
     popups: ['brief', 'recovery', 'diplo', 'intel'], autoTheater: true,
@@ -3054,7 +3188,7 @@ const DIFFICULTY = {
   normal: { name: 'NORMAL', casualties: 250, repair: 1, coord: 1, breakout: 1, israel: 1, bmd: 1, covert: 1, retaliation: 0.75, softGate: false,
     coa: 2, coaFill: 'half', freeTargeting: true, recommend: false, pgm: 0,
     coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0, dealBar: 1.5,
-    railPanels: null, popups: [], autoTheater: false,
+    railPanels: null, popups: [], autoTheater: false, ew: { auto: 0.22, orders: false },
     public: { base: 28, opposed: 30, erode: 1 }, pollDetail: true,
     // Held off the title screen. The level is complete and every knob above is
     // live — a save written at this level still restores and plays it — but the
@@ -3067,7 +3201,7 @@ const DIFFICULTY = {
   hard:   { name: 'HARD', casualties: 190, repair: 1.25, coord: 1.15, breakout: 0.85, israel: 1.3, bmd: 0.7, covert: 0.75, retaliation: 1, softGate: true,
     coa: 0, coaFill: 'full', freeTargeting: true, recommend: false, pgm: 440,
     coaSigns: 0, strike: null, plainAssets: false, intelSlate: 0, dealBar: 1.5,
-    railPanels: null, popups: [], autoTheater: false,
+    railPanels: null, popups: [], autoTheater: false, ew: { auto: 0, orders: true },
     public: { base: 24, opposed: 34, erode: 1.4 }, pollDetail: true,
     desc: 'You are the air component commander and nobody is drafting anything for you. Every package by hand, a finite stock of precision weapons that only the munitions ships replace, less patience at home, faster Iranian repair, a light interceptor magazine and no patience at all in Jerusalem. The staff will fly any plan you sign and hand you the casualty list afterwards.' },
 };

@@ -1338,6 +1338,26 @@ button { font-family: var(--mono); }
 .intel-line .il-value { color: var(--amber); letter-spacing: 0; }
 .intel-line .il-value.known { color: var(--green); }
 .intel-line .il-value.unknown { color: var(--red); }
+
+/* ---- electronic warfare ----
+   Same shape as .intel-line above and for the same reason: the state above the
+   orders, then the one decision against it. Kept as its own selector rather
+   than reusing .intel-line, because that block is shared between the drawer and
+   the brief's intelligence room (see intelParts) and this panel is on neither. */
+.ew-head { margin-bottom: 6px; }
+.ew-line {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--dim); padding: 4px 2px; border-bottom: 1px solid var(--line);
+}
+.ew-line .ew-val { color: var(--amber); letter-spacing: 0; text-transform: none; }
+.ew-note { font-size: 10.5px; line-height: 1.45; color: var(--dim); padding: 4px 2px; }
+/* The jam readout on the air-superiority bar. Amber and not green on purpose:
+   this part of the number is rented, and it is gone in the morning. */
+.airsup .as-jam {
+  font-size: 8.5px; letter-spacing: 1px; color: var(--amber);
+  border: 1px solid var(--amber); border-radius: 2px; padding: 0 3px; margin-left: 6px;
+}
 /* the tasking's own live line is styled with the shared .action rules above —
    intelligence was the first panel to separate state from explanation, and is
    now simply one of four doing it */

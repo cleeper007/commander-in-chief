@@ -82,7 +82,12 @@ const UI = (() => {
     // ADVISORS for exactly that reason — the panel it opens still says
     // SITUATION ROOM — ADVISORS at the top of the pane.
     { key: 'recovery', label: 'RESCUE',  urgent: true, panels: ['csar'] },
-    { key: 'tonight',  label: 'TONIGHT', panels: ['coa', 'specops'] },
+    // ELECTRONIC WARFARE rides here rather than taking a seventh chip: the
+    // labels are capped at seven characters because six tabs have to stand
+    // across a 268px sidebar, and a jam is a decision about tonight in exactly
+    // the sense a raid is. It exists on hard only and hides itself elsewhere,
+    // so on the two levels that do not order it this group is what it was.
+    { key: 'tonight',  label: 'TONIGHT', panels: ['coa', 'specops', 'ew'] },
     { key: 'mission',  label: 'MISSION', panels: ['objectives', 'intel'] },
     // SQUADRON used to ride with FORCES rather than take a seventh chip. The
     // panel came off at v2.09 and the roster did not — see aircrew.js and the
@@ -467,7 +472,7 @@ const UI = (() => {
   // slot to spend on any of them — renderDiplo sets that badge itself.
   const ACTION_PANELS = {
     fleet: 'fleet-buttons', csar: 'csar-buttons', intel: 'intel-buttons',
-    specops: 'specops-buttons',
+    specops: 'specops-buttons', ew: 'ew-buttons',
   };
   function renderBadges() {
     for (const key in ACTION_PANELS) {
@@ -793,8 +798,18 @@ const UI = (() => {
     const s = Game.airSuperiority();
     const phase = Game.airPhase();
     const cls = phase === 'superiority' ? 'ap-sup' : phase === 'degraded' ? 'ap-deg' : 'ap-con';
+    // How much of this number is SUPPRESSION rather than destruction. On easy
+    // and normal this line is the only place the player is ever told CENTCOM
+    // flies a standing jam for them — there is no panel and no order there —
+    // and on hard it is the difference between a gate that is open tonight and
+    // a gate that is open. Absent when nothing is jamming, which on hard is
+    // most nights.
+    const jam = Game.ewSuppression();
+    const held = jam > 0
+      ? `<span class="as-jam">JAMMED ${Txt.MINUS}${Math.round(jam * 100)}%</span>`
+      : '';
     return `<div class="airsup ${cls}">` +
-      `<div class="as-head"><span class="as-label">${Game.PHASE_LABEL[phase]}</span>` +
+      `<div class="as-head"><span class="as-label">${Game.PHASE_LABEL[phase]}</span>${held}` +
       `<span class="as-value">${Math.round(s * 100)}%</span></div>` +
       `<div class="as-bar"><span class="as-fill" style="width:${Math.round(s * 100)}%"></span>` +
       `<span class="as-tick" style="left:${AIR_PHASE.degraded * 100}%"></span>` +
@@ -3339,6 +3354,76 @@ const UI = (() => {
 
   let csarWasHidden = true;
 
+  // ---- electronic warfare ----
+  // Hard's third order of the night, beside the raid. See EW in data.js for the
+  // design; what matters here is that this panel exists on ONE level.
+  //
+  // It hides itself with `hidden` and never with `mode-off`. Those are two
+  // classes with two owners: `mode-off` belongs to the level's own trim
+  // (applyPanelTrim, run once at boot off DIFFICULTY.railPanels) and `hidden`
+  // is the renderers'. CSAR and renderCoa both self-hide this way and this is
+  // the same case — a panel whose own content decides whether it exists.
+  //
+  // Wired by hand rather than through wireActions, which is hard-coded to
+  // Game.doDiplo. These orders spend a package off the tasking order, not a
+  // diplomatic slot, so they go to their own door; the disclosure carets are
+  // still the shared ones.
+  function renderEw(G) {
+    const box = $('ew-buttons');
+    if (!box) return;
+    const panel = document.querySelector('.panel[data-panel="ew"]');
+    const on = Game.ewOrders();
+    if (panel) panel.classList.toggle('hidden', !on);
+    if (!on) { box.innerHTML = ''; return; }
+
+    const st = Game.ewState();
+    const meta = $('ew-status');
+    if (meta) meta.textContent = st.flown ? `— ${st.flown.short} ON STATION` : '';
+
+    const rows = st.missions.map(m => {
+      const bits = [`suppresses ${Math.round(m.sup * 100)}% of the belt tonight`];
+      if (m.id === 'network') {
+        bits.push(`${Math.round(m.odds * 100)}% the access holds`);
+        bits.push(`${Math.round(m.failSup * 100)}% if it does not`);
+      }
+      if (m.loss > 0) bits.push(`${Math.round(m.loss * 100)}% chance of losing the jammer`);
+      bits.push('one package off tonight\'s order');
+      return {
+        id: m.id, name: m.name, desc: m.desc,
+        // the price and the odds above the fold, the prose behind the caret —
+        // the same order every other staffed order in this game puts them in
+        current: bits.join(' · '),
+        disabled: !!m.blocked,
+        attrs: `data-ew="${m.id}"`,
+      };
+    });
+
+    // The state above the orders, as the intelligence slot does it: what the
+    // belt is, then the one decision against it. `belt` is the STRUCTURAL
+    // reading — what is actually standing — because that is what the president
+    // is deciding whether to jam, and quoting the suppressed number back at
+    // them after they have jammed it is a gauge reporting its own effect.
+    const head = '<div class="ew-head">' +
+      (st.flown
+        ? `<div class="ew-line"><span class="ew-key">TONIGHT</span>` +
+          `<span class="ew-val">${st.flown.name} — belt degraded ${Math.round(st.flown.sup * 100)}%</span></div>` +
+          '<div class="ew-note">A jamming orbit cannot be recalled. Every package on tonight\'s order was ' +
+          'planned against a suppressed belt; in the morning it is exactly what it was.</div>'
+        : '<div class="ew-note">Nothing is jamming. Suppression lasts one night, costs a package off the ' +
+          'tasking order, and destroys nothing — it buys the sky the crews fly through tonight.</div>') +
+      (st.burn > 0
+        ? `<div class="ew-line"><span class="ew-key">ACCESS</span><span class="ew-val">` +
+          `${Txt.plural(st.burn, 'network attack')} flown — they have hardened behind each one</span></div>`
+        : '') +
+      '</div>';
+
+    box.innerHTML = head + actionButtons(rows, false);
+    for (const btn of box.querySelectorAll('.action-do')) {
+      btn.addEventListener('click', () => Game.orderEw(btn.dataset.ew));
+    }
+    wireWhy('#ew-buttons');
+  }
+
   function renderSidebar(G) {
     CSAR.renderPanel(G);   // hidden unless there are Americans on the ground
     // A recovery panel that has just appeared opens itself. Whatever the player
@@ -3360,6 +3445,7 @@ const UI = (() => {
     renderDiplo(G);
     renderIntel(G);
     SpecOps.renderPanel(G);
+    renderEw(G);           // hard only; hides itself on the levels CENTCOM jams for
     renderBadges();
     syncBriefButton();   // the way back into a dismissed brief, while there is one
     syncNuclearButton(); // and into the release folder, while there is a window

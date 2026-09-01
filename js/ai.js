@@ -417,6 +417,44 @@ const IranAI = (() => {
     return null;
   }
 
+  // What a successful IADS network attack does to what Iran has LEARNED.
+  //
+  // Adaptation is a pattern built out of watching: six packages of one platform
+  // and the counter deepens (ADAPT_EVERY). A command network that cannot hand a
+  // track between sites cannot build that pattern either — the observations are
+  // still made, but nothing correlates them — so a hit knocks every counter back
+  // by one full level and takes G.adaptSeen down with it, or the next real step
+  // would re-announce a level the president just paid a package to erase.
+  //
+  // This is the second currency the network attack pays in and the reason it is
+  // worth taking EARLY rather than hoarding: adaptation is the only penalty in
+  // the strike math that otherwise only ever goes up. Returns null when there is
+  // nothing to relieve, which is the common case on turn 1 and is a real state
+  // rather than a missing string — the caller simply has nothing to append.
+  function ewNetworkHit(G) {
+    const relieved = [];
+    for (const asset of ['cruise', 'f35', 'fighter', 'stealth', 'heavy']) {
+      const before = adaptLevel(asset);
+      if (!G.adapt[asset]) continue;
+      G.adapt[asset] = Math.max(0, G.adapt[asset] - EW.adaptRelief * ADAPT_EVERY);
+      const after = adaptLevel(asset);
+      if (after < before) {
+        G.adaptSeen[asset] = after;
+        relieved.push(asset);
+      }
+    }
+    if (!relieved.length) return null;
+    return {
+      cls: 'friendly', title: 'IRANIAN AIR PICTURE DEGRADED — ADAPTATION SET BACK', internal: true,
+      sum: `${Txt.plural(relieved.length, 'platform')} back off the counter`,
+      text: (ev) => `Whatever the air defense staff had worked out about the way this campaign is being flown, ` +
+        `they worked out by correlating what individual sites saw. With the network down they cannot, and the ` +
+        `assessed counter against ${Txt.plural(relieved.length, 'American platform')} has come back a full ` +
+        `level. It is not permanent — they will rebuild the picture from the same observations — but it is ` +
+        `time, and it is the only thing in this war that has ever taken that penalty back down.`,
+    };
+  }
+
   // Bases the naval BMD umbrella actually covers — the Gulf states, not Iraq.
   // The SM-3/SM-6 shooters sit on the Gulf approaches and not over the Iraqi
   // interior, so Ain al-Asad is left to its own Patriots and is deliberately
@@ -1793,5 +1831,5 @@ const IranAI = (() => {
   }
 
   return { respond, advise, headlines, missileStrength, navalStrength,
-    adaptPenalty, adaptLevel, liveTels, posture };
+    adaptPenalty, adaptLevel, ewNetworkHit, liveTels, posture };
 })();
