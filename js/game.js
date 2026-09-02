@@ -10,7 +10,7 @@ const Game = (() => {
   // that a covert site can be added to an aggregate without either blowing past
   // its 0..2 contract or silently making every declared site worth less.
   const wt = (t) => (t.weight != null ? t.weight : 1);
-  const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const rand = Random.int;
 
   // Which aimpoints open the war off the tasking order (see JIPTL). Stamped
   // once, at module load rather than in newWar, because `held` is a property of
@@ -413,6 +413,12 @@ const Game = (() => {
 
   // ---- game state ----
   const G = {
+    // The human-facing replay key and the last completed step of the resolution
+    // pipeline. Both are safe diagnostics: neither describes hidden Iranian
+    // state, and both survive a save so a progression bug can be reconstructed.
+    campaignSeed: null,
+    lastResolutionStage: 'not started',
+    lastReportId: 'none',
     // Fifteen days at two turns a day. Sites that wear down and repair take two
     // or three good packages apiece instead of one lucky roll, so the campaign
     // is a grind now and the clock is scaled to the grind — and so is what the
@@ -1016,11 +1022,14 @@ const Game = (() => {
     // approval, and NaN fails every comparison, so the collapse check, the
     // Hill's vote and the grade all quietly stop firing. Nothing on screen
     // would say why.
-    const VERSION = 31;
+    // v32: every gameplay draw comes from Random. The campaign seed, exact next
+    // RNG state and progression diagnostics now round-trip with the war.
+    const VERSION = 32;
     const FIELDS = [
       // `approval` is absent on purpose and must stay absent — it is a getter
       // with a throwing setter, and read() assigns every name in this list
       // straight back onto G.
+      'campaignSeed', 'lastResolutionStage', 'lastReportId',
       'turn', 'softCap', 'base', 'opposed', 'middleWith', 'rally', 'habit', 'lastPoll',
       'oil', 'world',
       'hormuz', 'hormuzClosedTurns', 'casualties', 'res', 'caps',
@@ -1045,7 +1054,14 @@ const Game = (() => {
     function write() {
       if (G.over) return;
       try {
-        const data = { version: VERSION, muted: AudioSys.isMuted(), fields: {}, targets: {} };
+        const data = {
+          version: VERSION,
+          seed: G.campaignSeed,
+          random: Random.state(),
+          muted: AudioSys.isMuted(),
+          fields: {},
+          targets: {},
+        };
         for (const f of FIELDS) data.fields[f] = G[f];
         // condition is the source of truth; status is derived from it on load.
         // Dispersal state travels with it — a launcher group that has driven out
@@ -1080,7 +1096,7 @@ const Game = (() => {
     function read() {
       try {
         const data = JSON.parse(localStorage.getItem(KEY));
-        return data && data.version === VERSION ? data : null;
+        return data && data.version === VERSION && data.random ? data : null;
       } catch (e) { return null; }
     }
 
@@ -1088,7 +1104,7 @@ const Game = (() => {
       try { localStorage.removeItem(KEY); } catch (e) {}
     }
 
-    return { write, read, clear };
+    return { write, read, clear, version: VERSION };
   })();
 
   // ============================================================
@@ -1407,8 +1423,8 @@ const Game = (() => {
     const struckType = struck.feeds || struck.type;
     const gaps = covertGaps().filter(t => !t.suspected && t.leadFrom === struckType);
     if (!gaps.length) return null;
-    if (Math.random() > COVERT.leadChance * diff().covert) return null;
-    return addLead(gaps[Math.floor(Math.random() * gaps.length)], 1);
+    if (Random.float() > COVERT.leadChance * diff().covert) return null;
+    return addLead(gaps[Math.floor(Random.float() * gaps.length)], 1);
   }
 
   // ---- channel 3: the site gives itself away ----
@@ -1425,7 +1441,7 @@ const Game = (() => {
       const tell = t.tellAfter && TARGETS.find(x => x.id === t.tellAfter);
       const p = (tell && tell.status === 'destroyed') ? COVERT.tellLead : COVERT.ambientLead;
       let ev = null;
-      if (Math.random() < p * diff().covert) ev = addLead(t, 1);
+      if (Random.float() < p * diff().covert) ev = addLead(t, 1);
       // The floor, and a per-site override of it. A site the campaign cannot be
       // WON without needs a deadline early enough to leave room for the whole
       // remaining chain — resolve the box, order the aircraft, fly the mission,
@@ -1462,7 +1478,7 @@ const Game = (() => {
       // wasting their slot; with it, committing to a box is a plan with an end.
       const p = clamp((COVERT.folderFind - falloff + COVERT.folderPersist * (t.worked || 0)) * scale,
         COVERT.folderFloor, 0.94);
-      if (Math.random() < p) {
+      if (Random.float() < p) {
         t.found = true;
         t.suspected = false;
         t.worked = 0;
@@ -1493,9 +1509,9 @@ const Game = (() => {
       };
     }
 
-    const t = gaps[Math.floor(Math.random() * gaps.length)];
+    const t = gaps[Math.floor(Random.float() * gaps.length)];
     const p = clamp((COVERT.folderLead - falloff) * scale, COVERT.folderFloor, 0.95);
-    if (Math.random() < p) {
+    if (Random.float() < p) {
       const ev = addLead(t, COVERT.folderLeadYield);
       if (ev) return ev;
       return {
@@ -1692,7 +1708,7 @@ const Game = (() => {
     // — and it is the only thing either of these two rows is bought for, which
     // is why the demonstration's 30% is stated on its card in words a president
     // can weigh rather than left for them to discover.
-    const folded = Math.random() < o.coerce;
+    const folded = Random.float() < o.coerce;
     const events = [nuclearReleaseEvent(o, { dApproval, eroded, folded })];
     if (folded) return { events, result: buildResult('victory', 'capitulation') };
     return { events, result: null };
@@ -2003,7 +2019,7 @@ const Game = (() => {
     if (!hidden.length) return null;
     // a sweep is worth more when there is less country left to search
     const p = clamp(0.55 - 0.08 * (hidden.length - 1) + (G.coalition ? 0.05 : 0), 0.2, 0.7);
-    if (Math.random() >= p) {
+    if (Random.float() >= p) {
       return {
         cls: 'iran', title: 'LAUNCHER SWEEP — NO FIX', internal: true,
         text: 'Twelve hours of Reaper and Global Hawk time, every signals platform in the theater, and ' +
@@ -2011,7 +2027,7 @@ const Game = (() => {
           'from prepared hides and going dark inside fifteen minutes. The country is very large.',
       };
     }
-    const found = hidden[Math.floor(Math.random() * hidden.length)];
+    const found = hidden[Math.floor(Random.float() * hidden.length)];
     found.located = true;
     observe(found, true);
     MapView.updateTarget(found);
@@ -3148,10 +3164,10 @@ const Game = (() => {
     // and a shot on a little under half of those. Ignore every warning at full
     // strength and a deck is lost about one turn in twenty — enough that the
     // decision is real, not so much that standing forward is a slow suicide.
-    if (Math.random() >= 0.30 * naval) { G.threat = null; return null; }
+    if (Random.float() >= 0.30 * naval) { G.threat = null; return null; }
 
-    const src = live[Math.floor(Math.random() * live.length)];
-    const cv = exposed[Math.floor(Math.random() * exposed.length)];
+    const src = live[Math.floor(Random.float() * live.length)];
+    const cv = exposed[Math.floor(Random.float() * exposed.length)];
     G.threat = { srcId: src.id, cvId: cv.id, p: clamp(0.22 * naval, 0.1, 0.5) };
     return {
       cls: 'iran', title: `ANTI-SHIP WORKUP DETECTED — ${cvShort(cv)} HELD AT RISK`,
@@ -3194,7 +3210,7 @@ const Game = (() => {
       });
       return events;
     }
-    if (Math.random() >= th.p * surviving * exposure) {
+    if (Random.float() >= th.p * surviving * exposure) {
       events.push({
         cls: 'friendly', title: `ANTI-SHIP SALVO DEFEATED — ${cvShort(cv)} UNHARMED`,
         text: `The brigade shot. The screen's SM-6s and the ship's own defenses took the salvo apart well ` +
@@ -3211,7 +3227,7 @@ const Game = (() => {
   function strikeCarrier(cv, naval) {
     // an unlucky hit hurts; only a coordinated salvo from an intact navy has
     // any real chance of putting a supercarrier under
-    const sunk = Math.random() < (naval >= 1 ? 0.18 : 0.06);
+    const sunk = Random.float() < (naval >= 1 ? 0.18 : 0.06);
     AudioSys.play('aircraftLost', 600);
 
     if (sunk) {
@@ -3667,7 +3683,7 @@ const Game = (() => {
   // campaign since 2015 finishes aimpoints a carrier air wing arriving cold does
   // not. The BDA is sharp because CENTCOM watched it happen.
   function rsafService(t, out) {
-    const roll = Math.random();
+    const roll = Random.float();
     if (roll < HOUTHIS.saudiKill) damageTarget(t, 100);
     else if (roll < HOUTHIS.saudiDamage) damageTarget(t, wearsDown(t) ? PKG_DAMAGE : 50);
     else return false;
@@ -3730,12 +3746,12 @@ const Game = (() => {
 
     // ---- what they do while nobody is stopping them ----
     if (!spent) {
-      if (Math.random() < HOUTHIS.shipping * houthiBite(str)) {
+      if (Random.float() < HOUTHIS.shipping * houthiBite(str)) {
         // Zero has to be a real branch here: most of these are a hull holed and
         // a crew that got off, and a casualty count is the exception rather
         // than the rule. A prose function, not a string, because the number
         // appears in both places (see the rule above EV in ai.js).
-        const dead = Math.random() < 0.35 ? Math.max(1, Math.round(rand(1, 4) * houthiBite(str))) : 0;
+        const dead = Random.float() < 0.35 ? Math.max(1, Math.round(rand(1, 4) * houthiBite(str))) : 0;
         events.push(houthiScaled({
           cls: 'world',
           title: 'MERCHANT HULL STRUCK IN THE BAB AL-MANDAB APPROACHES',
@@ -3751,7 +3767,7 @@ const Game = (() => {
         }, str));
       }
 
-      if (Math.random() < HOUTHIS.saudi * houthiBite(str)) {
+      if (Random.float() < HOUTHIS.saudi * houthiBite(str)) {
         H.saudiStruck++;
         const place = ['Jizan', 'Abha', 'Najran', 'Khamis Mushait'][rand(0, 3)];
         events.push(houthiScaled({
@@ -3773,7 +3789,7 @@ const Game = (() => {
       // waterway with one missile — and the second step is deliberately the
       // easier of the two, because a lane insurers have already started pricing
       // out of is most of the way shut before anybody declares it.
-      if (G.mandab !== 'CLOSED' && Math.random() < HOUTHIS.strait * houthiBite(str)) {
+      if (G.mandab !== 'CLOSED' && Random.float() < HOUTHIS.strait * houthiBite(str)) {
         const closing = G.mandab === 'CONTESTED';
         events.push(houthiScaled({
           cls: 'world',
@@ -3798,7 +3814,7 @@ const Game = (() => {
     // negotiated reopening here the way there is with Hormuz: nobody in this war
     // has a phone number for Sanaa, so the lane reopens when the thing shooting
     // at it stops and not before.
-    if (G.mandab !== 'OPEN' && (spent || str < 1) && Math.random() < HOUTHIS.reopen) {
+    if (G.mandab !== 'OPEN' && (spent || str < 1) && Random.float() < HOUTHIS.reopen) {
       events.push({
         cls: 'friendly',
         title: 'BAB AL-MANDAB REOPENS TO COMMERCIAL TRAFFIC',
@@ -4454,7 +4470,7 @@ const Game = (() => {
 
   // What the panel reads.
   //
-  // PURE. This runs on every renderSidebar draw, so a Math.random() in here
+  // PURE. This runs on every renderSidebar draw, so a Random.float() in here
   // makes the campaign depend on how many times the player opened a drawer,
   // and a write to G makes it depend on how many times it was DRAWN. That is
   // not a hypothetical: coaScore called carrierRisk() — the resolver — from
@@ -4523,7 +4539,7 @@ const Game = (() => {
       // Rolled ONCE, here, at the order — never in ewState. The access is
       // spent whether or not it worked, which is what `burn` counts.
       const p = ewNetworkOdds();
-      hit = Math.random() < p;
+      hit = Random.float() < p;
       G.ew.burn++;
       sup = hit ? spec.sup : spec.failSup;
       if (hit) {
@@ -4546,7 +4562,7 @@ const Game = (() => {
     // branch is built on. Inventing a second casualty path here would break it.
     if (spec.loss > 0) {
       const risk = spec.loss * (AD_SITES ? airDefenseWeight(true) / AD_SITES : 0);
-      if (risk > 0 && Math.random() < risk) {
+      if (risk > 0 && Random.float() < risk) {
         // an escort jammer goes down over the belt it was penetrating, which
         // also gives the recovery somewhere real to run to
         const site = TARGETS.filter(t => t.type === 'airdefense' && t.hp > 0)
@@ -5397,7 +5413,7 @@ const Game = (() => {
     const worldCost = (repeatTonight ? 0 : target.world) + (pkg.extraWorld || 0);
     G.world = clamp(G.world + worldCost, 0, 100);
     const est = computeStrike(target, pkg);
-    const roll = Math.random();
+    const roll = Random.float();
     let text;
 
     // One roll, three bands: full effects, half effects, nothing. A site that
@@ -5523,18 +5539,18 @@ const Game = (() => {
       // good nights fade into wallpaper and the bad nights all still count.
       ev.dApproval = movePublic(-2);
       text = pkg.sub
-        ? TORPEDO_MISS_REASONS[Math.floor(Math.random() * TORPEDO_MISS_REASONS.length)]
+        ? TORPEDO_MISS_REASONS[Math.floor(Random.float() * TORPEDO_MISS_REASONS.length)]
         : est.oneShot
-        ? SHIP_MISS_REASONS[Math.floor(Math.random() * SHIP_MISS_REASONS.length)]
+        ? SHIP_MISS_REASONS[Math.floor(Random.float() * SHIP_MISS_REASONS.length)]
         : pkg.asset === 'cruise'
-          ? TLAM_MISS_REASONS[Math.floor(Math.random() * TLAM_MISS_REASONS.length)]
+          ? TLAM_MISS_REASONS[Math.floor(Random.float() * TLAM_MISS_REASONS.length)]
           : 'Strike failed to achieve desired effects. Weather, decoys, and hardening are assessed as contributing factors.';
     }
 
     // Aircrew attrition vs the SAMs still standing at time-on-target. Losing the
     // aircraft is where this ends; whether it costs two names on a casualty list
     // or puts living Americans on the ground belongs to csar.js.
-    if (est.lossRisk > 0 && Math.random() < est.lossRisk) {
+    if (est.lossRisk > 0 && Random.float() < est.lossRisk) {
       G.stats.aircraftLost++;
       ev.dApproval = (ev.dApproval || 0) + movePublic(-4);
       ev.aircraftLost = true;   // reported as a chip on the report line, not in the summary
@@ -6096,7 +6112,7 @@ const Game = (() => {
           // lasting bonus while the pragmatists hold on, plus the sharper
           // temporary one during the immediate power vacuum.
           const p = G.dealOdds();
-          if (Math.random() < p) {
+          if (Random.float() < p) {
             G.negotiationsAccepted = true;
             G.diploUsed = true;
             UI.renderAll(G);
@@ -6636,7 +6652,7 @@ const Game = (() => {
     // A sidelined Israel is held by the gauge and nothing else: they are not in
     // this war yet, and there is no ally to be unpredictable about.
     const early = G.israelPosture !== 'sidelined' &&
-      G.israelPressure >= ISRAEL.earlyFloor && Math.random() < ISRAEL.earlyFly;
+      G.israelPressure >= ISRAEL.earlyFloor && Random.float() < ISRAEL.earlyFly;
     if (G.israelPressure < ISRAEL.fly && !early) { warningCall(); return null; }
 
     // They are going. Posture decides whose war it is — and a sidelined Israel
@@ -6656,7 +6672,7 @@ const Game = (() => {
     const service = (t, out) => {
       const kill = t.hardened ? E.hardKill : E.kill;
       const dmg = t.hardened ? E.hardDamage : E.damage;
-      const roll = Math.random();
+      const roll = Random.float();
       if (roll < kill) damageTarget(t, 100);
       else if (roll < dmg) damageTarget(t, wearsDown(t) ? PKG_DAMAGE : 50);
       else return false;
@@ -6688,7 +6704,7 @@ const Game = (() => {
     const civil = TARGETS.filter(t => t.type === 'infra' && t.hp > 0)
       .sort((a, b) => a.hp - b.hp).slice(0, ISRAEL.wildcardAimpoints);
     const wildHits = [];
-    const wild = civil.length > 0 && Math.random() < ISRAEL.wildcard;
+    const wild = civil.length > 0 && Random.float() < ISRAEL.wildcard;
     if (wild) for (const t of civil) service(t, wildHits);
 
     const bda = hits.length
@@ -6838,6 +6854,37 @@ const Game = (() => {
   let resolving = false;
   const busy = () => resolving || SpecOps.busy() || CSAR.busy();
 
+  function markResolutionStage(stage) {
+    G.lastResolutionStage = stage;
+  }
+
+  // Stable enough to quote in a report and short enough to read over a call.
+  // The title is classified, never copied: a generated report title cannot leak
+  // event prose or hidden state through diagnostics.
+  function noteReport(title) {
+    let kind = 'REPORT';
+    if (/BATTLE DAMAGE ASSESSMENT/.test(title)) kind = 'BDA';
+    else if (/IRANIAN RETALIATION/.test(title)) kind = 'RETALIATION';
+    else if (/INTELLIGENCE PRODUCT/.test(title)) kind = 'INTEL';
+    else if (/DIPLOMATIC CABLE/.test(title)) kind = 'DIPLO';
+    else if (/WAR POWERS/.test(title)) kind = 'WARPOWERS';
+    else if (/NUCLEAR/.test(title)) kind = 'NUCLEAR';
+    else if (/SPECIAL OPERATIONS/.test(title)) kind = 'SPECOPS';
+    else if (/PERSONNEL RECOVERY/.test(title)) kind = 'CSAR';
+    else if (/ENDGAME/.test(title)) kind = 'ENDGAME';
+    G.lastReportId = `T${String(G.turn).padStart(2, '0')}-${kind}`;
+    return G.lastReportId;
+  }
+
+  function activeMissionTypes() {
+    const types = new Set();
+    for (const m of G.missions || []) if (m && m.pkg && m.pkg.asset) types.add(m.pkg.asset);
+    if (G.ew && G.ew.id) types.add(`ew:${G.ew.id}`);
+    if (SpecOps.busy()) types.add('special-operations');
+    if (CSAR.busy()) types.add('csar');
+    return [...types].sort();
+  }
+
   function setResolving(on) {
     resolving = on;
     document.getElementById('app').classList.toggle('turn-resolving', on);
@@ -6944,6 +6991,7 @@ const Game = (() => {
     // are applied twice is a corrupted campaign that looks fine.
     try { nextTurn(); }
     catch (e) { console.error('CIC: turn advance failed after resolution error', e); }
+    markResolutionStage(`turn ${Math.max(1, G.turn - 1)} fault recovery complete`);
 
     // Told plainly, in the register of the rest of the game, and named as what
     // it is: a fault in the software. Dressing a JavaScript exception up as a
@@ -6991,6 +7039,7 @@ const Game = (() => {
     // else moves until the mission resolves, or the sequencing of its debrief
     // and the turn breaks
     if (G.over || busy()) return;
+    markResolutionStage(`turn ${G.turn} orders locked`);
     setResolving(true);
     resolveGuard = true;      // from here to close(), the boundary is live
     armWatchdog();
@@ -7019,6 +7068,7 @@ const Game = (() => {
     // still resolved in the second half, after the salvo lands. Iran hitting
     // Haifa tonight has to be able to cost you Incirlik tonight, not next turn.
     resolveMissions(guard('bda', (bda) => {
+      markResolutionStage(`turn ${G.turn} strikes resolved`);
       // Israel moves between the BDA and Iran's answer — if they went tonight,
       // Tehran is responding to their strike as much as to yours
       const israeli = israelTurn();
@@ -7027,6 +7077,7 @@ const Game = (() => {
       // firing it later is what keeps the split cosmetic: the salvo is not
       // decided by anything the player reads in between.
       const events = IranAI.respond(G);
+      markResolutionStage(`turn ${G.turn} retaliation determined`);
       // any aircrew still on the ground get another night of being hunted —
       // resolved after the BDA that may have just put them there
       const csar = CSAR.turnTick(G);
@@ -7134,6 +7185,7 @@ const Game = (() => {
         // before the damage assessment lands and covers the screen
         MapView.animateIranianAttacks(events, guard('retaliation', () => {
           for (const ev of events) applyEvent(ev);
+          markResolutionStage(`turn ${G.turn} retaliation applied`);
 
           // economy: oil carries a war premium set by Iran's remaining ability
           // to threaten the Gulf, plus the state of the strait. The premium scales
@@ -7325,7 +7377,11 @@ const Game = (() => {
             setResolving(false);
             // a war that ended tonight has its own music: the arrival calls are
             // dropped rather than played under the endgame screen
-            if (result) { arrivalCalls = []; resolveGuard = false; clearTimeout(resolveWatchdog); finish(result); return; }
+            if (result) {
+              markResolutionStage(`turn ${G.turn} complete`);
+              arrivalCalls = []; resolveGuard = false; clearTimeout(resolveWatchdog); finish(result); return;
+            }
+            markResolutionStage(`turn ${G.turn} complete`);
             nextTurn();
             // The turn is safely handed on, so the boundary stands down HERE and
             // not at the top of close(): a throw between setResolving(false) and
@@ -7858,7 +7914,7 @@ const Game = (() => {
       stats: {
         approval: G.approval, oil: G.oil,
         casualties: G.casualties.us, destroyed: G.stats.destroyed, turns: G.turn,
-        limit: casualtyLimit(), difficulty: diff().name,
+        limit: casualtyLimit(), difficulty: diff().name, seed: G.campaignSeed,
       },
     };
   }
@@ -7966,6 +8022,11 @@ const Game = (() => {
   }
 
   function restoreAndStart(data) {
+    // Restore before rebuilding anything that might format randomized narrative,
+    // then restore once more afterwards. A resume is a render, not a game event,
+    // and therefore cannot consume the next campaign draw.
+    Random.restore(data.random);
+    const savedRandom = Random.state();
     for (const [f, v] of Object.entries(data.fields)) G[f] = v;
     // a save written before the levels were renamed still restores at the level
     // it was actually played at
@@ -8013,6 +8074,7 @@ const Game = (() => {
     G.res.heavy = Math.min(G.res.heavy, G.caps.heavy);
     AudioSys.setMuted(!!data.muted);
     start(true);
+    Random.restore(savedRandom);
     // saved between the coalition cable and answering the phone: it is still
     // ringing when the situation room reconvenes
     maybeLeaderCall(null);
@@ -8034,7 +8096,10 @@ const Game = (() => {
   // and the state of the coastal SAM belt are all rolled here. None of it is
   // shown to the player; all of it is discoverable.
   // ============================================================
-  function newWar(difficulty) {
+  function newWar(difficulty, seedValue) {
+    G.campaignSeed = Random.seed(seedValue);
+    G.lastResolutionStage = 'campaign setup';
+    G.lastReportId = 'none';
     G.difficulty = DIFFICULTY[difficulty] ? difficulty : DIFFICULTY_DEFAULT;
 
     // The country this president has, which is the first thing a level decides
@@ -8088,7 +8153,7 @@ const Game = (() => {
 
     // Tehran's war plan, and how far along the centrifuges already are
     const plans = Object.keys(IRAN_POSTURES);
-    G.iranPosture = plans[Math.floor(Math.random() * plans.length)];
+    G.iranPosture = Random.pick(plans);
     G.postureKnown = false;
     G.breakout = {
       progress: rand(0, 18),   // the program did not start the day the war did
@@ -8143,7 +8208,7 @@ const Game = (() => {
     // See HOUTHIS in data.js — the IRGC check happens on the entry turn itself,
     // not here, because what it asks is what the president has done by then.
     G.houthi = {
-      active: Math.random() < HOUTHIS.chance,
+      active: Random.chance(HOUTHIS.chance),
       entered: false,
       enterTurn: rand(HOUTHIS.enterMin, HOUTHIS.enterMax),
       saudiStruck: 0, saudiIn: false, saudiSince: 0, saudiSorties: 0,
@@ -8166,7 +8231,7 @@ const Game = (() => {
     G.intel[opener.id] = { hp: opener.hp, turn: 1, sharp: true };
 
     // and the Strait does not always open quiet
-    if (Math.random() < 0.25) G.hormuz = 'CONTESTED';
+    if (Random.chance(0.25)) G.hormuz = 'CONTESTED';
 
     // nothing has deployed yet and nobody owns the sky
     G.forceFlow = { landed: [], f35: 0, fighters: 0, tanker: 0, rep: 0 };
@@ -8202,6 +8267,17 @@ const Game = (() => {
     // night one: no debt, and the opening tasking order is the base plan
     G.fatigue = 0;
     G.atoPlan = planSize(0);
+    markResolutionStage('campaign setup complete');
+  }
+
+  // The title-screen button and automated replays use this same door. Keeping
+  // campaign creation public means a decision script never has to impersonate
+  // DOM clicks or duplicate kickoff behavior.
+  function startCampaign(difficulty, seedValue) {
+    newWar(difficulty, seedValue);
+    AudioSys.play('gameStart');
+    start(false);
+    return G.campaignSeed;
   }
 
   // The three difficulty options, built from the tuning table rather than
@@ -8247,11 +8323,7 @@ const Game = (() => {
 
     document.getElementById('btn-start').addEventListener('click', () => {
       const sel = document.querySelector('input[name="difficulty"]:checked');
-      newWar(sel ? sel.value : DIFFICULTY_DEFAULT);
-      // The board coming up. Fired here rather than inside start() because a
-      // resumed war is not an opening — it is the same night continuing.
-      AudioSys.play('gameStart');
-      start(false);
+      startCampaign(sel ? sel.value : DIFFICULTY_DEFAULT);
     });
     document.getElementById('btn-end-turn').addEventListener('click', endTurn);
     document.getElementById('btn-skip-turn').addEventListener('click', skipToResults);
@@ -8290,6 +8362,10 @@ const Game = (() => {
   // airDefenseWeight is exported read-only for the tactical scope's threat ring —
   // the scope dramatizes the number, it never feeds back into the strike math.
   return { computeStrike, executeStrike, recallMission, doDiplo, endTurn, afterAction,
+    startCampaign, noteReport, activeMissionTypes,
+    saveVersion: () => Save.version,
+    randomState: () => Random.state(),
+    replayToken: () => Random.token(),
     // The country, and the only two doors into it. csar.js and specops.js both
     // write approval and both live in their own IIFE, so without these they
     // would each need a private copy of the bloc arithmetic — which is how the

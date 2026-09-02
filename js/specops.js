@@ -14,7 +14,7 @@
 const SpecOps = (() => {
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const rand = Random.int;
 
   const ISR_CAP = 2;
 
@@ -176,14 +176,14 @@ const SpecOps = (() => {
   // failure   — everything goes wrong
   function pickBranch(G) {
     const { p } = odds(G);
-    if (Math.random() < p) {
+    if (Random.float() < p) {
       // a better intel picture is what buys a quiet night rather than a loud one
       const cleanOdds = 0.34 + Math.min(G.isrPrep, ISR_CAP) * 0.13;
-      return Math.random() < cleanOdds ? 'clean' : 'heloDown';
+      return Random.float() < cleanOdds ? 'clean' : 'heloDown';
     }
     // failing to get out is not the same as failing to kill him: often enough
     // the team trades itself for the target
-    return Math.random() < 0.42 ? 'mixed' : 'failure';
+    return Random.float() < 0.42 ? 'mixed' : 'failure';
   }
 
   // ============================================================
@@ -396,7 +396,7 @@ const SpecOps = (() => {
 
   // Both success branches roll the same question: who picks up the pieces.
   function successAftermath(G, events) {
-    if (Math.random() < 0.45) {
+    if (Random.float() < 0.45) {
       const c = rand(4, 10);
       G.casualties.us += c;
       G.oil += 8;
@@ -406,7 +406,7 @@ const SpecOps = (() => {
         casualties: c, dOil: 8,
       });
     }
-    if (Math.random() < 0.5) {
+    if (Random.float() < 0.5) {
       G.negotiationMomentum += 0.15;
       events.push({
         cls: 'world', title: 'Succession faction signals interest in an off-ramp',
@@ -467,7 +467,7 @@ const SpecOps = (() => {
         text: `They killed him. Positive identification was passed before the net went quiet. Then both helicopters were destroyed, the assault element was surrounded in the main house, and it ended the way it was always going to end without a ride home. ${c} Americans are dead; the survivors are in IRGC custody. The Supreme Leader is dead and so is the task force, and the country will spend a generation arguing about whether that was a trade worth making.`,
         casualties: c, dApproval: mixedCost, dWorld: -5,
       });
-      if (Math.random() < 0.55) {
+      if (Random.float() < 0.55) {
         G.regimeErratic = true;
         events.push({
           cls: 'iran', title: 'Hardline remnant seizes the security organs',

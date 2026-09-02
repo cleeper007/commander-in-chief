@@ -3968,6 +3968,7 @@ const UI = (() => {
   // primer — are read for the writing, and there is one of them, not twelve a
   // night. The summary layout is for the nightly reports that stack up.
   function showReport(title, events, onClose, opts) {
+    Game.noteReport(title);
     // Every event in this report has already been spent against G — applyEvent
     // runs before the retaliation report is built, and strike effects land back
     // in resolveMissions. The bar under the modal was last drawn before any of
@@ -4082,6 +4083,7 @@ const UI = (() => {
   // amendments and so follows them; the record is the answer to "why?", which is
   // the least urgent question in the room and the one worth scrolling for.
   function showWarPowers(vote, onClose) {
+    Game.noteReport('WAR POWERS VOTE');
     // Same argument as showReport: the approval swing has already been spent
     // against G, and the bar underneath was drawn before it.
     renderHUD(Game.G);
@@ -4929,6 +4931,7 @@ const UI = (() => {
     // moment after a war ends and wants to name the ending without re-deriving
     // it from the DOM
     lastEndgame = result;
+    Game.noteReport('ENDGAME');
     $('end-title').textContent = result.title;
     const vCls = result.kind === 'victory' ? 'end-victory' : result.kind === 'defeat' ? 'end-defeat' : 'end-stalemate';
 
@@ -4957,6 +4960,7 @@ const UI = (() => {
       ['TARGETS DESTROYED', S.destroyed],
       ['DURATION', Txt.turns(S.turns)],
       ['DIFFICULTY', S.difficulty],
+      ['CAMPAIGN SEED', S.seed],
     ].map(([k, v]) => `<div class="es-cell"><span>${k}</span><b>${v}</b></div>`).join('') + '</div>';
 
     // One row per category, each showing what it was worth. The weight is on
@@ -5237,8 +5241,15 @@ const UI = (() => {
       : 'still playing';
     return [
       `build:      ${ver}`,
+      `save ver:   ${Game.saveVersion()}`,
+      `seed:       ${G.campaignSeed}`,
+      `replay:     ${Game.replayToken()}`,
       `difficulty: ${G.difficulty}`,
       `turn:       ${G.turn} of 30`,
+      `stage:      ${G.lastResolutionStage}`,
+      `missions:   ${Game.activeMissionTypes().join(', ') || 'none'}`,
+      `fast-fwd:   ${MapView.isFastForward() ? 'yes' : 'no'}`,
+      `report:     ${G.lastReportId || 'none'}`,
       `approval:   ${Math.round(G.approval)}    world: ${Math.round(G.world)}    oil: $${Math.round(G.oil)}`,
       `losses:     ${G.casualties.us} American dead, ${G.stats.aircraftLost} aircraft`,
       `progress:   ${G.stats.destroyed} destroyed, nuclear ${Math.round(G.nukeDegraded())}% degraded`,

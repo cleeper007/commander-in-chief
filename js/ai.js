@@ -3,9 +3,9 @@
 // ============================================================
 
 const IranAI = (() => {
-  const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
-  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-  const chance = (p) => Math.random() < p;
+  const rand = Random.int;
+  const pick = Random.pick;
+  const chance = Random.chance;
 
   // How much of Iran's missile force still functions (scales retaliation).
   // Read off each base's condition track, so a brigade worn down to 30% throws
@@ -1826,7 +1826,15 @@ const IranAI = (() => {
     if (liveTels().some(t => !t.located)) {
       h.push('PENTAGON CONCEDES IRANIAN MOBILE LAUNCHERS REMAIN "UNLOCATED AND ACTIVE"');
     }
-    const fillers = [...FILLER_HEADLINES].sort(() => Math.random() - 0.5).slice(0, 3);
+    // Fisher–Yates rather than a random sort comparator. Comparator call counts
+    // are an engine implementation detail; a replay must consume the same fixed
+    // number of draws in every browser.
+    const fillers = [...FILLER_HEADLINES];
+    for (let i = fillers.length - 1; i > 0; i--) {
+      const j = Random.int(0, i);
+      [fillers[i], fillers[j]] = [fillers[j], fillers[i]];
+    }
+    fillers.length = Math.min(3, fillers.length);
     return [...h, ...fillers];
   }
 

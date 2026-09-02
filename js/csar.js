@@ -16,7 +16,7 @@
 const CSAR = (() => {
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const rand = Random.int;
 
   let running = false;   // recovery in progress: the war is locked out
 
@@ -95,7 +95,7 @@ const CSAR = (() => {
 
     // Ejection: modern seats work more often than not, and a working seat is
     // what turns a casualty report into a rescue problem.
-    if (Math.random() >= 0.62) {
+    if (Random.float() >= 0.62) {
       Aircrew.setStatus(G, aboard, 'kia', G.turn);
       return {
         casualties: lost.crew,
@@ -106,7 +106,7 @@ const CSAR = (() => {
     }
 
     const km = rand(18, 70);
-    const dir = DIRS[Math.floor(Math.random() * DIRS.length)];
+    const dir = Random.pick(DIRS);
     G.downed = {
       callsign, type: lost.air, crew: lost.crew,
       // the roster entries for the people on the ground. `crew` stays a count
@@ -223,7 +223,7 @@ const CSAR = (() => {
     }
 
     d.turnsOut++;
-    if (Math.random() < captureRisk(G)) return capture(G, 'timeout');
+    if (Random.float() < captureRisk(G)) return capture(G, 'timeout');
 
     return {
       cls: 'iran', title: `${d.callsign} STILL EVADING — SEARCH TIGHTENING`, internal: true,
@@ -489,11 +489,11 @@ const CSAR = (() => {
   // disaster — the rescue becomes the story
   function pickBranch(G) {
     const { p } = odds(G);
-    if (Math.random() < p) {
+    if (Random.float() < p) {
       const cleanOdds = 0.45 + (G.downed.isr ? 0.15 : 0);
-      return Math.random() < cleanOdds ? 'clean' : 'costly';
+      return Random.float() < cleanOdds ? 'clean' : 'costly';
     }
-    return Math.random() < 0.5 ? 'partial' : 'disaster';
+    return Random.float() < 0.5 ? 'partial' : 'disaster';
   }
 
   // ============================================================
@@ -639,7 +639,7 @@ const CSAR = (() => {
       events.push({
         cls: 'friendly', title: `RECOVERY COMPLETE — ${d.callsign} IS OUT`,
         text: `${crewPhrase(d, true)} ${Txt.are(d.crew)} aboard the recovery ship, dehydrated ` +
-          `and intact, ${Math.round(4 + Math.random() * 6)} hours after ejecting over hostile ground. ` +
+          `and intact, ${Math.round(4 + Random.float() * 6)} hours after ejecting over hostile ground. ` +
           `Nobody in the rescue package was hurt. The footage Tehran was preparing to run tonight does ` +
           `not exist, and the picture the country gets instead is a flight suit walking off a ramp under ` +
           `its own power. There is no target on that map worth what this is worth at home.`,

@@ -30,7 +30,7 @@
 // player is looking at while they order it. That is deliberate: the war's
 // balance is a closed, measured system (see .claude/betatest/grade.js) and this
 // is a lens onto it, not another term in it. The one thing it consumes is a
-// handful of Math.random() calls at kickoff to shuffle the roster, which is why
+// handful of campaign RNG calls at kickoff to shuffle the roster, which is why
 // a seeded campaign replays differently against this build than the one before.
 //
 // ASSIGNMENT IS DETERMINISTIC — fewest sorties first, ties by roster order.
@@ -40,7 +40,7 @@
 // this file adds to a campaign is the one shuffle at kickoff.
 
 const Aircrew = (() => {
-  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const pick = Random.pick;
 
   // Nights off the flight schedule after a recovery. Display only — a
   // recovering aviator is simply not drawn onto tonight's packages, and the
@@ -145,7 +145,7 @@ const Aircrew = (() => {
     // campaign and no two campaigns open with the same squadron.
     for (const pool of [names, signs]) {
       for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Random.int(0, i);
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
     }
