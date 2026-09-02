@@ -517,3 +517,22 @@ The game is fully static and deploys from the repository root.
 ## License
 
 [MIT](LICENSE)
+
+# Deterministic campaign replay
+
+Every new war has a campaign seed, shown in problem-report diagnostics and the
+endgame record. Gameplay randomness is saved with the campaign, so continuing a
+save resumes at the exact next draw.
+
+A compact decision script can be replayed headlessly with the real public game
+actions:
+
+```sh
+node tools/replay.js tests/fixtures/phase1-smoke.json
+```
+
+Run the determinism regression suite with:
+
+```sh
+node tests/determinism.test.js
+```

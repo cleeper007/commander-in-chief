@@ -528,7 +528,7 @@ const AudioSys = (() => {
     for (const a of missionAudio) {
       try { a.pause(); a.currentTime = 0; } catch (e) { /* silent */ }
     }
-    missionCur = missionAudio[Math.floor(Math.random() * missionAudio.length)];
+    missionCur = CosmeticRandom.pick(missionAudio);
     // Opens at whichever level the room is already at: a scope card that comes
     // up while the watch floor is mid-sentence must not start at full and ramp
     // down over the end of the sentence.

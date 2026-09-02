@@ -19,8 +19,8 @@ const MapView = (() => {
   // Iranian answer are already decided by the time the pixels move.
   let ff = false;
 
-  const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
-  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const rand = CosmeticRandom.int;
+  const pick = CosmeticRandom.pick;
 
   // Real geography lives in geodata.js (COUNTRY_PATHS, Natural Earth 50m).
   // Label anchors are hand-placed in the same projected coordinate space.
@@ -2689,7 +2689,7 @@ const MapView = (() => {
   function netSample() {
     netPhase += 0.62;
     const v = Math.sin(netPhase) * 0.62 + Math.sin(netPhase * 2.7) * 0.26 +
-      (Math.random() - 0.5) * 0.62;
+      (CosmeticRandom.float() - 0.5) * 0.62;
     return Math.max(-NET_CLIP, Math.min(NET_CLIP, v * netEnv * 46));
   }
 
@@ -3124,7 +3124,7 @@ const MapView = (() => {
     // circle with daylight on every side of it — including under the target's
     // name plate, which hangs far enough below the glyph to be the thing the
     // inner edge of the turn actually has to miss.
-    const side = Math.random() < 0.5 ? 1 : -1;
+    const side = CosmeticRandom.float() < 0.5 ? 1 : -1;
     const mAng = o.bearing + side * 0.95;
     const M = { x: C + Math.cos(mAng) * 60, y: C + Math.sin(mAng) * 60 };
     // He crosses the edge well round the compass from where the package did, so
@@ -3324,7 +3324,7 @@ const MapView = (() => {
     // pick the carrier/land group at 50/50, then a random airframe within it.
     // Which pool it comes from is the tier — a 5th-gen package is never a
     // Viper and a 4th-gen package is never a Raptor.
-    const fromGroup = (Math.random() < 0.5 && carriersOnStation()) ? 'carrier' : 'land';
+    const fromGroup = (CosmeticRandom.float() < 0.5 && carriersOnStation()) ? 'carrier' : 'land';
     const pool = assetType === 'f35' ? F35_TYPES : FIGHTER_TYPES;
     // The missile branch names the ROUND, because on a cruise run the shape on
     // the glass is a missile and the header is the only thing that says which
@@ -3442,7 +3442,7 @@ const MapView = (() => {
     const fireUpTo = (prog) => {
       while (evIdx < evs.length && evs[evIdx].at <= prog) {
         const e = evs[evIdx++];
-        if (e.kind === 'problem' && Math.random() > e.chance) continue;
+        if (e.kind === 'problem' && CosmeticRandom.float() > e.chance) continue;
         fsLine(entry, fill(pick(e.msgs)), e.kind === 'problem');
       }
     };
@@ -3455,7 +3455,7 @@ const MapView = (() => {
     const acPos = { x: C + Math.cos(bearing) * SC.EDGE, y: C + Math.sin(bearing) * SC.EDGE };
     const bearingDeg = ((bearing * 180 / Math.PI) % 360 + 360) % 360;
     const revMs = adw >= 2.5 ? 2500 : adw >= 1 ? 3800 : 5000; // degraded radars turn slower
-    let sweepDeg = Math.random() * 360;
+    let sweepDeg = CosmeticRandom.float() * 360;
     let painted = false, samLines = 0, samsUp = 0;
 
     // Stealth is painted late and briefly — that is the whole reason a B-2 walks
@@ -3469,7 +3469,7 @@ const MapView = (() => {
       if (samsUp >= 4) return;
       samsUp++;
       // rises from the ring, a little off the inbound's bearing, and chases it
-      const off = (Math.random() - 0.5) * 1.1;
+      const off = (CosmeticRandom.float() - 0.5) * 1.1;
       const sx = C + Math.cos(bearing + off) * SC.RING;
       const sy = C + Math.sin(bearing + off) * SC.RING;
       const trail = el('line', { class: 'sam-trail', x1: sx, y1: sy, x2: sx, y2: sy });
@@ -3534,23 +3534,23 @@ const MapView = (() => {
         a.g.setAttribute('transform',
           `translate(${a.pos.x.toFixed(2)},${a.pos.y.toFixed(2)}) rotate(${headingDeg.toFixed(1)})`);
         if (a.burner) a.burner.setAttribute('opacity',
-          (Math.min(1, p * 3) * (0.55 + Math.random() * 0.45)).toFixed(2));
+          (Math.min(1, p * 3) * (0.55 + CosmeticRandom.float() * 0.45)).toFixed(2));
       }
 
       if (view.sweep) {
         sweepDeg = (sweepDeg + (dt / revMs) * 360) % 360;
         view.sweep.setAttribute('transform', `rotate(${sweepDeg.toFixed(1)},${C},${C})`);
         // degraded coverage flickers
-        if (adw < 2 && Math.random() < 0.02) view.sweep.setAttribute('opacity', 0.25 + Math.random() * 0.75);
+        if (adw < 2 && CosmeticRandom.float() < 0.02) view.sweep.setAttribute('opacity', 0.25 + CosmeticRandom.float() * 0.75);
 
         // PAINT: is the beam's leading edge on the inbound right now?
         let diff = Math.abs(((sweepDeg - bearingDeg + 540) % 360) - 180);
         diff = 180 - diff;
         const inBeam = diff < SC.LOCK_ARC && r < SC.RING + 4;
         const allowed = !stealth || p > 0.72; // stealth is only ever seen late
-        if (inBeam && allowed && Math.random() < paintOdds) {
+        if (inBeam && allowed && CosmeticRandom.float() < paintOdds) {
           // paint whichever silhouette the beam happens to be sweeping across
-          const idx = Math.floor(Math.random() * acs.length);
+          const idx = Math.floor(CosmeticRandom.float() * acs.length);
           const paintPos = acs[idx].pos;
           lock.setAttribute('transform', `translate(${paintPos.x.toFixed(2)},${paintPos.y.toFixed(2)})`);
           lock.setAttribute('opacity', 1);
@@ -3558,7 +3558,7 @@ const MapView = (() => {
           // nothing rises off the ring into the middle of a turning fight —
           // a SAM chasing the lead through the merge is three red things on a
           // scope the size of a stamp, and the kill stops reading
-          if (!painted && !fight && Math.random() < samChance) launchSAM();
+          if (!painted && !fight && CosmeticRandom.float() < samChance) launchSAM();
           painted = true;
         } else if (painted) {
           lock.setAttribute('opacity', 0);
@@ -3665,7 +3665,7 @@ const MapView = (() => {
   function interceptRoll(assetType) {
     if (ff || (assetType !== 'fighter' && assetType !== 'f35')) return false;
     const turn = (typeof Game !== 'undefined' && Game.G) ? Game.G.turn : 99;
-    return turn <= DOGFIGHT.lastTurn && Math.random() < DOGFIGHT.chance;
+    return turn <= DOGFIGHT.lastTurn && CosmeticRandom.float() < DOGFIGHT.chance;
   }
 
   // ---- bomber transit cards: the long leg in from the ramp, kept visible ----
@@ -4006,7 +4006,7 @@ const MapView = (() => {
     const pool = POOLS[target.type];
     if (pool) {
       const draw = own ? [...pool, own] : pool;
-      return draw[Math.floor(Math.random() * draw.length)];
+      return draw[Math.floor(CosmeticRandom.float() * draw.length)];
     }
     return own || 'video/strike-hit.mp4';
   }
@@ -4057,7 +4057,7 @@ const MapView = (() => {
 
   // yards, at the moment of firing. Nowhere near the map plot: the boat has
   // been trailing the hull, and this is the range she shoots from.
-  const TORP_RANGE = () => 9200 + Math.round(Math.random() * 4200);
+  const TORP_RANGE = () => 9200 + Math.round(CosmeticRandom.float() * 4200);
 
   const PHASES_SUB = [
     [0.06, 'TUBE LAUNCH'], [SN.ENABLE, 'WIRE-GUIDED RUN'], [SN.ACQUIRE, 'SEEKER ACTIVE'],
@@ -4197,8 +4197,8 @@ const MapView = (() => {
     // ---- countermeasures: the one thing that can happen to the run ----
     // Decided up front so the picture and the status line are the same event —
     // the noisemaker in the water IS the line that gets written.
-    const cm = Math.random() < 0.45;
-    const cmSide = Math.random() < 0.5 ? 1 : -1;
+    const cm = CosmeticRandom.float() < 0.45;
+    const cmSide = CosmeticRandom.float() < 0.5 ? 1 : -1;
     let cmDropped = false, decoy = null;
 
     const subs = { '{cs}': callsign, '{base}': baseName, '{tgt}': target.short };
@@ -4208,7 +4208,7 @@ const MapView = (() => {
     const fireUpTo = (prog) => {
       while (evIdx < evs.length && evs[evIdx].at <= prog) {
         const e = evs[evIdx++];
-        if (e.kind === 'problem' && Math.random() > e.chance) continue;
+        if (e.kind === 'problem' && CosmeticRandom.float() > e.chance) continue;
         fsLine(entry, fill(pick(e.msgs)), e.kind === 'problem');
       }
     };
@@ -4246,10 +4246,10 @@ const MapView = (() => {
     let btrRows = Array.from({ length: BTR.rows }, () => new Array(BTR.cols).fill(0));
     let btrDrift = 0, lastBtr = 0;
     function btrTick(p) {
-      btrDrift += (Math.random() - 0.5) * 0.06;
+      btrDrift += (CosmeticRandom.float() - 0.5) * 0.06;
       btrDrift = Math.max(-1.4, Math.min(1.4, btrDrift));
       const row = new Array(BTR.cols);
-      for (let c = 0; c < BTR.cols; c++) row[c] = Math.random() * 0.16;
+      for (let c = 0; c < BTR.cols; c++) row[c] = CosmeticRandom.float() * 0.16;
       const paint = (col, gain) => {
         for (let c = 0; c < BTR.cols; c++) {
           const d = Math.abs(c - col);
@@ -4603,7 +4603,7 @@ const MapView = (() => {
       rotor.appendChild(el('line', { x1: 0, y1: -12, x2: 0, y2: 12 }));
       g.appendChild(rotor);
       fx.appendChild(g);
-      const h = { id, g, rotor, x, y, hdg: 0, spin: Math.random() * 360, power: 1, down: false };
+      const h = { id, g, rotor, x, y, hdg: 0, spin: CosmeticRandom.float() * 360, power: 1, down: false };
       helos.push(h);
       placeHelo(h);
       return h;
@@ -4740,9 +4740,9 @@ const MapView = (() => {
         const t0 = performance.now();
         (function pop() {
           if (!entry._alive || performance.now() - t0 > ms) return;
-          const x = 66 + Math.random() * 68, y = 76 + Math.random() * 56;
+          const x = 66 + CosmeticRandom.float() * 68, y = 76 + CosmeticRandom.float() * 56;
           scopeBurst(fx, x, y, 'raid-muzzle', 4);
-          setTimeout(pop, 120 + Math.random() * 220);
+          setTimeout(pop, 120 + CosmeticRandom.float() * 220);
         })();
       },
 
@@ -4928,7 +4928,7 @@ const MapView = (() => {
       rotor.appendChild(el('line', { x1: 0, y1: -12, x2: 0, y2: 12 }));
       g.appendChild(rotor);
       fx.appendChild(g);
-      const h = { id, g, rotor, x, y, hdg: 0, spin: Math.random() * 360, power: 1, down: false };
+      const h = { id, g, rotor, x, y, hdg: 0, spin: CosmeticRandom.float() * 360, power: 1, down: false };
       helos.push(h);
       placeHelo(h);
       return h;
@@ -5280,7 +5280,7 @@ const MapView = (() => {
         const total = path.getTotalLength();
         const dur = 900 + rand(0, 300);
         // terminal-phase intercept by base air defenses (visual only)
-        const interceptAt = Math.random() < 0.35 ? 0.78 + Math.random() * 0.12 : 2;
+        const interceptAt = CosmeticRandom.float() < 0.35 ? 0.78 + CosmeticRandom.float() * 0.12 : 2;
         const t0 = performance.now();
         const end = () => {
           m.remove();
@@ -5321,8 +5321,8 @@ const MapView = (() => {
         fx.appendChild(d);
         const total = path.getTotalLength();
         const dur = 2600 + rand(0, 900);
-        const wob = 2.5 + Math.random() * 2.5, wf = 4 + Math.random() * 4;
-        const interceptAt = Math.random() < 0.3 ? 0.6 + Math.random() * 0.3 : 2;
+        const wob = 2.5 + CosmeticRandom.float() * 2.5, wf = 4 + CosmeticRandom.float() * 4;
+        const interceptAt = CosmeticRandom.float() < 0.3 ? 0.6 + CosmeticRandom.float() * 0.3 : 2;
         const t0 = performance.now();
         const end = () => {
           d.remove();

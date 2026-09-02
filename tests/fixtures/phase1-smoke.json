@@ -1,0 +1,8 @@
+{
+  "seed": 123456,
+  "difficulty": "easy",
+  "turns": [
+    { "intel": "enrichment", "diplo": "address", "coa": "rollback" }
+  ],
+  "expectedDigest": "6014b3f370e417f70b9a30da7bb0c3248d08e1930c320859782096a0327be62b"
+}
