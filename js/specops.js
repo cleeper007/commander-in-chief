@@ -15,6 +15,7 @@ const SpecOps = (() => {
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const easyText = (value) => Game.difficulty().plainLanguage ? Txt.plain(value) : value;
 
   const ISR_CAP = 2;
 
@@ -92,11 +93,17 @@ const SpecOps = (() => {
     // intelligence tasking and lives in the Intelligence Tasking panel, but the
     // odds it buys are shown here where the raid is launched.
     const isrNote = G.isrPrep >= ISR_CAP
-      ? `Pattern-of-life ISR complete (${ISR_CAP}/${ISR_CAP}) — odds are as good as they get.`
-      : `Pattern-of-life ISR run ${G.isrPrep}/${ISR_CAP} times. Run more from the Intelligence Tasking panel — each adds +12%.`;
+      ? (Game.difficulty().plainLanguage
+          ? `Leadership surveillance complete (${ISR_CAP}/${ISR_CAP}) — success odds cannot improve further.`
+          : `Pattern-of-life ISR complete (${ISR_CAP}/${ISR_CAP}) — odds are as good as they get.`)
+      : (Game.difficulty().plainLanguage
+          ? `Leadership surveillance completed ${G.isrPrep}/${ISR_CAP} times. Each additional intelligence action adds 12% to the raid's success chance.`
+          : `Pattern-of-life ISR run ${G.isrPrep}/${ISR_CAP} times. Run more from the Intelligence Tasking panel — each adds +12%.`);
     const buttons = [
       {
-        id: 'raid', name: 'LEADERSHIP DECAPITATION — launch raid',
+        id: 'raid', name: Game.difficulty().plainLanguage
+          ? 'RAID IRANIAN LEADERSHIP'
+          : 'LEADERSHIP DECAPITATION — launch raid',
         desc: `One task force, one attempt, ever. Current success estimate: ${Math.round(p * 100)}%. Win or lose, the world will know — and Tehran will answer.`,
         disabled: G.res.specops < 1,
         danger: true,
@@ -104,7 +111,7 @@ const SpecOps = (() => {
     ];
     box.innerHTML = buttons.map(b =>
       `<button data-specops="${b.id}" ${b.disabled ? 'disabled' : ''} class="${b.danger ? 'specops-danger' : ''}">` +
-      `${b.name}<span class="diplo-desc">${b.desc}</span></button>`).join('') +
+      `${easyText(b.name)}<span class="diplo-desc">${easyText(b.desc)}</span></button>`).join('') +
       `<div class="dim" style="font-size:11px;margin-top:6px">${isrNote}</div>`;
     for (const btn of box.querySelectorAll('button')) {
       btn.addEventListener('click', openModal);
@@ -120,10 +127,14 @@ const SpecOps = (() => {
     if (running || G.raid !== 'none') return null;
     const done = G.isrPrep >= ISR_CAP;
     return {
-      id: 'isr-prep', name: 'Shadow the leadership — pattern-of-life',
+      id: 'isr-prep', name: Game.difficulty().plainLanguage
+        ? 'TRACK IRANIAN LEADERSHIP'
+        : 'Shadow the leadership — pattern-of-life',
       current: done
         ? `Pattern-of-life picture complete (${ISR_CAP}/${ISR_CAP}).`
-        : `${G.isrPrep}/${ISR_CAP} taskings run — each adds +12% to a leadership raid.`,
+        : Game.difficulty().plainLanguage
+          ? `${G.isrPrep}/${ISR_CAP} surveillance missions complete — each adds 12% to the raid's success chance.`
+          : `${G.isrPrep}/${ISR_CAP} taskings run — each adds +12% to a leadership raid.`,
       desc: done
         ? 'As good as overhead and the source network can make it. No further ISR will improve the raid.'
         : 'National assets shadow the leadership\'s movements, comms and security rotations. Builds the ' +
@@ -153,15 +164,22 @@ const SpecOps = (() => {
     // The first row is the baseline the rest modify, not a bonus on top of it —
     // signing it "+25%" reads as though something is being added to something
     // else. Only the modifiers carry a sign.
+    const easy = Game.difficulty().plainLanguage;
+    const modalTitle = $('specops-modal-title');
+    const modalBrief = $('specops-brief');
+    if (easy) {
+      if (modalTitle) modalTitle.textContent = 'SPECIAL MISSION — RAID IRANIAN LEADERSHIP';
+      if (modalBrief) modalBrief.textContent = 'Send one special-forces team on a single attempt to capture or kill Iran\'s top leadership. Success disrupts Iran\'s ability to fight. Failure means Americans may be killed or captured, and world opinion will fall.';
+    }
     let html = parts.map(([label, v], i) =>
-      `${label}: <span class="est-good">${i ? '+' : ''}${Math.round(v * 100)}%</span><br>`).join('');
+      `${easyText(label)}: <span class="est-good">${i ? '+' : ''}${Math.round(v * 100)}%</span><br>`).join('');
     html += `EST. PROBABILITY OF SUCCESS: <span class="${sCls}">${pct}%</span><br>` +
       `<span class="dim">The mission runs about two minutes. It is narrated live in the tactical panel.</span><br>` +
       `<span class="est-good">Success buys a window of Iranian paralysis and a weaker Tehran at the table.</span><br>` +
       `<span class="est-warn">It does not destroy the nuclear program. Nothing here wins the war for you.</span><br>` +
       `<span class="est-bad">Attempting the raid costs world opinion — success or failure.</span><br>` +
       `<span class="est-bad">Short of success, operators will be killed or captured on Iranian soil.</span>`;
-    $('specops-estimate').innerHTML = html;
+    $('specops-estimate').innerHTML = easyText(html);
     $('specops-modal').classList.remove('hidden');
   }
 

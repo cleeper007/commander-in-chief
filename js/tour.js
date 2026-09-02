@@ -251,10 +251,9 @@ const Tour = (() => {
   //     surging past it is not a button this president has.
   const STAFF_STEPS = [
     { sel: '#map-panel', opens: true,
-      title: 'THE MAP IS THE BOARD, NOT THE ORDER FORM',
-      text: 'Every marker is an Iranian target, and clicking one opens its folder — what CENTCOM ' +
-        'knows about it. You do not frag aimpoints at this level. The staff does, and NEXT brings ' +
-        'them in.' },
+      title: 'USE THE MAP TO UNDERSTAND THE WAR',
+      text: 'Every marker is an Iranian target. Select one to read what your staff knows about it. ' +
+        'In Easy mode, the staff builds the strike plan for you.' },
     // THE THREE ROOMS, IN THE ORDER THE BRIEFING WALKS THEM (v1.91). Both free
     // action slots have to be taught here and neither can be a panel card:
     // INTELLIGENCE TASKING and DIPLOMATIC ACTIONS are both off easy's rail, so
@@ -272,37 +271,32 @@ const Tour = (() => {
     // options. The rooms are named in the same order the president walks them,
     // so the walkthrough never sends the folder backwards.
     { sel: '#brief-modal-head', stage: 'intel', modal: true,
-      title: 'WHAT YOU KNOW, AND HOW FIRMLY',
-      text: 'The briefing opens with the collection picture — the enrichment clock, the launchers ' +
-        'still loose, what the analysts have not read yet. Green is known. Red is not, and red is ' +
-        'what the night below is for.' },
+      title: 'FIRST: CHECK WHAT YOU KNOW',
+      text: 'The briefing starts with the nuclear timeline, missing missile launchers, and other ' +
+        'unknowns. Green means reliable information. Red means your analysts need more evidence.' },
     { sel: '#brief-modal-buttons', stage: 'intel', modal: true,
-      title: 'ONE INTELLIGENCE TASKING A NIGHT',
-      text: 'Hunt the missile launchers, re-look a target you have hit, or work the target folder, ' +
-        'which is the only way a hidden site becomes an aimpoint. A night that finds nothing still ' +
-        'improves the next one.' },
+      title: 'CHOOSE ONE INTELLIGENCE ACTION',
+      text: 'Search for missile launchers, recheck a damaged target, or investigate signs of hidden ' +
+        'sites. Even an unsuccessful search improves the next attempt.' },
     { sel: '#brief-modal-buttons', stage: 'brief', modal: true,
-      title: 'THE STAFF WRITES THE NIGHT',
-      text: 'CENTCOM is the second room. Each course of action names the concern it answers and ' +
-        'what it costs — and, the line worth reading, what it leaves undone.' },
+      title: 'THEN: CHOOSE TONIGHT\'S STRIKE PLAN',
+      text: 'Each plan states why it matters now, what it is expected to achieve, and its tradeoff. ' +
+        'Choose one; your military staff handles the individual targets.' },
     { sel: notesOrFooter, stage: 'brief', modal: true,
       title: () => (notesUp() ? 'WHAT THEY DID NOT ASK ABOUT' : 'SIGNING IS THE NIGHT'),
       text: () => (notesUp()
-        ? 'CENTCOM runs the force flow itself here, including sending for the B-2 that Fordow ' +
-          'needs. What it moved without asking is at the top of this room; what it is asking ' +
-          'is below.'
-        : 'Sign one and the packages fly — nothing is spent until you do. Stand the room down ' +
-          'and BRIEF ME brings the folder back; the turn will not end until you have opened it.') },
+        ? 'Your staff moves aircraft and ships for you, including bringing forward the B-2 bomber ' +
+          'needed for buried nuclear sites. Completed moves appear above your choices.'
+        : 'Choose one plan to schedule its strike missions. Nothing is spent before you choose. ' +
+          'If you close this screen, REOPEN BRIEFING brings it back.') },
     { sel: '#brief-modal-buttons', stage: 'diplo', modal: true,
-      title: 'AND STATE ASKS FOR ONE TOO',
-      text: 'One diplomatic order a night, free, and never on any option CENTCOM briefs. The ' +
-        'staff sorts eleven channels down to the three worth your evening — each with the reason ' +
-        'it is in front of you, what it costs, and what it leaves. Never spending this is the ' +
-        'most common way a new president loses.' },
+      title: 'FINALLY: CHOOSE ONE DIPLOMATIC ACTION',
+      text: 'Your staff narrows the available actions to three. Each shows its effect and tradeoff. ' +
+        'Use one every night; ignoring diplomacy is a common way to lose.' },
     { sel: '#resources-panel', panel: 'resources',
-      title: 'THREE PACKAGES A NIGHT',
-      text: 'STRIKE ASSETS carries the count, what has been released to you, and the squadron ' +
-        'flying it. Every option the staff writes is sized against that plan.' },
+      title: 'CHECK WHAT CAN FLY',
+      text: 'AVAILABLE FORCES shows which aircraft and weapons are ready, held back, or still on ' +
+        'the way. Your staff sizes every plan around what is available.' },
     { sel: '#status-row',
       title: 'THE WAR AT HOME',
       text: 'Approval, oil, world opinion, casualties, and on the right the one thing the staff ' +
@@ -312,9 +306,9 @@ const Tour = (() => {
       text: 'Four advisors watching the war from four directions, the pressing ones flagged ' +
         'URGENT. They argue from the same read the options are ranked against.' },
     { sel: endOrReady, next: 'DONE',
-      title: 'READ THE FOLDER, THEN END THE TURN',
-      text: 'Sign an option, spend the two free actions, end the turn. Tehran answers overnight ' +
-        'and the assessment lands in the morning. Thirty turns is the whole war.' },
+      title: 'MAKE THREE CHOICES, THEN END THE TURN',
+      text: 'Choose one intelligence action, one strike plan, and one diplomatic action. Then end ' +
+        'the turn to see the results. The war lasts thirty turns.' },
   ];
 
   // Chosen in start(), off the same knob the primer reads.

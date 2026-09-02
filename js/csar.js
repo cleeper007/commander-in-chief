@@ -17,6 +17,7 @@ const CSAR = (() => {
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const easyText = (value) => Game.difficulty().plainLanguage ? Txt.plain(value) : value;
 
   let running = false;   // recovery in progress: the war is locked out
 
@@ -358,7 +359,7 @@ const CSAR = (() => {
     const down = (d.crewIds || []).map((id) => Aircrew.byId(Game.G, id)).filter(Boolean);
     return `<div class="csar-line"><span class="csar-key">AIRCREW</span>` +
       `<span>${down.length
-        ? down.map((a) => `${Aircrew.label(a)} <span class="dim">· ${Txt.plural(a.sorties, 'sortie')}</span>`).join('<br>')
+        ? down.map((a) => `${Aircrew.label(a)} <span class="dim">· ${easyText(Txt.plural(a.sorties, 'sortie'))}</span>`).join('<br>')
         : `${Txt.plural(d.crew, 'aviator')}`}</span></div>` +
       `<div class="csar-line"><span class="csar-key">AIRFRAME</span><span>${d.type}</span></div>` +
       `<div class="csar-line"><span class="csar-key">POSITION</span><span>${d.loc}</span></div>` +
@@ -374,7 +375,9 @@ const CSAR = (() => {
     const noEscort = G.res.fighters < 1;
     const buttons = [
       {
-        id: 'isr', name: 'Push ISR — lock the position',
+        id: 'isr', name: Game.difficulty().plainLanguage
+          ? 'USE INTELLIGENCE TO LOCATE THE CREW'
+          : 'Push ISR — lock the position',
         desc: d.isr
           ? 'The position is locked and the on-scene commander has the picture.'
           : G.intelUsed
@@ -383,7 +386,9 @@ const CSAR = (() => {
         disabled: d.isr || G.intelUsed,
       },
       {
-        id: 'go', name: 'LAUNCH THE RECOVERY — MQ-9 overwatch + Jolly package',
+        id: 'go', name: Game.difficulty().plainLanguage
+          ? 'LAUNCH THE RESCUE MISSION'
+          : 'LAUNCH THE RECOVERY — MQ-9 overwatch + Jolly package',
         desc: noEscort
           ? 'No fighter sorties left to escort the package in. Nothing goes in over that ground unescorted.'
           : `Costs 1 fighter sortie. Current recovery estimate: ${Math.round(p * 100)}%. ` +
@@ -394,7 +399,7 @@ const CSAR = (() => {
     ];
     return buttons.map(b =>
       `<button data-csar="${b.id}" ${b.disabled ? 'disabled' : ''} class="${b.danger ? 'specops-danger' : ''}">` +
-      `${b.name}<span class="diplo-desc">${b.desc}</span></button>`).join('');
+      `${easyText(b.name)}<span class="diplo-desc">${easyText(b.desc)}</span></button>`).join('');
   }
 
   function wireOrders(box) {
@@ -455,26 +460,30 @@ const CSAR = (() => {
     const { p, parts } = odds(G);
     const pct = Math.round(p * 100);
     const sCls = pct >= 60 ? 'est-good' : pct >= 40 ? 'est-warn' : 'est-bad';
-    $('csar-brief-text').textContent =
-      `${d.callsign} — ${d.type} — went down ${d.loc}. ${crewPhrase(d, true)} ${Txt.are(d.crew)} ` +
-      `on the ground and authenticated. The package is a pair of HH-60W Jolly Green IIs with a ` +
-      `pararescue team aboard, an armed MQ-9 Reaper flying overwatch and precision fires, and tankers holding off the ` +
-      `coast. It is the most exposed thing the Air Force does, it is flown into an alerted area, and ` +
-      `nobody in this building will tell you not to go.`;
+    const easy = Game.difficulty().plainLanguage;
+    const modalTitle = $('csar-modal-title');
+    if (easy && modalTitle) modalTitle.textContent = 'PERSONNEL RECOVERY — RESCUE DOWNED AIRCREW';
+    $('csar-brief-text').textContent = easy
+      ? `${d.callsign} — ${d.type} — went down ${d.loc}. ${crewPhrase(d, true)} ${Txt.are(d.crew)} on the ground. The rescue uses helicopters, a pararescue team, an armed drone, fighter escorts, and refueling aircraft. It is dangerous, and waiting increases the chance that Iran captures the crew.`
+      : `${d.callsign} — ${d.type} — went down ${d.loc}. ${crewPhrase(d, true)} ${Txt.are(d.crew)} ` +
+        `on the ground and authenticated. The package is a pair of HH-60W Jolly Green IIs with a ` +
+        `pararescue team aboard, an armed MQ-9 Reaper flying overwatch and precision fires, and tankers holding off the ` +
+        `coast. It is the most exposed thing the Air Force does, it is flown into an alerted area, and ` +
+        `nobody in this building will tell you not to go.`;
     // Row 0 is the baseline the rest modify, so it carries no sign; the
     // modifiers do, and a negative one is typeset with a real minus rather than
     // the hyphen a raw number interpolates as.
     let html = parts.map(([label, v], i) => {
       const n = Math.round(v * 100);
       const body = !i ? `${n}%` : `${n >= 0 ? '+' : '−'}${Math.abs(n)}%`;
-      return `${label}: <span class="${v >= 0 ? 'est-good' : 'est-bad'}">${body}</span><br>`;
+      return `${easyText(label)}: <span class="${v >= 0 ? 'est-good' : 'est-bad'}">${body}</span><br>`;
     }).join('');
     html += `EST. PROBABILITY OF RECOVERY: <span class="${sCls}">${pct}%</span><br>` +
       `<span class="dim">The recovery runs about seventy seconds. It is narrated live in the tactical panel.</span><br>` +
       `<span class="est-good">Bringing them home is worth more at home than any target on the map.</span><br>` +
       `<span class="est-warn">Costs 1 fighter sortie for the escort. There is one attempt.</span><br>` +
       `<span class="est-bad">Short of success, aircrew — and possibly a rescue crew — go into IRGC custody.</span>`;
-    $('csar-estimate').innerHTML = html;
+    $('csar-estimate').innerHTML = easyText(html);
     $('csar-modal').classList.remove('hidden');
   }
 

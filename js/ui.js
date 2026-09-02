@@ -10,6 +10,13 @@ const UI = (() => {
   // the way they always did.
   const { plural, pluralize, turns, signed, MINUS } = Txt;
 
+  // Easy mode uses the same simulation and the same underlying brief, but its
+  // player-facing copy is translated before it reaches the screen. Keeping the
+  // switch here means the staff can retain precise terminology for normal and
+  // hard without making first-time players decode it to understand a choice.
+  const plainLanguage = () => !!Game.difficulty().plainLanguage;
+  const easyText = (value) => plainLanguage() ? Txt.plain(value) : value;
+
   let selectedPkg = null;
   let currentTarget = null;
 
@@ -135,9 +142,31 @@ const UI = (() => {
   // Run once, at boot, after the difficulty is known. Nothing re-runs it because
   // nothing changes difficulty mid-war.
   function applyPanelTrim() {
-    const keep = Game.difficulty().railPanels;
+    const d = Game.difficulty();
+    const keep = d.railPanels;
     for (const p of document.querySelectorAll('#sidebar-scroll .panel[data-panel]')) {
       p.classList.toggle('mode-off', !!keep && !keep.includes(p.dataset.panel));
+    }
+
+    // The three standing Easy-mode surfaces use familiar names. These labels
+    // are changed after difficulty selection so normal and hard keep the terse
+    // command-room vocabulary they were designed around.
+    if (d.plainLanguage) {
+      const title = (panel, text) => {
+        const el = document.querySelector(`#${panel}-panel .panel-title`);
+        if (el) el.textContent = text;
+      };
+      const mapTitle = $('map-panel-title');
+      if (mapTitle) mapTitle.textContent = 'MILITARY SITUATION MAP';
+      title('resources', 'AVAILABLE FORCES');
+      title('advisors', 'YOUR ADVISORS');
+      title('specops', 'SPECIAL MISSIONS');
+      const ready = $('btn-brief-ready');
+      if (ready) ready.textContent = 'START NIGHTLY BRIEFING ▸';
+      const reopen = $('btn-brief');
+      if (reopen) reopen.textContent = 'REOPEN BRIEFING';
+      const standDown = document.querySelector('#brief-modal .brief-foot [data-close="brief-modal"]');
+      if (standDown) standDown.textContent = 'CLOSE FOR NOW';
     }
   }
 
@@ -677,7 +706,9 @@ const UI = (() => {
       // place in the game that counts a noun in caps, so it does it by hand
       // rather than teaching the whole helper about case.
       end.textContent = unspent && !G.over
-        ? `END TURN — ${unspent} FREE ACTION${unspent === 1 ? '' : 'S'} UNSPENT`
+        ? (plainLanguage()
+            ? `END TURN — ${unspent} CHOICE${unspent === 1 ? '' : 'S'} UNUSED`
+            : `END TURN — ${unspent} FREE ACTION${unspent === 1 ? '' : 'S'} UNSPENT`)
         : 'END TURN — AWAIT DEVELOPMENTS';
       end.classList.toggle('has-unspent', unspent > 0 && !G.over);
     }
@@ -689,7 +720,7 @@ const UI = (() => {
     const b = Assess.board();
     const ph = Assess.phase(b);
     const lead = readLead(b);
-    $('read-phase').textContent = ph.name;
+    $('read-phase').textContent = easyText(ph.name);
     // The clause rides in a `.stat-sub` because it is the same bargain the
     // approval and crude thresholds already strike: real information, far too
     // long for a 95px column, so a phone holds it back until the readout has
@@ -699,7 +730,7 @@ const UI = (() => {
     // Written into the span rather than the cell so the `.stat-sub` wrapper the
     // phone's hold-back rule keys on survives every render; the class on the
     // cell below is set separately for the same reason.
-    $('read-value').querySelector('.stat-sub').textContent = lead ? lead.now : '';
+    $('read-value').querySelector('.stat-sub').textContent = lead ? easyText(lead.now) : '';
     // RED MEANS TONIGHT, AMBER MEANS THIS CAMPAIGN. Not a single severity cut,
     // because severity is a ruler for RANKING and reads badly as a colour: the
     // shared scale documented above CONCERNS puts the SAM belt at 0.85 for the
@@ -1028,6 +1059,8 @@ const UI = (() => {
 
   function assetHtml(r) {
     const off = r.group !== 'go';
+    const name = easyText(r.name);
+    const sub = easyText(r.sub);
     // The readiness word is a word in the value slot and gets the value slot's
     // narrow type, so a row that says BELOW A PACKAGE wraps to two lines instead
     // of pushing the aircraft name off the left of a 300px column.
@@ -1035,14 +1068,14 @@ const UI = (() => {
       const word = READY_WORD(r);
       const wCls = r.low || r.group === 'held' ? ' crit' : off || r.val ? ' off' : '';
       return `<div class="asset${r.tick ? ' ' + r.tick : ''}">` +
-        `<span class="a-name">${r.name}<span class="a-sub${r.tick ? ' ' + r.tick : ''}">${r.sub}</span></span>` +
-        `<span class="a-val word${wCls}">${word}</span></div>`;
+        `<span class="a-name">${name}<span class="a-sub${r.tick ? ' ' + r.tick : ''}">${sub}</span></span>` +
+        `<span class="a-val word${wCls}">${easyText(word)}</span></div>`;
     }
     const val = r.val ?? `${r.have} / ${r.cap}`;
     const vCls = r.val ? ' off' : r.low ? ' crit' : off ? ' off' : '';
     return `<div class="asset${r.tick ? ' ' + r.tick : ''}">` +
-      `<span class="a-name">${r.name}<span class="a-sub${r.tick ? ' ' + r.tick : ''}">${r.sub}</span></span>` +
-      `<span class="a-val${vCls}">${val}</span>` +
+      `<span class="a-name">${name}<span class="a-sub${r.tick ? ' ' + r.tick : ''}">${sub}</span></span>` +
+      `<span class="a-val${vCls}">${easyText(val)}</span>` +
       (r.val ? '' : magBar(r.have, r.cap, off ? 'off' : r.low ? 'crit' : '')) +
       `</div>`;
   }
@@ -1078,7 +1111,7 @@ const UI = (() => {
         : line.cls === 'cv-forward' ? '' : 'off';
       return `<div class="asset"><span class="a-name">${info.name || cv.id}` +
         `<span class="a-sub">${line && line.cls === 'cv-forward'
-          ? 'Full sortie generation, Aegis over the Gulf ramps'
+          ? easyText('Full sortie generation, Aegis over the Gulf ramps')
           : 'Air wing flying · no forward presence'}</span></span>` +
         `<span class="a-val word ${cls}">${label}</span></div>`;
     }).join('');
@@ -1192,7 +1225,8 @@ const UI = (() => {
     for (const [key, legend, cls] of RES_GROUPS) {
       const inGroup = rows.filter(r => r.group === key);
       if (!inGroup.length) continue;
-      html += `<div class="res-group"><div class="res-legend ${cls}">${legend}</div>` +
+      const shownLegend = plainLanguage() && key === 'shield' ? 'BASE DEFENSES' : easyText(legend);
+      html += `<div class="res-group"><div class="res-legend ${cls}">${shownLegend}</div>` +
         inGroup.map(assetHtml).join('') + `</div>`;
     }
 
@@ -1233,7 +1267,7 @@ const UI = (() => {
         airborne.map(x => flightRow(x, false)).join('') + `</div>`;
     }
 
-    $('resources-list').innerHTML = html;
+    $('resources-list').innerHTML = easyText(html);
 
     // Indexes are read off G.missions at render time and recallMission
     // re-renders, so the list the next click reads is always the current one.
@@ -1277,7 +1311,7 @@ const UI = (() => {
     const phaseNow = Game.airPhase();
     const rs = $('resources-status');
     if (rs) {
-      rs.textContent = `— ${Game.PHASE_LABEL[phaseNow]} ${Math.round(Game.airSuperiority() * 100)}%`;
+      rs.textContent = easyText(`— ${Game.PHASE_LABEL[phaseNow]} ${Math.round(Game.airSuperiority() * 100)}%`);
       rs.style.color = phaseNow === 'superiority' ? 'var(--green)'
         : phaseNow === 'degraded' ? 'var(--amber)' : 'var(--red)';
     }
@@ -1711,9 +1745,9 @@ const UI = (() => {
         advIcon(a.name) +
         `<span class="adv-name">${a.name}</span>` +
         (a.urgent ? '<span class="adv-flag">URGENT</span>' : '') +
-        `<span class="adv-line">${a.line}</span>` +
+        `<span class="adv-line">${easyText(a.line)}</span>` +
         `</button>` +
-        `<div class="adv-text">${a.text}</div></div>`;
+        `<div class="adv-text">${easyText(a.text)}</div></div>`;
     }).join('');
 
     for (const head of $('advisors-list').querySelectorAll('.adv-head')) {
@@ -1754,15 +1788,17 @@ const UI = (() => {
     const out = [];
 
     out.push({
-      id: 'israel', name: 'Coordinate with Israel',
-      moves: 'JERUSALEM',
+      id: 'israel', name: plainLanguage() ? 'PLAN JOINT STRIKES WITH ISRAEL' : 'Coordinate with Israel',
+      moves: plainLanguage() ? 'ISRAELI PRESSURE' : 'JERUSALEM',
       current: posture === 'coordinated'
         ? (G.israelJointAvailable
             ? 'Israel is in. Joint deep-strike package ON THE BOARD.'
             : 'Israel is in. The joint slot returns when they next fly.')
         : posture === 'unilateral'
           ? 'Too late — Israel is running its own war now.'
-          : 'World opinion −8, a standing price abroad, and a bill at home every night they fly.',
+          : plainLanguage()
+            ? 'World opinion −8 now. Approval can fall on later nights when Israeli aircraft join the war.'
+            : 'World opinion −8, a standing price abroad, and a bill at home every night they fly.',
       desc: posture === 'sidelined'
         ? 'Brings the IAF in openly. Fighter capacity, +half a package a night on the tasking order from their ' +
           'escort and SEAD, three of their aimpoints serviced every night they fly, and a joint deep-strike ' +
@@ -1788,11 +1824,13 @@ const UI = (() => {
     // taking the call. That asymmetry is the mechanic, not an oversight.
     if (posture === 'sidelined') {
       out.push({
-        id: 'restrain', name: 'Ask Jerusalem to hold',
-        moves: 'JERUSALEM',
+        id: 'restrain', name: plainLanguage() ? 'ASK ISRAEL TO WAIT' : 'Ask Jerusalem to hold',
+        moves: plainLanguage() ? 'ISRAELI PRESSURE' : 'JERUSALEM',
         current: cost.left <= 0
           ? 'Jerusalem will not take the call again.'
-          : `Pressure −${cost.relief}, approval −${cost.approval}. ${plural(cost.left, 'ask')} left.`,
+          : plainLanguage()
+            ? `Israel waits longer: pressure −${cost.relief}. Approval −${cost.approval}. ${plural(cost.left, 'request')} left.`
+            : `Pressure −${cost.relief}, approval −${cost.approval}. ${plural(cost.left, 'ask')} left.`,
         desc: cost.left <= 0
           ? ''
           : `Buys ${turns(3)} of Israeli restraint. The only lever on that gauge that is not a bomb, and one ` +
@@ -1859,15 +1897,15 @@ const UI = (() => {
     const c = st.opt;
     return `<div class="coa-surge${st.ready ? '' : ' off'}">` +
       `<button class="action-do surge-do" data-coa="surge"${st.ready ? '' : ' disabled'}>` +
-      `<span class="surge-head"><span class="coa-slot">SURGE</span>` +
-      `<span class="surge-line">Fly extra sorties tonight.</span>` +
-      `<span class="surge-cost">${st.ready
+      `<span class="surge-head"><span class="coa-slot">${plainLanguage() ? 'EXTRA STRIKES' : 'SURGE'}</span>` +
+      `<span class="surge-line">${plainLanguage() ? 'Fly extra strikes tonight.' : 'Fly extra sorties tonight.'}</span>` +
+      `<span class="surge-cost">${easyText(st.ready
         ? `${plural(c.legs.length, 'package')}${c.shape ? ` · ${c.shape}` : ''}`
-        : st.why}</span></span>` +
+        : st.why)}</span></span>` +
       // The price, on the face of it, exactly as a card carries it: this is a
       // loan against tomorrow's plan and it is the whole reason the bar is a
       // decision rather than a bonus.
-      (st.ready && c.defers ? `<span class="coa-defers">LEAVES — ${c.defers}</span>` : '') +
+      (st.ready && c.defers ? `<span class="coa-defers">${plainLanguage() ? 'TRADEOFF' : 'LEAVES'} — ${easyText(c.defers)}</span>` : '') +
       `</button></div>`;
   }
 
@@ -1882,41 +1920,45 @@ const UI = (() => {
     const spare = Game.coaSignsLeft();
     // The surge comes out of the card stack here and is drawn as the bar below
     // it — same slate, same object, one renderer, per surgeBar above.
-    return list.filter((c) => !c.surge).map((c) => {
+    return list.filter((c) => !c.surge).map((c, optionIndex) => {
       const done = flown.has(c.id);
       const shut = !done && spare <= 0;
       const open = actOpen.has(`coa-${c.id}`);
       const main = c.legs.filter(l => l.main), supp = c.legs.filter(l => !l.main);
       const nameOf = (l) => {
         const t = TARGETS.find(x => x.id === l.targetId);
-        return t ? `${t.name.split(' — ')[0]} <span class="dim">· ${l.pkg.label}</span>` : l.targetId;
+        return t ? `${t.name.split(' — ')[0]} <span class="dim">· ${easyText(l.pkg.label)}</span>` : l.targetId;
       };
       const legList = (arr, label) => arr.length
-        ? `<div class="coa-leg-head">${label}</div>` +
+        ? `<div class="coa-leg-head">${plainLanguage()
+            ? (label === 'MAIN EFFORT' ? 'PRIMARY TARGETS' : 'OTHER TARGETS IN THE PLAN')
+            : label}</div>` +
           arr.map(l => `<div class="coa-leg">${nameOf(l)}</div>`).join('')
         : '';
       const bill = (c.bill || []).map(x =>
-        `<span class="coa-chip${x.warn ? ' warn' : ''}"><b>${x.k}</b> ${x.v}</span>`).join('');
+        `<span class="coa-chip${x.warn ? ' warn' : ''}"><b>${plainLanguage()
+          ? ({ PLAN: 'TONIGHT', ABROAD: 'WORLD OPINION', INTERCEPTORS: 'DEFENSIVE MISSILES', NSM: 'SHIP MISSILES' }[x.k] || x.k)
+          : x.k}</b> ${easyText(x.v)}</span>`).join('');
       return `<div class="action coa${done || shut ? ' off' : ''}${open ? ' open' : ''}" data-action="coa-${c.id}">` +
         `<button class="action-do" data-coa="${c.id}" ${done || shut ? 'disabled' : ''}>` +
-        `<span class="action-name"><span class="coa-slot">${c.slot}</span> ${c.name}</span>` +
-        `<span class="il-current">${c.read || c.line}</span>` +
-        `<span class="coa-cost">${done ? 'SIGNED — ON TONIGHT\'S ORDER'
+        `<span class="action-name"><span class="coa-slot">${plainLanguage() ? `OPTION ${optionIndex + 1}` : c.slot}</span> ${easyText(c.name)}</span>` +
+        `<span class="il-current">${plainLanguage() ? 'WHY NOW — ' : ''}${easyText(c.read || c.line)}</span>` +
+        `<span class="coa-cost">${easyText(done ? 'SIGNED — ON TONIGHT\'S ORDER'
           : shut ? 'NOT TONIGHT — THE NIGHT IS SIGNED'
           : `${plural(c.legs.length, 'package')}${c.shape ? ` · ${c.shape}` : ''}${spent > 0 && c.legs.length > spent
-            ? ` · ${c.legs.length - spent} past the plan` : ''}`}</span>` +
+            ? ` · ${c.legs.length - spent} past the plan` : ''}`)}</span>` +
         // The tradeoff, and it is deliberately on the face of the button rather
         // than behind the caret: an option that only shows what it buys is a
         // pitch, and three pitches is not a decision. Absent — not blank — when
         // there is genuinely nothing else on the board, which is a real and
         // rare state and reads as one.
-        (c.defers && !done && !shut ? `<span class="coa-defers">LEAVES — ${c.defers}</span>` : '') +
+        (c.defers && !done && !shut ? `<span class="coa-defers">${plainLanguage() ? 'TRADEOFF' : 'LEAVES'} — ${easyText(c.defers)}</span>` : '') +
         `</button>` +
         `<button type="button" class="action-why" aria-expanded="${open}" ` +
-        `aria-label="What this option flies, and why"><span class="why-caret">▾</span></button>` +
+        `aria-label="${plainLanguage() ? 'More detail about this plan' : 'What this option flies, and why'}"><span class="why-caret">▾</span></button>` +
         `<div class="action-desc">` +
-        `<div class="coa-thesis">${c.line}</div>${c.why}` +
-        (c.est ? `<div class="coa-est">${c.est}</div>` : '') +
+        `<div class="coa-thesis">${easyText(c.line)}</div>${easyText(c.why)}` +
+        (c.est ? `<div class="coa-est">${easyText(c.est)}</div>` : '') +
         (bill ? `<div class="coa-bill">${bill}</div>` : '') +
         `<div class="coa-legs">${legList(main, 'MAIN EFFORT')}${legList(supp, 'AND WITH THE REMAINING CAPACITY')}</div>` +
         `</div></div>`;
@@ -1944,7 +1986,7 @@ const UI = (() => {
 
     // COA_EMPTY still carries the bar: a night the staff cannot brief is a night
     // the surge line is the only thing in the panel with an answer in it.
-    $('coa-buttons').innerHTML = list.length ? coaRows(G, list) : COA_EMPTY + surgeBar();
+    $('coa-buttons').innerHTML = list.length ? coaRows(G, list) : easyText(COA_EMPTY) + surgeBar();
     if (!list.length) return;
     for (const btn of document.querySelectorAll('#coa-buttons .action-do')) {
       btn.addEventListener('click', () => Game.takeCoa(btn.dataset.coa));
@@ -2048,7 +2090,7 @@ const UI = (() => {
           ? `${plural(opts.length, 'option').toUpperCase()} — SIGN ONE`
           : plural(opts.length, 'option').toUpperCase();
       },
-      body: (G, opts) => ({ head: '', rows: opts.length ? coaRows(G, opts) : COA_EMPTY + surgeBar() }),
+      body: (G, opts) => ({ head: '', rows: opts.length ? coaRows(G, opts) : easyText(COA_EMPTY) + surgeBar() }),
     },
     {
       key: 'diplo', room: 'DIPLOMATIC ACTIONS', seal: 'icons/seal-state.png?v=1.91',
@@ -2132,8 +2174,19 @@ const UI = (() => {
     const st = rooms[briefRoom];
     const last = briefRoom === rooms.length - 1;
 
-    $('brief-modal-room').textContent = `TURN ${G.turn} — ${st.room}`;
-    $('brief-modal-when').textContent = st.count(G, briefOptions);
+    const easyRoom = {
+      intel: 'WHAT WE KNOW',
+      brief: 'CHOOSE A STRIKE PLAN',
+      diplo: 'CHOOSE A DIPLOMATIC ACTION',
+    };
+    $('brief-modal-room').textContent = `TURN ${G.turn} — ${plainLanguage() ? easyRoom[st.key] : st.room}`;
+    $('brief-modal-when').textContent = plainLanguage()
+      ? (st.key === 'intel'
+          ? (G.intelUsed ? 'CHOICE USED TONIGHT' : '1 INTELLIGENCE CHOICE')
+          : st.key === 'diplo'
+            ? (G.diploUsed ? 'CHOICE USED TONIGHT' : '1 DIPLOMATIC CHOICE')
+            : easyText(st.count(G, briefOptions)).replace('SIGN ONE', 'CHOOSE ONE'))
+      : st.count(G, briefOptions);
     $('brief-modal-seal').src = st.seal;
     // Who is standing there. Under the seal rather than beside the title,
     // because the seal is what the eye lands on and the name is the caption for
@@ -2147,8 +2200,10 @@ const UI = (() => {
     // over what it is asking — and read above the collection picture they would
     // be an army report in the NSA's meeting.
     $('brief-modal-notes').innerHTML = (st.notes && briefNotes && briefNotes.length)
-      ? `<div class="brief-notes"><div class="brief-notes-head">CENTCOM HAS ALREADY MOVED ON THIS</div>` +
-        briefNotes.map((x) => `<div class="brief-note">${x}</div>`).join('') + `</div>`
+      ? `<div class="brief-notes"><div class="brief-notes-head">${plainLanguage()
+          ? 'YOUR MILITARY STAFF ALREADY HANDLED THIS'
+          : 'CENTCOM HAS ALREADY MOVED ON THIS'}</div>` +
+        briefNotes.map((x) => `<div class="brief-note">${easyText(x)}</div>`).join('') + `</div>`
       : '';
 
     const parts = st.body(G, briefOptions);
@@ -2210,7 +2265,9 @@ const UI = (() => {
     const back = $('btn-brief-back'), next = $('btn-brief-next');
     back.classList.toggle('hidden', briefRoom === 0);
     back.onclick = () => showRoom(briefRoom - 1);
-    next.textContent = last ? 'CLOSE THE FOLDER' : `NEXT — ${rooms[briefRoom + 1].room} ▸`;
+    next.textContent = last
+      ? (plainLanguage() ? 'FINISH BRIEFING' : 'CLOSE THE FOLDER')
+      : `NEXT — ${plainLanguage() ? easyRoom[rooms[briefRoom + 1].key] : rooms[briefRoom + 1].room} ▸`;
     next.onclick = () => (last ? closeBrief() : showRoom(briefRoom + 1));
 
     $('brief-modal').classList.remove('hidden');
@@ -2726,7 +2783,7 @@ const UI = (() => {
   // kind of control, it is an order carrying three more fields.
   function diploBody(G) {
     const tracks = stateOptions(G);
-    return tracks.length ? actionButtons(tracks, G.diploUsed) : DIPLO_EMPTY;
+    return tracks.length ? actionButtons(tracks, G.diploUsed) : easyText(DIPLO_EMPTY);
   }
 
   // Eleven orders and none of them live is very nearly impossible — the UN push
@@ -2969,8 +3026,10 @@ const UI = (() => {
         // and "there is no fire, and this is still worth the cable" is an
         // honest thing for a staff to say. Same bargain coaOptions makes.
         read: o.lead ? o.lead.now
-          : 'Nothing on the board is forcing this tonight. It is standing business, and a slot ' +
-            'spent on it is a slot spent while nothing is on fire — which is the only time it is cheap.',
+          : plainLanguage()
+            ? 'This is not urgent tonight. Using the choice now is less costly than waiting for a crisis.'
+            : 'Nothing on the board is forcing this tonight. It is standing business, and a slot ' +
+              'spent on it is a slot spent while nothing is on fire — which is the only time it is cheap.',
         defers: gap ? gap.left : null,
         rank: o.rank,
       };
@@ -3018,7 +3077,7 @@ const UI = (() => {
   // performs the action on click, so a disclosure nested in it would be an
   // invalid control that fires an order when the player only wanted to read.
   function actionButtons(list, used) {
-    return list.map(a => {
+    return list.map((a, optionIndex) => {
       const off = used || a.disabled;
       const open = actOpen.has(a.id);
       // `attrs: ''` marks a status row — something the panel is telling the
@@ -3034,23 +3093,23 @@ const UI = (() => {
       return `<div class="action${off ? ' off' : ''}${open ? ' open' : ''}${a.slot ? ' staffed' : ''}" data-action="${a.id}">` +
         `<button class="action-do" ${attrs} ${off ? 'disabled' : ''}>` +
         `<span class="action-name">` +
-        (a.slot ? `<span class="coa-slot">${a.slot}</span> ` : '') + a.name +
+        (a.slot ? `<span class="coa-slot">${plainLanguage() ? `OPTION ${optionIndex + 1}` : a.slot}</span> ` : '') + easyText(a.name) +
         (a.mark ? `<span class="rec-chip">${a.mark}</span>` : '') + `</span>` +
         // WHY TONIGHT above WHAT IT COSTS, the same order the courses of action
         // put them in: the board fact that put this order in front of the
         // president, then the price of agreeing.
-        (a.read ? `<span class="il-read">${a.read}</span>` : '') +
-        (a.current ? `<span class="il-current">${a.current}</span>` : '') +
-        (a.defers ? `<span class="coa-defers">LEAVES — ${a.defers}</span>` : '') +
+        (a.read ? `<span class="il-read">${plainLanguage() ? 'WHY NOW — ' : ''}${easyText(a.read)}</span>` : '') +
+        (a.current ? `<span class="il-current">${plainLanguage() ? 'EFFECT — ' : ''}${easyText(a.current)}</span>` : '') +
+        (a.defers ? `<span class="coa-defers">${plainLanguage() ? 'TRADEOFF' : 'LEAVES'} — ${easyText(a.defers)}</span>` : '') +
         // `moves` names the gauge in THE WORLD this order pushes on. It is the
         // connective tissue that went missing when the gauges stopped living on
         // the order rows: without it a president reads eleven unrelated buttons
         // above a board of three bars and has to infer which touches which.
-        (a.moves ? `<span class="il-moves">MOVES ${a.moves}</span>` : '') +
+        (a.moves ? `<span class="il-moves">${plainLanguage() ? 'CHANGES' : 'MOVES'} ${easyText(a.moves)}</span>` : '') +
         `</button>` +
         (a.desc
           ? `<button type="button" class="action-why" aria-expanded="${open}" ` +
-            `aria-label="Why this order matters"><span class="why-caret">▾</span></button>`
+            `aria-label="${plainLanguage() ? 'More detail about this choice' : 'Why this order matters'}"><span class="why-caret">▾</span></button>`
           : '') +
         // `extra` is live state that is a SHAPE rather than a sentence — a gauge
         // another government owns, filling. It sits outside the button for the
@@ -3058,7 +3117,7 @@ const UI = (() => {
         // and above the fold for the opposite reason: it is the state, not the
         // explanation, so it must never be the thing behind the caret.
         (a.extra ? `<div class="action-extra">${a.extra}</div>` : '') +
-        (a.desc ? `<div class="action-desc">${a.desc}</div>` : '') +
+        (a.desc ? `<div class="action-desc">${easyText(a.desc)}</div>` : '') +
         `</div>`;
     }).join('');
   }
@@ -3142,19 +3201,23 @@ const UI = (() => {
   function intelPicture(s) {
     const { hidden, brk, posture, boxed, leads } = s;
     const lines = [
-      ['Enrichment', brk.halted ? 'HALTED' : `${brk.lo}–${brk.hi}T · ${brk.conf}`,
+      [plainLanguage() ? 'Nuclear timeline' : 'Enrichment',
+        brk.halted ? 'HALTED' : plainLanguage()
+          ? `${brk.lo}–${brk.hi} TURNS · ${brk.conf} CONFIDENCE`
+          : `${brk.lo}–${brk.hi}T · ${brk.conf}`,
         brk.halted || brk.conf === 'high' ? 'known' : brk.conf === 'low' ? 'unknown' : ''],
-      ['Dispersed launchers', hidden ? `${hidden} unlocated` : 'none loose',
+      [plainLanguage() ? 'Mobile missile launchers' : 'Dispersed launchers',
+        hidden ? `${hidden} unlocated` : plainLanguage() ? 'all located' : 'none loose',
         hidden ? 'unknown' : 'known'],
       ['Iranian war plan', posture ? posture.name : 'unassessed', posture ? 'known' : 'unknown'],
-      ['Target folder', boxed ? `${boxed} localized, unresolved`
+      [plainLanguage() ? 'Possible hidden sites' : 'Target folder', boxed ? `${boxed} localized, unresolved`
         : leads ? `${plural(leads, 'lead')} carried`
         : 'nothing outstanding',
         boxed ? '' : leads ? 'unknown' : 'known'],
     ];
-    return lines.map(([label, value, cls]) =>
+    return easyText(lines.map(([label, value, cls]) =>
       `<div class="intel-line"><span>${label}</span>` +
-      `<span class="il-value ${cls}">${value}</span></div>`).join('');
+      `<span class="il-value ${cls}">${value}</span></div>`).join(''));
   }
 
   // Every tasking that can actually be given tonight, in the order the slot
@@ -3164,7 +3227,7 @@ const UI = (() => {
 
     const intel = [
       {
-        id: 'bda', name: 'Task a collection deck — reassess damaged sites',
+        id: 'bda', name: plainLanguage() ? 'RECHECK DAMAGED TARGETS' : 'Task a collection deck — reassess damaged sites',
         current: stale.length
           ? `${plural(stale.length, 'estimate')} soft enough to be worth the sortie: ` +
             `${stale.map(({ t }) => t.short).join(' · ')}.`
@@ -3177,7 +3240,7 @@ const UI = (() => {
         disabled: !stale.length,
       },
       {
-        id: 'hunt', name: 'Hunt dispersed launchers',
+        id: 'hunt', name: plainLanguage() ? 'SEARCH FOR MOBILE MISSILE LAUNCHERS' : 'Hunt dispersed launchers',
         current: hidden
           ? `${hidden} launcher group${hidden === 1 ? '' : 's'} loose in the country and shooting.`
           : 'Nothing unaccounted for.',
@@ -3188,7 +3251,7 @@ const UI = (() => {
         disabled: !hidden,
       },
       {
-        id: 'assess-nuclear', name: 'Reassess the enrichment timeline',
+        id: 'assess-nuclear', name: plainLanguage() ? 'UPDATE THE NUCLEAR TIMELINE' : 'Reassess the enrichment timeline',
         current: brk.halted
           ? 'No capability remaining.'
           : brk.undeclared
@@ -3200,7 +3263,7 @@ const UI = (() => {
         disabled: brk.halted,
       },
       {
-        id: 'folder', name: 'Work the target folder',
+        id: 'folder', name: plainLanguage() ? 'INVESTIGATE POSSIBLE HIDDEN SITES' : 'Work the target folder',
         // Deliberately vague when there is nothing localized. The tasking's
         // existence tells the player the folder CAN be worked, which they should
         // know; its wording must never tell them how much is left in it, which
@@ -3229,7 +3292,7 @@ const UI = (() => {
         disabled: !gaps.length,
       },
       {
-        id: 'assess-intent', name: 'Assess Iranian war plan',
+        id: 'assess-intent', name: plainLanguage() ? 'ANALYZE IRAN\'S WAR STRATEGY' : 'Assess Iranian war plan',
         current: posture
           ? `Assessed: ${posture.name}.`
           : (G.turn <= 3 ? `Locked until turn 4 (currently turn ${G.turn}).` : 'Never assessed.'),
@@ -3332,7 +3395,7 @@ const UI = (() => {
     const live = intelSlate(G, intelTaskings(G, s));
     return {
       head: intelPicture(s),
-      rows: live.length ? actionButtons(live, G.intelUsed) : INTEL_EMPTY,
+      rows: live.length ? actionButtons(live, G.intelUsed) : easyText(INTEL_EMPTY),
     };
   }
 
@@ -5367,11 +5430,11 @@ const UI = (() => {
       d.coa && !d.freeTargeting
         ? { cls: 'friendly', title: 'THE STAFF WRITES THE NIGHT',
             text: Game.popup('brief')
-              ? 'CENTCOM walks in with options at the top of every turn and will not leave until you sign ' +
-                'one. You are not picking aimpoints — you are picking which war tonight is for. BRIEF ME ' +
-                'reopens the folder if you send the room away.'
-              : 'CENTCOM briefs you options every turn under TONIGHT\'S OPTIONS. Sign one. You are ' +
-                'not picking aimpoints — you are picking which war tonight is for.' }
+              ? 'Your military staff presents three plans at the start of every turn. Choose one. Each plan ' +
+                'shows why it matters now and the main problem it leaves for later. REOPEN BRIEFING brings ' +
+                'the choices back if you close them.'
+              : 'Your military staff presents plans every turn under TONIGHT\'S OPTIONS. Choose one. ' +
+                'You are choosing the night\'s priority; the staff handles the individual targets.' }
         : d.coa
         ? { cls: 'friendly', title: 'TWO OPTIONS, AND THE REST IS YOURS',
             text: 'CENTCOM briefs you two plans under TONIGHT\'S OPTIONS, and neither fills the order. ' +
@@ -5384,8 +5447,8 @@ const UI = (() => {
       // DEFENSES keeps coming up first is picking off a menu rather than
       // reading a war.
       ...(d.freeTargeting ? [] : [{ cls: '', title: 'GAIN AIR SUPERIORITY FIRST',
-        text: 'Most of the force is grounded until the SAM belt is down, which is why BREAK THE AIR ' +
-          'DEFENSES keeps coming up. Gain air superiority and the heavier options open.' }]),
+        text: 'Most aircraft cannot fly safely until you weaken Iran\'s air-defense network. Choosing ' +
+          'BREAK THE AIR DEFENSES opens more powerful strike plans later.' }]),
       // The board opens SHORT as of v1.69, and a player who reads night one as
       // the whole war mis-plans everything downstream of it — Arak arrives on
       // the ramp, so the nuclear objective is not even fully visible yet.
@@ -5398,8 +5461,8 @@ const UI = (() => {
       // card, and it lands next to the card that gives the same order for a
       // different reason.
       { cls: '', title: 'THE TARGET LIST IS STILL OPENING',
-        text: 'Tonight\'s board is not the whole list. CENTCOM releases more aimpoints every night, ' +
-          'and more of them once the belt is down.' },
+        text: 'Tonight\'s map is not the whole list. Your staff adds more targets every night, and finds ' +
+          'them faster after the air-defense network is weakened.' },
       // The tasking order is the currency the whole campaign is priced in as of
       // v1.28, and it is the first thing a new player runs into — three packages
       // on night one, and the fourth costs. Discovering that from a refusal on
@@ -5437,7 +5500,7 @@ const UI = (() => {
       Game.popup('diplo')
         ? { cls: '', title: 'THE WAR IS LOST AT HOME', text: 'Watch the bottom bar. A campaign ' +
             'going well over Iran is routinely finished by the approval rating underneath it, and ' +
-            'the folder puts a cable in front of you every night for exactly that reason.' }
+            'the briefing gives you one diplomatic choice every night to help manage those pressures.' }
         : { cls: '', title: 'TWO FREE ACTIONS EVERY TURN',
             text: 'One INTELLIGENCE tasking, one DIPLOMATIC action, both free. Watch the bottom bar: a war ' +
               'being won on the map is routinely lost at home.' },

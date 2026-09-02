@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
@@ -43,6 +44,31 @@ function checkReference(reference, source) {
 
 const index = read('index.html');
 const world = read('world.html');
+
+// Easy mode translates only the player-facing copy. Keep the glossary
+// idempotent because some assembled UI fragments pass through it twice, and
+// protect ordinary uses of "service" while translating the targeting sense.
+const plain = runInNewContext(`${read('js/text.js')}; ({
+  brief: Txt.plain('CENTCOM briefs 3 packages against the SAM belt.'),
+  repeated: Txt.plain(Txt.plain('Aegis interceptors and GBU-57.')),
+  ordinary: Txt.plain('1 American service member'),
+})`);
+if (plain.brief !== 'the military staff briefs 3 strike missions against the air-defense network.') {
+  fail(`Easy-language glossary produced unexpected brief copy: ${plain.brief}`);
+}
+if (plain.repeated !== 'ship-based defensive missiles and bunker-busting bomb.') {
+  fail(`Easy-language glossary is not idempotent: ${plain.repeated}`);
+}
+if (plain.ordinary !== '1 American service member') {
+  fail(`Easy-language glossary changed an ordinary use of service: ${plain.ordinary}`);
+}
+
+const difficulty = read('js/data.js');
+if (!/easy:\s*\{[\s\S]*?plainLanguage:\s*true/.test(difficulty) ||
+    !/normal:\s*\{[\s\S]*?plainLanguage:\s*false/.test(difficulty) ||
+    !/hard:\s*\{[\s\S]*?plainLanguage:\s*false/.test(difficulty)) {
+  fail('Difficulty rows must opt in or out of the plain-language layer explicitly');
+}
 
 for (const [source, html] of [['index.html', index], ['world.html', world]]) {
   for (const match of html.matchAll(/\b(?:src|href)="([^"]+)"/g)) {
