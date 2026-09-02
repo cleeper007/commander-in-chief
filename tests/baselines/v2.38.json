@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "baseline_id": "commander-in-chief-v2.38",
+  "captured_at": "2026-09-02T16:32:42Z",
+  "source": {
+    "commit": "4858e2ee82852a9bc1b07ae2c387c4c7dbe435b4",
+    "tree": "241da998ab0fb26bc70f2a019182dee3d01684a2",
+    "commit_subject": "Suppression is tonight's, and the belt is the only thing that hears it (v2.38)",
+    "commit_authored_at": "2026-09-01T09:42:16-05:00",
+    "visible_build_version": "v2.38",
+    "visible_build_source": "index.html .version-badge",
+    "measurement_basis": "clean git archive of source.commit",
+    "excluded_worktree_changes": [
+      "index.html",
+      "js/globe.js",
+      "js/map.js"
+    ]
+  },
+  "inventory": {
+    "tracked_files": 112,
+    "tracked_bytes": 26800834,
+    "tracked_javascript_files": 16,
+    "assets": {
+      "definition": "tracked files below audio/, video/, or icons/",
+      "files": 85,
+      "bytes": 23631593,
+      "media_files": 83,
+      "media_bytes": 23614302,
+      "supporting_documents": 2,
+      "supporting_document_bytes": 17291,
+      "by_directory": {
+        "audio": {
+          "files": 33,
+          "bytes": 5705151
+        },
+        "video": {
+          "files": 43,
+          "bytes": 17062253
+        },
+        "icons": {
+          "files": 9,
+          "bytes": 864189
+        }
+      }
+    }
+  },
+  "javascript_syntax_check": {
+    "runtime": "Node.js v24.18.0",
+    "command": "git ls-tree -r --name-only HEAD | awk '/\\.js$/ {print}' | while IFS= read -r f; do git show \"HEAD:$f\" | node --check >/dev/null || exit 1; done",
+    "files_checked": 16,
+    "result": "pass",
+    "failures": []
+  },
+  "github_issue_snapshot": {
+    "captured_at": "2026-09-02T16:32:42Z",
+    "repository": "cleeper007/commander-in-chief",
+    "issue_count": 1,
+    "issues": [
+      {
+        "number": 1,
+        "url": "https://github.com/cleeper007/commander-in-chief/issues/1",
+        "title": "[beta] turn 10 —",
+        "state": "open",
+        "created_at": "2026-08-23T03:06:44Z",
+        "updated_at": "2026-08-23T03:06:44Z",
+        "assignees": [],
+        "labels": [],
+        "milestone": null,
+        "report_summary": "On v2.31/easy/turn 10, after a submarine strike on a ship, the strike-footage viewer stayed open and the campaign could not progress."
+      }
+    ]
+  },
+  "campaign_harness": {
+    "name": ".claude/betatest seeded headless campaign harness",
+    "persistence_note": "The harness was private and ignored at capture time. This tracked file is the durable release record; source hashes and output hash identify the exact private run.",
+    "command": "cd .claude/betatest && node run.js n=60 out=baseline-raw.json",
+    "working_tree": "clean git archive of source.commit with the private harness copied into .claude/betatest",
+    "configuration": {
+      "personas": [
+        "civilian",
+        "clicker",
+        "dove",
+        "economist",
+        "expert",
+        "hawk",
+        "israelFirst",
+        "optimizer",
+        "staffer",
+        "targeteer",
+        "turtle",
+        "winner"
+      ],
+      "difficulties": [
+        "easy",
+        "normal",
+        "hard"
+      ],
+      "runs_per_persona_difficulty": 60,
+      "campaigns": 2160,
+      "max_turns": 60,
+      "seed_formula": "1000000 + persona_index*100000 + difficulty_index*10000 + run_index"
+    },
+    "source_sha256": {
+      "load.js": "e0b066e93739ba453a1dbd2e7be9e3da037d5c793bda15529b8c2c4d651f181a",
+      "dom.js": "e73d01b5a2b029e8460dbcd09402da0128273dd1763322227aeab4b3be4659c1",
+      "personas.js": "b72478024006bc37d53e5ef30c1843dd9e86448b8976661413b3818d73f3b196",
+      "run.js": "a1cd2ad8c236116c5d284d1b651022ed9d70c91bde22ae60160753bb93be82b1",
+      "report.js": "4194905c3ea572bdc63b638e2a42a9fc8846454c151a6590bcd5e5f3df1aa894"
+    },
+    "raw_output": {
+      "file": "baseline-raw.json",
+      "bytes": 10640998,
+      "sha256": "17474106a9318d5d77c1e5ad4bf586a1483cfb2465705ed32a596eb4d35c5f35",
+      "tracked": false
+    },
+    "definitions": {
+      "completed_within_30_turns": "over === true and turns <= 30",
+      "decisive_victory": "endgame reason starts with DECISIVE VICTORY",
+      "defeat": "endgame reason starts with DEFEAT",
+      "armistice": "endgame reason starts with ARMISTICE",
+      "frozen": "endgame reason starts with WAR FROZEN",
+      "progression_fault": "fatal exception, captured console.error, turn-stalled invariant, ran-out safety cap, or over-no-endgame"
+    },
+    "quality": {
+      "fatal_exceptions": 0,
+      "console_errors": 0,
+      "save_gaps": 0,
+      "progression_faults": 0,
+      "prose_lint_findings": {
+        "weak-plural-singular-verb": 1599,
+        "one-plural": 11
+      }
+    },
+    "endgame_reason_counts": {
+      "DECISIVE VICTORY — IRAN'S WAR MACHINE BROKEN": 39,
+      "ARMISTICE — TEHRAN SUES FOR PEACE": 276,
+      "WAR FROZEN — OBJECTIVES INCOMPLETE": 311,
+      "DEFEAT — CONGRESS CUTS OFF THE WAR": 703,
+      "DEFEAT — ECONOMIC COLLAPSE": 227,
+      "DEFEAT — IRAN GOES NUCLEAR": 293,
+      "DEFEAT — PRESIDENCY COLLAPSES": 106,
+      "DEFEAT — UNSUSTAINABLE LOSSES": 205
+    },
+    "overall": {
+      "campaigns": 2160,
+      "completed_within_30_turns": 1653,
+      "completion_rate_pct": 76.53,
+      "decisive_victories": 39,
+      "decisive_victory_rate_pct": 1.81,
+      "defeats": 1534,
+      "defeat_rate_pct": 71.02,
+      "armistices": 276,
+      "armistice_rate_pct": 12.78,
+      "frozen": 311,
+      "frozen_rate_pct": 14.4,
+      "progression_faults": 0,
+      "progression_fault_rate_pct": 0,
+      "averages": {
+        "campaign_turns": 20.55,
+        "casualties": 144.18,
+        "aircraft_losses": 2.24,
+        "nuclear_degradation_pct": 74.5
+      }
+    },
+    "by_difficulty": {
+      "easy": {
+        "campaigns": 720,
+        "completed_within_30_turns": 434,
+        "completion_rate_pct": 60.28,
+        "decisive_victories": 7,
+        "decisive_victory_rate_pct": 0.97,
+        "defeats": 368,
+        "defeat_rate_pct": 51.11,
+        "armistices": 152,
+        "armistice_rate_pct": 21.11,
+        "frozen": 193,
+        "frozen_rate_pct": 26.81,
+        "progression_faults": 0,
+        "progression_fault_rate_pct": 0,
+        "averages": {
+          "campaign_turns": 27.21,
+          "casualties": 158.58,
+          "aircraft_losses": 2.46,
+          "nuclear_degradation_pct": 81.47
+        }
+      },
+      "normal": {
+        "campaigns": 720,
+        "completed_within_30_turns": 568,
+        "completion_rate_pct": 78.89,
+        "decisive_victories": 26,
+        "decisive_victory_rate_pct": 3.61,
+        "defeats": 539,
+        "defeat_rate_pct": 74.86,
+        "armistices": 82,
+        "armistice_rate_pct": 11.39,
+        "frozen": 73,
+        "frozen_rate_pct": 10.14,
+        "progression_faults": 0,
+        "progression_fault_rate_pct": 0,
+        "averages": {
+          "campaign_turns": 19.83,
+          "casualties": 149.39,
+          "aircraft_losses": 1.67,
+          "nuclear_degradation_pct": 72.88
+        }
+      },
+      "hard": {
+        "campaigns": 720,
+        "completed_within_30_turns": 651,
+        "completion_rate_pct": 90.42,
+        "decisive_victories": 6,
+        "decisive_victory_rate_pct": 0.83,
+        "defeats": 627,
+        "defeat_rate_pct": 87.08,
+        "armistices": 42,
+        "armistice_rate_pct": 5.83,
+        "frozen": 45,
+        "frozen_rate_pct": 6.25,
+        "progression_faults": 0,
+        "progression_fault_rate_pct": 0,
+        "averages": {
+          "campaign_turns": 14.61,
+          "casualties": 124.57,
+          "aircraft_losses": 2.59,
+          "nuclear_degradation_pct": 69.14
+        }
+      }
+    }
+  }
+}
