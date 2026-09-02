@@ -9,6 +9,20 @@ while the casualty count, the home front, and the global economy grind against y
 > invented and abstracted for gameplay, in the tradition of DEFCON, Twilight Struggle,
 > and Command: Modern Operations. It depicts no real events and endorses no policy.
 
+## Project Status
+
+**Beta, actively developed.** Easy and hard modes are playable; normal mode remains
+visibly marked as coming soon. The game is static and self-contained: it has no account,
+API key, build step, or runtime service dependency.
+
+Repository guides:
+
+- [Contributing and local checks](CONTRIBUTING.md)
+- [Architecture and invariants](docs/ARCHITECTURE.md)
+- [Mode roadmap](ROADMAP-MODES.md)
+- [Balance notes](BALANCE-TIER1.md)
+- [World-map specification](WORLDMAP-SPEC.md)
+
 ## Screenshots
 
 <!-- Add screenshots here, e.g.: -->
@@ -21,9 +35,9 @@ Open `index.html` in any modern browser — no build step, no server, no depende
 
 ### The situation
 
-Iranian missiles have struck a US destroyer in the Strait of Hormuz. This is not a
-crisis to be managed — it is a war to be won. Each turn is 12 in-game hours; you have
-30 turns (15 days) before the campaign culminates.
+Iranian ballistic missiles have struck Al Asad Air Base in Iraq, killing seven
+Americans. This is not a crisis to be managed — it is a war to be won. Each turn is
+12 in-game hours; you have 30 turns (15 days) before the campaign culminates.
 
 ### How you win
 
@@ -449,17 +463,29 @@ step away, and the mute toggle in the status bar to silence sound effects.
 
 ```
 commander-in-chief/
+├── .github/workflows # Automated repository checks
+├── docs/             # Architecture and supporting documentation
 ├── index.html        # Layout: map, sidebar, status bar, modals
+├── world.html        # Standalone world-map projection viewer
 ├── css/
-│   └── style.css     # Dark situation-room theme
-├── audio/            # Sound effects (synthesized in-house, royalty-free WAVs)
+│   ├── style.css     # Dark situation-room theme and responsive layouts
+│   └── world.css     # Standalone world-map viewer styles
+├── audio/            # Sound effects, voice, radio beds, and soundtrack
+├── video/            # Strike, maritime, nuclear, and special-operations footage
+├── icons/            # App icons and interface seals
+├── tests/            # Dependency-free public checks
+├── tools/            # Deterministic geographic-data generator
 └── js/
-    ├── geodata.js    # Real country outlines (Natural Earth 50m, generated)
-    ├── data.js       # Targets, US assets, static data
+    ├── data.js       # Targets, forces, difficulty, and static configuration
+    ├── assess.js     # Player-visible estimates of hidden simulation state
+    ├── geodata.js    # Theater country outlines
+    ├── globe.js      # Globe/flat-map projection and world interaction
     ├── map.js        # SVG map, pan/zoom, icons, strike animations, the strike wall
     ├── ai.js         # Iranian AI opponent, advisors, headlines
     ├── audio.js      # Sound manager: preload, play, mute toggle
     ├── ui.js         # HUD, sidebar, modal rendering
+    ├── tour.js       # Contextual onboarding
+    ├── aircrew.js    # Persistent aircrew roster
     ├── specops.js    # Special forces: ISR prep + leadership raid
     ├── csar.js       # Combat search and rescue: downed aircrew, recovery mission
     └── game.js       # State, turn loop, strikes, save/continue, endings
@@ -490,4 +516,4 @@ The game is fully static and deploys from the repository root.
 
 ## License
 
-MIT
+[MIT](LICENSE)

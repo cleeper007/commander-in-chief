@@ -2,12 +2,13 @@
 Thumbs.db
 *.log
 node_modules/
+__pycache__/
+*.py[cod]
 
-# Beta-test harness output. run.js writes results.json relative to the CWD, so
-# running it from the repo root rather than from .claude/betatest/ drops a
-# multi-megabyte blob here — where nothing else ignores it, because the harness
-# itself is covered by the .claude/ rule below. This repo already carries a
-# known git-history bloat problem; it does not need probe output in it too.
+# Local beta-harness output. The private harness may write results.json relative
+# to the CWD, so running it from the repository root can drop a multi-megabyte
+# blob here. Public regression checks belong in tests/ and are intentionally
+# tracked; agent/editor working state remains ignored below.
 results.json
 .vscode/
 .idea/

@@ -255,7 +255,7 @@ function approvalBaseline() {
   const lim = casualtyLimit();
   return clamp(62
     - 26 * (G.casualties.us / lim)
-    - 0.9 * Math.max(0, G.turn - WEARINESS_TURN)   // WEARINESS_TURN = 14, game.js:19
+    - 0.9 * Math.max(0, G.turn - WEARINESS_TURN)   // WEARINESS_TURN = 14 in game.js
     - (G.oil >= 140 ? 8 : G.oil >= 110 ? 4 : 0)
     + (G.nukeDegraded() >= 100 ? 10 : 0)
     + (G.negotiationsAccepted ? 8 : 0), 15, 88);
@@ -290,7 +290,8 @@ document.getElementById('btn-start').click();
 // ...mutate TARGETS / Game.G to set up the scenario...
 window.__iv = setInterval(() => {
   // pin the politics so the test can reach the turn you care about
-  Game.G.approval = 80; Game.G.casualties.us = 0; Game.G.oil = 90;
+  Game.movePublic(80 - Game.G.approval);
+  Game.G.casualties.us = 0; Game.G.oil = 90;
   Game.G.hormuz = 'OPEN'; Game.G.hormuzClosedTurns = 0;
   const rm = document.getElementById('report-modal');
   if (rm && !rm.classList.contains('hidden')) { document.getElementById('btn-report-ok').click(); return; }

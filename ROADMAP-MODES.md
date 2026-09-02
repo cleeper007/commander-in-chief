@@ -3,7 +3,7 @@
 Source: "Roadmap for my game before publishing" (Google Doc, 2026-08).
 Goal: easy / normal / hard should feel like three different jobs, not one job
 at three prices. Much of the scaffolding already exists — `DIFFICULTY` in
-`js/data.js:2317` already carries `coa`, `coaFill`, `freeTargeting`,
+`js/data.js` already carries `coa`, `coaFill`, `freeTargeting`,
 `recommend`, `pgm`. The work below is mostly (a) new mode flags, (b) an
 easy-mode nightly pop-up sequence, (c) hard-mode manual control.
 
@@ -18,21 +18,21 @@ Rules of thumb for each work session:
 
 1. **One task per session.** Each task below names the exact files and the
    symbols to open. Don't re-read the repo.
-2. **Never read a whole file.** `js/game.js` is 6280 lines, `js/ui.js` 3837,
-   `js/data.js` 2975. Use `.claude/symbols.md` (a symbol → line-range index of
-   every file) to get line ranges, then `Read` with `offset`/`limit`.
-   Regenerate it if it drifts.
+2. **Navigate by symbol, not remembered line number.** The core files are large
+   and move frequently. Use `rg` to locate the named symbol before reading its
+   surrounding block. A local symbol index can make this faster, but committed
+   documentation must not depend on an ignored helper file or stale offsets.
 3. **Behavior goes in `js/data.js` as a flag, not as an `if (difficulty ===
    'easy')` sprinkled through game.js.** Add the knob to the `DIFFICULTY` row,
-   read it via the existing `diff()` helper (`js/game.js:123`). One grep later
+   read it via the existing `diff()` helper in `js/game.js`. One grep later
    this is still findable.
-4. **Reuse the existing modal shell.** `index.html:484+` has a repeating
+4. **Reuse the existing modal shell.** `index.html` has a repeating
    `.modal` pattern with `data-close`, and `initModals()` in `js/ui.js` wires
    them. New pop-ups = one more block in that pattern + one render function.
    Do not invent a second modal system.
 5. **Reuse the COA engine for every "3 options" ask.** `coaOptions`,
    `coaScore`, `coaTargets`, `coaPackage`, `coaEstimate`, `coaBill` already
-   exist (`js/game.js:3187-3487`) and already build scored, priced, staffed
+   exist in `js/game.js` and already build scored, priced, staffed
    options off `Assess.board()`. Diplomatic and intel option sets should be
    new intent tables in the same shape, not new machinery.
 6. **Start each session with a one-line statement of the flag you're adding
@@ -64,22 +64,22 @@ railPanels: ['advisors','resources','specops']  // everything else hidden
 ```
 
 ### 1.0 — Add the flags (30 min, tiny)
-- `js/data.js:2317` — add the six keys to `easy`, explicit `false`/`0`/`null`
+- Find `DIFFICULTY` in `js/data.js` — add the six keys to `easy`, explicit `false`/`0`/`null`
   on `normal` and `hard` so nothing reads `undefined`.
-- Extend the comment block above `DIFFICULTY` (`js/data.js:2250`) with the new
+- Extend the comment block above `DIFFICULTY` in `js/data.js` with the new
   knobs — that block is the file's contract.
 - Nothing consumes them yet. Ship it as its own commit.
 
 ### 1.1 — Sidebar trim: three panels only
 Doc: *"Advisor tab, strike assets, spec ops are the only three needed."*
-- `index.html:209-400` — the eleven `data-panel="…"` blocks.
-- `js/ui.js:229` `initRail()` / `RAIL_GROUPS` / `syncRail` / `defaultRail`.
+- `index.html` — the eleven `data-panel="…"` blocks.
+- `js/ui.js` — `initRail()` / `RAIL_GROUPS` / `syncRail` / `defaultRail`.
 - Implement as a filter, not deletion: on kickoff, if `diff().railPanels`,
   add `hidden` to every `.panel[data-panel]` not in the list and filter
   `RAIL_GROUPS` the same way. Mobile rail and desktop accordion both read the
   same panel set, so one filter covers both.
 - Watch: `csar-panel` and `coa-panel` open themselves programmatically
-  (`js/ui.js:270` comment). Decide whether CSAR is allowed to break the trim
+  (see the comment beside that behavior in `js/ui.js`). Decide whether CSAR is allowed to break the trim
   on easy — recommend yes, aircrew down is the one interruption worth it.
 
 ### 1.2 — Nightly strike brief: Generals, 3 options, as a pop-up
@@ -87,7 +87,7 @@ Doc: *"Generals to prepare 3 strike options each night."*
 - This is `coa: 3` already working — the change is **presentation**: move it
   from the `coa-panel` sidebar accordion into a modal that opens at the top of
   the turn.
-- `js/game.js:3467` `coaOptions` produces the data; find the COA panel renderer
+- `coaOptions` in `js/game.js` produces the data; find the COA panel renderer
   in `js/ui.js` (grep `coa-panel`, `coa-status`) and give it a modal host.
 - New modal block in `index.html` next to `strike-modal`; render the same
   option cards into it; dismiss on pick.
@@ -96,8 +96,8 @@ Doc: *"Generals to prepare 3 strike options each night."*
 
 ### 1.3 — SecDef: 3 diplomatic actions, as a pop-up
 Doc: *"secretary of defense to prepare 3 different diplomatic actions."*
-- Existing surface: `diplo-panel` (`index.html:374`), `DIPLO_GROUPS`
-  (`js/ui.js:1944`), diplomacy section `js/ui.js:4189`.
+- Existing surface: `diplo-panel` in `index.html`, plus `DIPLO_GROUPS` and the
+  diplomacy section in `js/ui.js`.
 - Add a `DIPLO_COA` intent table in `js/data.js` beside `COA` (same shape:
   `id/name/line/why` + a scoring hook off `Assess.board()`), and a
   `diploOptions()` in `js/game.js` modeled on `coaOptions`.
@@ -106,37 +106,38 @@ Doc: *"secretary of defense to prepare 3 different diplomatic actions."*
 
 ### 1.4 — NSA: intelligence options, as a pop-up
 Doc: *"NSA to have intelligence options."*
-- Existing surface: `intel-panel` (`index.html:388`), plus the ISR slot CSAR
-  already spends (`js/csar.js:342` `doIsr` — "spends the turn's intelligence
+- Existing surface: `intel-panel` in `index.html`, plus the ISR slot CSAR
+  already spends (`doIsr` in `js/csar.js` — "spends the turn's intelligence
   slot"). That slot is the budget; the pop-up spends it.
 - Same pattern as 1.3: option table in data.js, builder in game.js, modal in
   ui.js. Smallest of the three — 2-3 options is enough.
-- Keep `NSA` advisor voice lines (`js/ai.js:1198-1442`) as the source of the
+- Keep the `NSA` advisor voice lines in `js/ai.js` as the source of the
   framing text so the pop-up sounds like the existing advisor.
 
 ### 1.5 — Night one locked to the SAM belt
 Doc: *"The first night should be pretty much locked in at sam sights."*
 - Cheapest correct version: on turn 1 with `scriptedOpen`, `coaOptions`
-  returns a single forced ROLLBACK option (`COA.intents[0]`, `js/data.js:2159`)
+  returns a single forced ROLLBACK option (`COA.intents[0]` in `js/data.js`)
   and the pop-up presents it as an order to acknowledge, not a choice.
-- `js/game.js:3467` `coaOptions` — early return when
+- `coaOptions` in `js/game.js` — early return when
   `G.turn === 1 && diff().scriptedOpen`.
-- Write the acknowledgment copy in the CJCS voice (`js/ai.js:1444`).
+- Write the acknowledgment copy in the CJCS voice in `js/ai.js`.
 
 ### 1.6 — Theater forces auto-flow
 Doc: *"Theater forces should be automatically pulled in."*
-- `FORCE_FLOW` (`js/data.js:1418`) already lands waves on a turn schedule with
+- `FORCE_FLOW` in `js/data.js` already lands waves on a turn schedule with
   a `needs:` gate (`nato` / `gulf` — diplomatic prerequisites).
 - On easy with `autoTheater`, treat `needs` as satisfied and land each wave as
   a pop-up/ticker notification rather than something to unlock.
-- The `fleet-panel` (`index.html:296`, THEATER FORCES) is hidden by 1.1, so
+- The `fleet-panel` (THEATER FORCES in `index.html`) is hidden by 1.1, so
   the arrival notice is the only feedback — make it good.
 
 ### 1.7 — Easy-mode playtest pass
 - Run a full 30-turn campaign. Check: does the night have a rhythm
   (intel → diplomacy → strike → resolve), and is the sidebar quiet?
-- `.claude/betatest/` has an existing harness (`run.js`, `coa.js`, `brief.js`,
-  `dom.js`, `grade.js`) — extend rather than hand-play where you can.
+- The local beta harness includes campaign, COA, brief, DOM, and grading probes.
+  Extend rather than hand-play where possible, and move regression coverage
+  into `tests/` when it protects public repository behavior so CI can run it.
 - Update `DIFFICULTY.easy.desc` to describe what easy actually is now.
 
 ---
@@ -155,14 +156,14 @@ Doc: *"Move in theater forces manually."*
   ramp space, or exposure to the missile force) or it's busywork. Decide the
   cost model **before** writing UI. Recommend: ramp capacity per base plus
   exposure, so dispersal trades sortie rate against losses on the ground.
-- Touches `js/data.js` (base capacity), `js/game.js` (assignment state on `G`,
-  save/load at `js/game.js:5984`), `js/ui.js` (fleet panel), `js/map.js`
+- Touches `js/data.js` (base capacity), `js/game.js` (assignment state on `G`
+  and save/load), `js/ui.js` (fleet panel), `js/map.js`
   (basing readout).
 
 ### 2.2 — Interceptor / strike-missile management
 Doc: *"Manage interceptor, strike missiles, etc."*
 - Today: `NAVAL_BMD` magazine is scaled by `DIFFICULTY.bmd` and spent
-  automatically by `aegisIntercept` (`js/ai.js:447`); `pgm` is a passive
+  automatically by `aegisIntercept` in `js/ai.js`; `pgm` is a passive
   ledger.
 - Hard should make allocation a decision: how much of the magazine the screen
   is authorized to spend per night, and PGM apportionment across packages.
@@ -184,7 +185,7 @@ diplomacy).
 
 ### 2.4 — Advisors advise only
 Doc: *"advisors really only being advisors."*
-- Audit `advise()` (`js/ai.js:1683`) and the four advisor tables for anywhere
+- Audit `advise()` in `js/ai.js` and the four advisor tables for anywhere
   a recommendation is also an action shortcut; on hard, strip the button and
   leave the words.
 - Small, do it last in the phase — it's a cleanup pass over 2.1–2.3.
@@ -204,12 +205,12 @@ Do nothing here until 1 and 2 are done and played. Then:
 
 ## Cross-cutting, don't forget
 
-- **Save compatibility.** `js/game.js:5984` migrates old saves and
-  `DIFFICULTY_ALIAS` (`js/data.js:2332`) maps retired level names. Any new `G`
-  state from 2.1/2.2 needs a default for saves written before it existed.
+- **Save compatibility.** Locate the `Save` IIFE in `js/game.js` and
+  `DIFFICULTY_ALIAS` in `js/data.js` by symbol. Any new `G` state from 2.1/2.2
+  needs a default for saves written before it existed.
 - **Script order.** No build step, no modules — a new `js/*.js` file needs a
   `<script>` tag in the right slot in `index.html` (see CLAUDE.md).
 - **Balance branch.** `BALANCE-TIER1.md` / branch `balance/tier1` is in flight;
   land or merge it before Phase 2 touches the same tuning constants.
-- **Keep `.claude/symbols.md` current** — it's what makes the next session
-  cheap.
+- **Keep any local symbol index current**, but use symbol names in committed
+  documentation so it survives ordinary source movement.

@@ -1,0 +1,30 @@
+name: Repository checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Check JavaScript syntax
+        run: find js -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: Run repository smoke checks
+        run: node tests/repository-smoke.mjs
+
+      - name: Check the map-data generator
+        run: python3 -m py_compile tools/worldgeo.py

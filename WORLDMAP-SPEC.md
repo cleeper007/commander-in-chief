@@ -197,7 +197,7 @@ fully-in matches the game's `MAX_ZOOM = 10`. Touch: two-finger pinch, and honour
 the game's landscape-only posture only if it is free — this is a standalone page
 and does not need the rotate-lock overlay.
 
-Read `js/map.js:1680–1800` (`measureWorld`, `visibleBox`, `minZoom`, `clampView`,
+Read `measureWorld`, `visibleBox`, `minZoom`, and `clampView` in `js/map.js`,
 `applyView`) before writing the camera. The clamping and the per-frame
 `visibleBox` measurement are both load-bearing and the comments say why.
 
