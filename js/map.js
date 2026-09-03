@@ -1355,14 +1355,24 @@ const MapView = (() => {
     // every node the flight-quarters loop holds has just been thrown away
     cvAir.length = 0;
 
-    // water backdrop.
+    // water backdrop, cut to the CROP.
     //
-    // Classed, because below the crop's zoom floor the globe layer paints the
-    // ocean instead and this one has to come off — an opaque water rect over
-    // the world's land washes every continent geodata.js does not carry
-    // toward the sea, and the exact outline of this file's coverage appears
-    // as a lighter box across the middle of the earth. See applyView, and the
-    // note on .globe-water in globe.js.
+    // It used to be a 5,000-unit rect, which was fine for exactly as long as
+    // nothing could ever see past it, and which is why it then had to be
+    // switched off WHOLE the instant any of the globe layer was meant to be
+    // visible: an opaque ocean over the world's land washes every continent
+    // geodata.js does not carry toward the sea, and the outline of this
+    // file's coverage appears as a lighter box across the middle of the
+    // earth. But that swap took the Persian Gulf's own water with it, so on
+    // the pan axis two hundred units of drag put the globe layer's 15°
+    // graticule across the Strait of Hormuz.
+    //
+    // At crop size it occludes nothing outside the theater, so it needs no
+    // swap at all: it fades with the rest of #world, over the same ocean in
+    // the same token, and by the time the earth starts to curve the chart is
+    // long since gone. It also cannot re-create the failure above, because
+    // the only continents under it now are the ones geodata.js carries.
+    // Sized in measureWorld, which is where the crop is known.
     waterRect = el('rect', { class: 'chart-water', x: -2000, y: -2000, width: 5000, height: 5000, fill: 'var(--water)' });
     world.appendChild(waterRect);
 
@@ -1741,10 +1751,32 @@ const MapView = (() => {
   // (Globe.floorZoom).
   const GLOBE_ROUND = 0.30;
 
-  // The pole never tips past the top of the frame — globe.js's own
-  // LAT_SPIN_CLAMP, restated here because on this chart the latitude clamp
-  // is a bound on view.y and the conversion has to happen somewhere.
-  const GLOBE_LAT = 80;
+  // ---- and the crop is an INSET, not a room with four walls ----
+  //
+  // GLOBE_ROUND above makes the crop's FLOOR a handover and leaves its four
+  // SIDES a wall, and the reason is one line: globeT is a function of zoom
+  // alone, so the only way out of the theater is downward. Zooming back in
+  // then ran into a clamp that lerped the camera home, which meant a player
+  // who spun the globe to Brazil and reached for a closer look arrived over
+  // Iran — the one gesture somebody makes when they want to see a thing was
+  // the one gesture that took the thing away.
+  //
+  // The chart's authority is now the lower of TWO numbers. ALTITUDE is
+  // globeT, unchanged. AIM is homeT: how much of the frame the crop still
+  // fills. They are kept apart all the way down into globe.js (see the note
+  // on follow) because only the first of them may drive the projection —
+  // hand one number to both and this layer is asked to draw an orthographic
+  // earth of radius k·R at k = 5, which is a sphere ten thousand units
+  // across with the camera inside it.
+  //
+  // HOME_GONE is how far the crop may fall out of the frame before the
+  // chart has finished dissolving. 0.35 holds the theater at full strength
+  // until an edge is about a twelfth of the way in, dissolves it over the
+  // next quarter of a frame-width of pan, and has it gone before the edge
+  // reaches the middle — which is the point past which most of what is on
+  // screen has no chart under it and the crop can no longer answer for the
+  // picture.
+  const HOME_GONE = 0.35;
 
   let globeReady = false;
 
@@ -1803,9 +1835,9 @@ const MapView = (() => {
   // effects — and goes away when the theater has been spun round to the far
   // side of the earth, which is a thing a player can do and which would
   // otherwise leave a ring hanging over the middle of the Pacific.
-  function syncTheater(t, chartA) {
+  function syncTheater(chartT, chartA) {
     if (!theaterG) return;
-    if (!(t < 1 && chartA < 1)) {
+    if (!(chartT < 1 && chartA < 1)) {
       if (theaterG.style.display !== 'none') theaterG.style.display = 'none';
       return;
     }
@@ -1828,6 +1860,15 @@ const MapView = (() => {
     // units inside the bbox so a cut edge's own line cannot peek in
     if (x1 - x0 > 1 && y1 - y0 > 1) {
       WORLD = { x0: x0 + 2, y0: y0 + 2, x1: x1 - 2, y1: y1 - 2 };
+    }
+    // the ocean is the crop's, not the viewBox's — see the note in render().
+    // A margin, because a coastline is stroked and the bbox is the path.
+    if (waterRect) {
+      const m = 24;
+      waterRect.setAttribute('x', WORLD.x0 - m);
+      waterRect.setAttribute('y', WORLD.y0 - m);
+      waterRect.setAttribute('width', (WORLD.x1 - WORLD.x0) + 2 * m);
+      waterRect.setAttribute('height', (WORLD.y1 - WORLD.y0) + 2 * m);
     }
   }
 
@@ -1883,62 +1924,86 @@ const MapView = (() => {
     return smoothstep(0, 1, Math.log(k / lo) / Math.log(hi / lo));
   }
 
-  // Pull the view back inside the crop. Applied at the single choke point every
-  // gesture goes through, so wheel, drag, pinch, the buttons and reset are all
-  // covered by one rule. Note it clamps `view` and not the gesture's anchor:
-  // a drag that runs into the edge and comes back tracks the cursor again from
-  // where it left, rather than sliding by however far it was held past the stop.
+  // How much of the frame the CROP still fills, 0..1 — the aim half of the
+  // chart's authority, against globeT's altitude half.
+  //
+  // The normalisation is by the SMALLER of the two rects, and that is the
+  // whole of why this composes with the handover above rather than fighting
+  // it. Zoomed in over the Gulf the frame is inside the crop and the cover
+  // is 1; zoomed out below the floor the crop is inside the frame and the
+  // cover is STILL 1. So every frame of the existing globe handover runs
+  // with this term pinned at 1 and unable to touch anything. It falls only
+  // when a crop EDGE is genuinely in frame, which is the one state in which
+  // the chart cannot answer for the picture, and is exactly the state the
+  // old four-sided wall existed to prevent.
+  function homeT(vis) {
+    const cx0 = view.x + view.k * WORLD.x0, cx1 = view.x + view.k * WORLD.x1;
+    const cy0 = view.y + view.k * WORLD.y0, cy1 = view.y + view.k * WORLD.y1;
+    const ox = Math.max(0, Math.min(cx1, vis.x + vis.w) - Math.max(cx0, vis.x));
+    const oy = Math.max(0, Math.min(cy1, vis.y + vis.h) - Math.max(cy0, vis.y));
+    const dx = Math.min(cx1 - cx0, vis.w), dy = Math.min(cy1 - cy0, vis.h);
+    if (!(dx > 0) || !(dy > 0)) return 0;
+    return smoothstep(1 - HOME_GONE, 1, (ox / dx) * (oy / dy));
+  }
+
+  // Pull the view back inside what there is to look at. Applied at the single
+  // choke point every gesture goes through, so wheel, drag, pinch, the buttons
+  // and reset are all covered by one rule. Note it clamps `view` and not the
+  // gesture's anchor: a drag that runs into the edge and comes back tracks the
+  // cursor again from where it left, rather than sliding by however far it was
+  // held past the stop.
+  //
+  // Returns BOTH numbers — see the note on HOME_GONE. `t` is altitude and
+  // drives the projection; `chartT` is authority and drives the dissolve.
   function clampView() {
     const vis = visibleBox();
     view.k = Math.min(MAX_ZOOM, Math.max(minZoom(vis), view.k));
-    const t = globeT(vis, view.k);
-    // translate range that keeps the visible rect inside the crop — guaranteed
-    // non-empty by the floor just applied to k
-    const lox = vis.x + vis.w - view.k * WORLD.x1, hix = vis.x - view.k * WORLD.x0;
-    const loy = vis.y + vis.h - view.k * WORLD.y1, hiy = vis.y - view.k * WORLD.y0;
-    if (t >= 1) {
+
+    // ---- no world behind it: the cut edges are a wall, verbatim ----
+    //
+    // globe.js failed to load, or worldgeo.js did, or this is the headless
+    // harness. Then geodata.js really is the last thing out there and the
+    // crop is the end of the world, so the pre-handover clamp is the only
+    // honest rule. Kept byte for byte, which is what makes the no-divergence
+    // claim testable rather than lucky.
+    if (!globeReady) {
+      const lox = vis.x + vis.w - view.k * WORLD.x1, hix = vis.x - view.k * WORLD.x0;
+      const loy = vis.y + vis.h - view.k * WORLD.y1, hiy = vis.y - view.k * WORLD.y0;
       view.x = Math.min(Math.max(view.x, lox), hix);
       view.y = Math.min(Math.max(view.y, loy), hiy);
-      return t;
+      return { t: 1, chartT: 1 };
     }
 
-    // ---- below the crop, the clamp BLENDS rather than switches ----
+    // ---- with a world behind it, the camera obeys the GLOBE's rule ----
     //
-    // Past the handover the crop rect is the wrong rule: it is smaller than
-    // the frame down here, so its bounds have crossed over and pinning the
-    // view between them would nail the camera to one point. The globe's own
-    // rule takes over — a latitude stop so the pole never tips past the top
-    // of the frame, and no longitude stop at all, because the world goes
-    // round.
-    //
-    // The two are LERPED on the same t that drives the morph, and that is
-    // the load-bearing part rather than a nicety. Switch between them at
-    // t == 1 instead and a player who spun to Brazil and then zoomed back in
-    // gets snapped to the Persian Gulf in a single frame. Blended, the
-    // camera is drawn home over the octave in which the world flattens,
-    // which is the honest thing for it to do: there is no chart of Brazil to
-    // zoom into. globe.js's own clampCam blends its latitude stop the same
-    // way and for the same reason.
-    const C = Globe.C;
-    // view.y = VH/2 - k*DEG_Y*(LAT0 - lat), inverted at ±GLOBE_LAT
-    const gy0 = C.VH / 2 - view.k * C.DEG_Y * (C.LAT0 + GLOBE_LAT);
-    const gy1 = C.VH / 2 - view.k * C.DEG_Y * (C.LAT0 - GLOBE_LAT);
-    // one full turn of longitude either side of the theater's own meridian.
-    // Not "no bound": a bound is what can be lerped toward the crop, and one
-    // revolution is past anything a hand reaches in the octave this is live.
-    const gx0 = C.VW / 2 - view.k * C.DEG_X * 180;
-    const gx1 = C.VW / 2 + view.k * C.DEG_X * 180;
-    const cx0 = Math.min(lox, hix), cx1 = Math.max(lox, hix);
-    const cy0 = Math.min(loy, hiy), cy1 = Math.max(loy, hiy);
-    const x0 = gx0 + (cx0 - gx0) * t, x1 = gx1 + (cx1 - gx1) * t;
-    const y0 = gy0 + (cy0 - gy0) * t, y1 = gy1 + (cy1 - gy1) * t;
+    // At every altitude, and not blended toward the crop at any of them. The
+    // lerp this replaces was the pull-home; what actually keeps the cut edges
+    // off the screen is the DISSOLVE, which has taken the chart away before
+    // an edge is far enough in to read as one. So there is one camera rule
+    // for the whole range, asked for in degrees through Globe.camLimits and
+    // converted here — one home, two spellings, the same argument the `C`
+    // export is there to make. It also picks up the chart-mode latitude stop
+    // (the view stops AT the pole rather than at the spin clamp) for free,
+    // which the fixed 80° restated here never did.
+    const t = globeT(vis, view.k);
+    const C = Globe.C, lim = Globe.camLimits(vis, view.k, t);
+    // view.y = VH/2 - k*DEG_Y*(LAT0 - lat), inverted at ±lim.lat
+    const y0 = C.VH / 2 - view.k * C.DEG_Y * (C.LAT0 + lim.lat);
+    const y1 = C.VH / 2 - view.k * C.DEG_Y * (C.LAT0 - lim.lat);
+    // view.x = VW/2 - k*DEG_X*(lon - LON0), inverted at ±lim.lon either side
+    // of the chart's own origin meridian. lim.lon is a full 180 on the globe,
+    // where spinning past the seam is the whole gesture, and closes to the
+    // frame's own half-width on the flat chart, where §2 puts the seam in the
+    // empty Pacific and the world genuinely ends there.
+    const x0 = C.VW / 2 - view.k * C.DEG_X * lim.lon;
+    const x1 = C.VW / 2 + view.k * C.DEG_X * lim.lon;
     view.x = Math.min(Math.max(view.x, Math.min(x0, x1)), Math.max(x0, x1));
     view.y = Math.min(Math.max(view.y, Math.min(y0, y1)), Math.max(y0, y1));
-    return t;
+    return { t, chartT: Math.min(t, homeT(vis)) };
   }
 
   function applyView() {
-    const t = clampView();
+    const { t, chartT } = clampView();
     world.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
 
     // ---- the handover ----
@@ -1949,11 +2014,9 @@ const MapView = (() => {
     // the overlap reads as a change of resolution rather than as two maps —
     // which is the only reason a cross-fade works here at all.
     //
-    // It has to be a fade rather than a swap because #world opens with an
-    // opaque water rect 5,000 units across: nothing behind it is visible at
-    // any opacity but zero, and the moment it IS visible the crop's four cut
-    // edges are showing against geography that continues past them, which is
-    // the exact failure the WORLD comment above exists to prevent.
+    // It runs on chartT rather than on t, so the same dissolve answers both
+    // ways out of the theater: zooming below the crop's floor, and panning
+    // off its side at any zoom at all.
     //
     // pointer-events goes with it. Every target on the board still has its
     // 44px hit disc down here, stacked into a cluster a hundred pixels
@@ -1965,13 +2028,13 @@ const MapView = (() => {
     // rather than 1 so the first notch past the old floor is unambiguously
     // still the theater: a fade that starts the instant t leaves 1 makes
     // the handover feel like it happened a notch earlier than it did.
-    const chartA = t >= 1 ? 1 : smoothstep(0.50, 0.97, t);
+    const chartA = chartT >= 1 ? 1 : smoothstep(0.50, 0.97, chartT);
     world.style.opacity = chartA >= 1 ? '' : chartA.toFixed(3);
-    // the ocean is handed over whole at the floor, not faded — the two
-    // backdrops are the same token, so the swap cannot be seen
-    if (waterRect) waterRect.style.display = t >= 1 ? '' : 'none';
     world.style.pointerEvents = chartA < 0.5 ? 'none' : '';
-    if (globeReady) { Globe.follow(view, t); syncTheater(t, chartA); }
+    // TWO numbers, and keeping them apart is the point — see HOME_GONE and
+    // the note on Globe.follow. The projection morph is altitude only; the
+    // layer's visibility and the dissolve are authority.
+    if (globeReady) { Globe.follow(view, t, chartT); syncTheater(chartT, chartA); }
     // reveal each carrier's escort screen once zoomed in, the individual hull
     // classes and deck fittings one step past that, and at the bottom of the
     // zoom the haze grey and the flight cycle (see the strike group section for
