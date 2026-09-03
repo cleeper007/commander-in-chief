@@ -113,6 +113,7 @@ const Globe = (function () {
   // own geodata.js is the authority down there anyway).
   let embed = false, embedT = 1;
   let svg, camG, spaceEl, atmoEl, discEl, gratEl, countriesG, labelsG, hudEl;
+  let basesG = null, tooltipEl = null, basesData = [], activeBranchFilter = 'all';
   let cam = { lon: 38.5, lat: 24, k: 0.2 };   // centre of the frame + zoom
   let tier = null, tier110 = null, tier50 = null, lodPending = false;
   let lastVis = { x: 0, y: 0, w: 1000, h: 760 };
@@ -338,30 +339,41 @@ const Globe = (function () {
   function clampCam(vis) {
     cam.k = Math.min(MAX_ZOOM, Math.max(minZoom(vis), cam.k));
     const t = morphT(arcDeg(vis, cam.k));
-
-    // Latitude. On the globe the limit is the spin clamp from §7 — the
-    // pole must not tip past the top of the frame. On the chart the
-    // limit is the frame's own half-height, so the view stops at the
-    // pole instead of running off the top of the world into nothing.
-    // Blended on the same t as everything else, so there is no step
-    // where one rule hands over to the other.
-    const halfLat = (vis.h / 2) / (cam.k * DEG_Y);
-    const chartLim = Math.max(0, 90 - halfLat);
-    const lim = (1 - t) * LAT_SPIN_CLAMP + t * chartLim;
-    cam.lat = Math.min(lim, Math.max(-lim, cam.lat));
-
-    // Longitude. The globe wraps — spinning past the seam is the whole
-    // gesture. The chart does not: §2 puts the seam in the empty Pacific
-    // and the flat world genuinely ends there, so the frame stops
-    // against it the way map.js's frame stops against its crop. The
-    // limit opens up to a full 180 as t falls, so the stop dissolves
-    // rather than releasing.
-    const halfLon = (vis.w / 2) / (cam.k * DEG_X);
-    const lonLim = 180 - t * Math.min(halfLon, 179);
+    const lim = camLimits(vis, cam.k, t);
+    cam.lat = Math.min(lim.lat, Math.max(-lim.lat, cam.lat));
     cam.lon = wrapLon(cam.lon);
-    if (cam.lon > lonLim) cam.lon = lonLim;
-    if (cam.lon < -lonLim) cam.lon = -lonLim;
+    if (cam.lon > lim.lon) cam.lon = lim.lon;
+    if (cam.lon < -lim.lon) cam.lon = -lim.lon;
     return t;
+  }
+
+  // How far the camera's CENTRE may travel, in degrees, at a given frame,
+  // zoom and morph. Split out of clampCam and exported because map.js's
+  // camera is (x, y, k) rather than (lon, lat, k) and has to convert these
+  // into bounds on view.x / view.y — and a second copy of LAT_SPIN_CLAMP
+  // and of the seam rule in a second file is exactly the drift the `C`
+  // export at the bottom of this file exists to prevent. One home, two
+  // spellings, same as the projection itself.
+  //
+  // Latitude. On the globe the limit is the spin clamp from §7 — the pole
+  // must not tip past the top of the frame. On the chart the limit is the
+  // frame's own half-height, so the view stops AT the pole instead of
+  // running off the top of the world into nothing. Blended on the same t
+  // as everything else, so there is no step where one rule hands over to
+  // the other.
+  //
+  // Longitude. The globe wraps — spinning past the seam is the whole
+  // gesture. The chart does not: §2 puts the seam in the empty Pacific and
+  // the flat world genuinely ends there, so the frame stops against it the
+  // way map.js's frame used to stop against its crop. The limit opens up
+  // to a full 180 as t falls, so the stop dissolves rather than releasing.
+  function camLimits(vis, k, t) {
+    const halfLat = (vis.h / 2) / (k * DEG_Y);
+    const halfLon = (vis.w / 2) / (k * DEG_X);
+    return {
+      lat: (1 - t) * LAT_SPIN_CLAMP + t * Math.max(0, 90 - halfLat),
+      lon: 180 - t * Math.min(halfLon, 179)
+    };
   }
 
   // ---- gestures ----
@@ -942,16 +954,24 @@ const Globe = (function () {
     gratEl.style.opacity = (0.10 + 0.50 * smoothstep(4, 16, arc)).toFixed(3);
 
     drawLabels(vis, arc, chart);
+    drawBases(vis, arc, chart);
 
     const ms = performance.now() - t0;
     times.push(ms); if (times.length > 120) times.shift();
     if (hudEl) hud(arc, t, ms, drawn, verts);
-    // 50m is 764KB and would only ever be fetched at an arc the embedded
-    // layer is invisible at — below the crop floor the game draws its own
-    // geodata.js, which is the same Natural Earth 50m and is the authority
-    // there. Loading a second copy of it to render underneath an opaque one
-    // is the whole cost of the tier for none of the benefit.
-    if (!embed) maybeLod(arc);
+    // 50m is 764KB and is fetched only when the camera actually earns it,
+    // which for the embedded layer means one specific thing: the player has
+    // walked the chart OFF the theater and zoomed in on somewhere else.
+    // Through v2.36 that could not happen — the crop clamp drew the camera
+    // home over the octave below its floor, so the only arcs this layer was
+    // ever visible at were wide ones, and inside the crop geodata.js is the
+    // same Natural Earth 50m and is the authority anyway. So the tier was
+    // skipped here, correctly, for a range of the camera that did not exist.
+    // It exists now, and 110m at a three-degree arc is a coastline drawn in
+    // fifty-mile steps. The fetch still never happens in a war fought over
+    // Iran: at chartT == 1 this layer is display:none and draw() is not
+    // reached at all.
+    maybeLod(arc);
   }
 
   // ---- labels ----
@@ -1123,6 +1143,181 @@ const Globe = (function () {
       el.style.display = 'none'; el._on = false;
       parent.appendChild(el);
       s.el = el;
+    }
+  }
+
+  // ============================================================
+  // military bases
+  // ============================================================
+  function prepBases(list) {
+    if (!list || !Array.isArray(list)) return [];
+    return list.map(b => {
+      const la = b.lat * D2R, lo = b.lon * D2R, cl = Math.cos(la);
+      return {
+        raw: b,
+        id: b.id,
+        name: b.name,
+        short: b.short,
+        branch: b.branch,
+        branchClass: 'branch-' + (b.branch || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        lat: b.lat,
+        lon: b.lon,
+        vx: cl * Math.cos(lo),
+        vy: cl * Math.sin(lo),
+        vz: Math.sin(la),
+        fx: flatX(b.lon),
+        fy: flatY(b.lat),
+        el: null,
+        labelEl: null,
+        on: false
+      };
+    });
+  }
+
+  function showBaseTooltip(b, ev) {
+    if (!tooltipEl) tooltipEl = document.getElementById('base-tooltip');
+    if (!tooltipEl) return;
+    const badgeColors = {
+      'Army': '#4ade80',
+      'Air Force': '#38bdf8',
+      'Space Force': '#c084fc',
+      'Navy': '#60a5fa',
+      'Marine Corps': '#f87171',
+      'Coast Guard': '#fb923c',
+      'ANG': '#38bdf8',
+      'AF Reserve': '#38bdf8'
+    };
+    const bColor = badgeColors[b.branch] || '#4da3ff';
+    tooltipEl.innerHTML =
+      '<div class="tt-title">' + b.name + '</div>' +
+      '<div>' +
+        '<span class="tt-badge" style="background:' + bColor + '22; color:' + bColor + '; border: 1px solid ' + bColor + '66">' + b.branch + '</span>' +
+        '<span style="color:var(--dim); font-size:10px; margin-left:6px;">' + (b.city ? b.city + ', ' : '') + b.state + '</span>' +
+      '</div>' +
+      (b.cocom ? '<div class="tt-row"><span class="tt-label">COCOM:</span> <span class="tt-val">' + b.cocom + '</span></div>' : '') +
+      (b.majcom ? '<div class="tt-row"><span class="tt-label">MAJCOM:</span> <span class="tt-val">' + b.majcom + '</span></div>' : '') +
+      (b.units ? '<div class="tt-row"><span class="tt-label">UNITS:</span> <span class="tt-val">' + b.units + '</span></div>' : '') +
+      (b.personnel ? '<div class="tt-row"><span class="tt-label">PERSONNEL:</span> <span class="tt-val">' + b.personnel + '</span></div>' : '') +
+      (b.systems ? '<div class="tt-row"><span class="tt-label">SYSTEMS:</span> <span class="tt-val">' + b.systems + '</span></div>' : '') +
+      (b.notes ? '<div class="tt-row"><span class="tt-label">NOTES:</span> <span class="tt-val">' + b.notes + '</span></div>' : '') +
+      '<div class="tt-coords">' +
+        '<span>LAT: ' + b.lat.toFixed(6) + '° LON: ' + b.lon.toFixed(6) + '°</span>' +
+        '<span style="margin-left:8px; opacity:0.8;">[X: ' + b.x + ', Y: ' + b.y + ']</span>' +
+      '</div>';
+    tooltipEl.style.display = 'block';
+    moveBaseTooltip(ev);
+  }
+
+  function moveBaseTooltip(ev) {
+    if (!tooltipEl || tooltipEl.style.display === 'none') return;
+    const pad = 12;
+    let x = ev.clientX + pad;
+    let y = ev.clientY + pad;
+    const rect = tooltipEl.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth - 10) {
+      x = ev.clientX - rect.width - pad;
+    }
+    if (y + rect.height > window.innerHeight - 10) {
+      y = ev.clientY - rect.height - pad;
+    }
+    tooltipEl.style.left = Math.max(10, x) + 'px';
+    tooltipEl.style.top = Math.max(10, y) + 'px';
+  }
+
+  function hideBaseTooltip() {
+    if (tooltipEl) tooltipEl.style.display = 'none';
+  }
+
+  function setBranchFilter(filter) {
+    activeBranchFilter = filter || 'all';
+    invalidate();
+  }
+
+  function buildBaseNodes(parent) {
+    if (!parent) return;
+    parent.innerHTML = '';
+    for (const b of basesData) {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('class', 'base-marker ' + b.branchClass);
+      g.setAttribute('data-id', b.id);
+      g.style.display = 'none';
+
+      const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      ring.setAttribute('class', 'base-ring');
+      ring.setAttribute('r', '3.5');
+      g.appendChild(ring);
+
+      const core = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      core.setAttribute('class', 'base-core');
+      core.setAttribute('r', '1.5');
+      g.appendChild(core);
+
+      const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      lbl.setAttribute('class', 'base-label');
+      lbl.setAttribute('y', '-7');
+      lbl.textContent = b.short;
+      lbl.style.display = 'none';
+      g.appendChild(lbl);
+
+      g.addEventListener('mouseenter', (e) => showBaseTooltip(b.raw, e));
+      g.addEventListener('mousemove', (e) => moveBaseTooltip(e));
+      g.addEventListener('mouseleave', hideBaseTooltip);
+      g.addEventListener('click', (e) => {
+        showBaseTooltip(b.raw, e);
+        e.stopPropagation();
+      });
+
+      parent.appendChild(g);
+      b.el = g;
+      b.labelEl = lbl;
+    }
+  }
+
+  function drawBases(vis, arc, chart) {
+    if (!basesG || !basesData.length) return;
+    const showLabels = arc <= 35;
+    const pad = 20;
+
+    for (const b of basesData) {
+      const el = b.el;
+      if (!el) continue;
+
+      if (activeBranchFilter !== 'all') {
+        const matches = (activeBranchFilter === 'guard-res')
+          ? (b.branch === 'ANG' || b.branch === 'AF Reserve')
+          : (b.branch.toLowerCase().replace(/[^a-z0-9]+/g, '-') === activeBranchFilter);
+        if (!matches) {
+          if (b.on) { el.style.display = 'none'; b.on = false; }
+          continue;
+        }
+      }
+
+      let show = false;
+      const cc = chart ? 1 : b.vx * F.vx + b.vy * F.vy + b.vz * F.vz;
+      if (cc >= 0.04) {
+        let px, py;
+        if (chart) {
+          px = b.fx - F.fx0;
+          py = b.fy - F.fy0;
+        } else {
+          const rx = wrapOrigin(b.lon);
+          px = F.ot * (R * (b.vx * F.ex + b.vy * F.ey + b.vz * F.ez)) + F.t * (b.fx - rx);
+          py = F.ot * (-R * (b.vx * F.nx + b.vy * F.ny + b.vz * F.nz)) + F.t * (b.fy - F.fy0);
+        }
+        const sx = VW / 2 + cam.k * px, sy = VH / 2 + cam.k * py;
+        if (sx > vis.x - pad && sx < vis.x + vis.w + pad && sy > vis.y - pad && sy < vis.y + vis.h + pad) {
+          el.setAttribute('transform', 'translate(' + sx.toFixed(1) + ',' + sy.toFixed(1) + ')');
+          if (b.labelEl) {
+            b.labelEl.style.display = showLabels ? '' : 'none';
+          }
+          show = true;
+        }
+      }
+
+      if (b.on !== show) {
+        el.style.display = show ? '' : 'none';
+        b.on = show;
+      }
     }
   }
 
@@ -1443,9 +1638,11 @@ const Globe = (function () {
     tier = tier110;
     buildNodes(tier);
     // buildNodes hands back a countries group and a labels group; both
-    // ride into the layer here rather than replacing placeholders,
-    // because the tier never swaps under an embedded layer (see the
-    // note in draw()) and there is nothing to replace.
+    // ride into the layer here rather than replacing placeholders —
+    // there is nothing to replace on the way in. A later tier swap goes
+    // through swapTier like the standalone page's, which reaches for
+    // countriesG.parentNode rather than for a known parent and so does
+    // not care that these two sit in different groups here.
     camG.appendChild(tier.group);
     countriesG = tier.group;
     geoG.appendChild(tier.labels);
@@ -1473,21 +1670,37 @@ const Globe = (function () {
   // here costs nothing because wrapOrigin already places every ring
   // relative to cam.lon. The game's chart is fully faded out by the time
   // this can matter, so the two never disagree on screen.
-  function follow(view, t) {
+  //
+  // TWO numbers, and keeping them apart is the whole of v2.37. `t` is
+  // ALTITUDE — how flat the projection is — and drives nothing but the
+  // morph, so it stays a function of view.k alone. `chartT` is whether
+  // the theater crop is in charge of the frame, which map.js now also
+  // lowers when the camera PANS off the crop. Handed one number for both,
+  // this layer would be asked to draw an orthographic globe of radius
+  // k·R at k = 5 the moment a player walked the chart off the side of
+  // Iran — a sphere ten thousand units across with the camera inside it.
+  // A caller that passes only `t` gets exactly the old behaviour.
+  function follow(view, t, chartT) {
     if (!layerG) return;
-    const on = t < 1;
+    if (chartT === undefined) chartT = t;
+    const on = chartT < 1;
     // display:none rather than opacity 0 alone — a hidden layer must not
     // cost a hit test or a composite on the ninety-odd per cent of
     // frames a war is actually fought at.
     if (layerG.style.display === 'none' && !on) return;
     layerG.style.display = on ? '' : 'none';
     if (!on) return;
-    // The geography fades in over the top of the band while the chart is
-    // dissolving off it; the water underneath does not (see attach). Full
-    // strength by t = 0.93, which is well before the chart is thin enough
-    // to see much through — the dissolve should reveal a world that is
-    // already there, not two half-drawn maps meeting in the middle.
-    geoG.style.opacity = (1 - smoothstep(0.93, 1, t)).toFixed(3);
+    // The geography is at FULL strength for every frame the layer is up,
+    // and the water underneath it likewise (see attach). It used to fade
+    // in over the top 7% of the morph, which was invisible either way —
+    // the chart above it is still fully opaque there — and which becomes
+    // a real hole the moment the handover can also happen sideways: the
+    // chart's own ocean is handed over the instant a crop edge could be
+    // in frame, so a world faded to 1% behind it shows the panel's
+    // background through the strip the player is panning into. The
+    // dissolve should reveal a world that is already there, and the
+    // cheapest way to guarantee that is for it to always be there.
+    geoG.style.opacity = '';
     cam.k = view.k;
     cam.lon = wrapLon(LON0 + ((VW / 2 - view.x) / view.k) / DEG_X);
     cam.lat = LAT0 - ((VH / 2 - view.y) / view.k) / DEG_Y;
@@ -1520,16 +1733,30 @@ const Globe = (function () {
     labelsG = tier.labels;
     buildSeaNodes(svg.querySelector('#sea-labels'));
 
+    basesG = svg.querySelector('#bases') || document.getElementById('bases');
+    tooltipEl = document.getElementById('base-tooltip');
+    const bList = opts.bases || (typeof US_BASES !== 'undefined' ? US_BASES : null);
+    if (bList && basesG) {
+      basesData = prepBases(bList);
+      buildBaseNodes(basesG);
+    }
+
     initInput();
     reset();
     if (opts.at) readHash(opts.at);
-    return { verts: tier.verts, rings: tier.rings, countries: tier.countries.length, prepMs: tier.prepMs };
+    return { verts: tier.verts, rings: tier.rings, countries: tier.countries.length, prepMs: tier.prepMs, bases: basesData.length };
   }
 
   return {
     init, bench, invalidate, reset,
+    setBranchFilter,
+    getBases: () => basesData,
     // ---- the embedded layer (js/map.js) ----
     attach, follow,
+    // What clampCam applies to its own (lon, lat) camera, handed out so
+    // map.js can apply the same two rules to its (x, y) one. See the note
+    // on the function.
+    camLimits,
     // the widest the frame may open before it is showing more than a
     // globe plus its margin. map.js's own minZoom is the crop's floor
     // and this is what sits under it, so the number has one home.

@@ -24,6 +24,16 @@
 <header id="bar">
   <span id="title">WORLD CHART</span>
   <span id="sub">NATURAL EARTH · EQUIRECTANGULAR 28N · GLOBE ⇄ FLAT</span>
+  <div id="branch-filters">
+    <button class="branch-btn active" data-branch="all">ALL (343)</button>
+    <button class="branch-btn" data-branch="army">ARMY (69)</button>
+    <button class="branch-btn" data-branch="air-force">USAF (78)</button>
+    <button class="branch-btn" data-branch="navy">NAVY (56)</button>
+    <button class="branch-btn" data-branch="marine-corps">USMC (29)</button>
+    <button class="branch-btn" data-branch="space-force">USSF (14)</button>
+    <button class="branch-btn" data-branch="coast-guard">USCG (15)</button>
+    <button class="branch-btn" data-branch="guard-res">ANG/AFR (82)</button>
+  </div>
   <div id="controls">
     <button id="zoom-out" title="Zoom out (−)">−</button>
     <button id="zoom-in" title="Zoom in (+)">+</button>
@@ -66,13 +76,16 @@
 
     <g id="sea-labels"></g>
     <g id="labels"></g>
+    <g id="bases"></g>
   </svg>
 
+  <div id="base-tooltip" class="base-tooltip" style="display:none"></div>
   <div id="hud" style="display:none"></div>
   <div id="hint">DRAG TO SPIN · SCROLL TO ZOOM · 0 RESETS</div>
 </div>
 
 <script src="js/worldgeo.js?v=1.0"></script>
+<script src="js/bases.js?v=1.0"></script>
 <script src="js/globe.js?v=1.0"></script>
 <script>
   // ?fixture swaps the real data for the built-in test boxes (equator,
@@ -94,6 +107,18 @@
     ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(
       ev => window.addEventListener(ev, drop, { once: true, passive: true }));
     setTimeout(drop, 9000);
+
+    // Branch filter button listeners
+    const filterBtns = document.querySelectorAll('.branch-btn');
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (typeof Globe.setBranchFilter === 'function') {
+          Globe.setBranchFilter(btn.dataset.branch);
+        }
+      });
+    });
   })();
 </script>
 </body>
