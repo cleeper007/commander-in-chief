@@ -114,6 +114,12 @@ const Globe = (function () {
   let embed = false, embedT = 1;
   let svg, camG, spaceEl, atmoEl, discEl, gratEl, countriesG, labelsG, hudEl;
   let basesG = null, tooltipEl = null, basesData = [], activeBranchFilter = 'all';
+  // Whether the basing layer is drawn at all. A LAYER switch, not a filter:
+  // activeBranchFilter above decides which of the 343 are interesting and
+  // this decides whether any of them are, which is a different question and
+  // is the one a player asks when the markers are in the way of the war.
+  // Module-local and not persisted — same reasoning as map.js's forwardOn.
+  let basesOn = true;
   let cam = { lon: 38.5, lat: 24, k: 0.2 };   // centre of the frame + zoom
   let tier = null, tier110 = null, tier50 = null, lodPending = false;
   let lastVis = { x: 0, y: 0, w: 1000, h: 760 };
@@ -1233,6 +1239,18 @@ const Globe = (function () {
     invalidate();
   }
 
+  // Hidden at the CONTAINER, so drawBases can return on its first line and
+  // every marker keeps the display flag it last earned — switching the layer
+  // back on therefore costs one draw and not 343 style writes.
+  function setBases(on) {
+    basesOn = !!on;
+    if (basesG) basesG.style.display = basesOn ? '' : 'none';
+    // a tooltip left standing over a layer that is no longer there is a
+    // panel describing something the player cannot see
+    if (!basesOn) hideBaseTooltip();
+    invalidate();
+  }
+
   function buildBaseNodes(parent) {
     if (!parent) return;
     parent.innerHTML = '';
@@ -1274,7 +1292,10 @@ const Globe = (function () {
   }
 
   function drawBases(vis, arc, chart) {
-    if (!basesG || !basesData.length) return;
+    // The container's display is what hides them; this is so a hidden layer
+    // costs nothing per frame. 343 markers is 343 transform writes on every
+    // frame of a spin, which is most of what this loop does.
+    if (!basesG || !basesData.length || !basesOn) return;
     const showLabels = arc <= 35;
     const pad = 20;
 
@@ -1649,9 +1670,36 @@ const Globe = (function () {
     labelsG = tier.labels;
     buildSeaNodes(seaG);
 
+    // ---- the basing layer ----
+    //
+    // world.html hangs #bases outside its camera group, and this is the same
+    // placement for the same reason every label on this layer has it: a
+    // marker is a statement about a PLACE and not a measurement of one, so it
+    // is positioned per frame in screen space and must not grow with the
+    // world transform. Last into layerG, so the markers sit over the
+    // coastlines rather than under them.
+    //
+    // It is also outside geoG, which is what keeps it out of that group's
+    // fade — the markers are the game's answer to "where are we", and a
+    // marker at four per cent answers nothing. The layer as a whole is
+    // display:none at every zoom the war is fought at, which is what makes
+    // the whole thing free: layerG is hidden and draw() is not reached.
+    //
+    // js/bases.js is optional here on purpose. It is 300KB of installation
+    // records that nothing in the simulation reads, so a build that does not
+    // ship it gets a world with no markers on it rather than a broken one.
+    if (typeof US_BASES !== 'undefined' && Array.isArray(US_BASES)) {
+      basesG = svgEl('g', { class: 'bases-layer' });
+      layerG.appendChild(basesG);
+      basesData = prepBases(US_BASES);
+      buildBaseNodes(basesG);
+      basesG.style.display = basesOn ? '' : 'none';
+    }
+
     host.appendChild(layerG);
     return { verts: tier.verts, rings: tier.rings,
-             countries: tier.countries.length, prepMs: tier.prepMs };
+             countries: tier.countries.length, prepMs: tier.prepMs,
+             bases: basesData.length };
   }
 
   // Drive the layer from map.js's camera.
@@ -1750,6 +1798,10 @@ const Globe = (function () {
   return {
     init, bench, invalidate, reset,
     setBranchFilter,
+    // the basing layer's switch and its current state, so a caller that owns
+    // a button can ask rather than keep a second copy of the answer
+    setBases,
+    basesShown: () => basesOn && !!basesData.length,
     getBases: () => basesData,
     // ---- the embedded layer (js/map.js) ----
     attach, follow,

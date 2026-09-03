@@ -11,6 +11,12 @@ const MapView = (() => {
   // most players never saw Kuwait or Jordan at all. The BASES button is now a
   // way to clear the clutter, not a way to find it.
   let forwardOn = true;
+  // The world layer's basing markers. Module-local and not persisted, exactly
+  // like forwardOn beside it: which layers are up is a property of the session
+  // somebody is looking at, not of the war, so it stays off G and off FIELDS.
+  // The initial value must match the class on #toggle-global-bases in the
+  // markup, and globe.js's own basesOn default.
+  let globalBasesOn = true;
 
   // FAST FORWARD — the player asked for the result, not the show. Everything
   // that animates on a clock checks this flag and collapses to its end state:
@@ -1822,6 +1828,12 @@ const MapView = (() => {
     host.appendChild(theaterG);
 
     globeReady = true;
+    // Sync the layer to the button, once, here. mountGlobe returns on its
+    // first line if it has already run, so this is the only moment the two
+    // can be introduced — and the button's state has to be the authority
+    // rather than globe.js's default, or the markup, map.js and globe.js are
+    // three places holding one answer.
+    if (Globe.setBases) Globe.setBases(globalBasesOn);
   }
 
   // The centre of the theater chart, in lon/lat. (500, 380) is the middle
@@ -2185,6 +2197,20 @@ const MapView = (() => {
       document.getElementById('forward-layer').classList.toggle('hidden', !forwardOn);
       btn.classList.toggle('layer-on', forwardOn);
       btn.title = forwardOn ? 'Hide forward basing layer' : 'Show forward basing layer';
+    });
+
+    // The other basing layer — see the note beside the two buttons in
+    // index.html for why they are two. It is wired even when globe.js failed
+    // to load: the button then toggles nothing rather than throwing on the
+    // first press, which is the same shape mountGlobe's own guard has.
+    const gBtn = document.getElementById('toggle-global-bases');
+    if (gBtn) gBtn.addEventListener('click', () => {
+      globalBasesOn = !globalBasesOn;
+      if (globeReady && Globe.setBases) Globe.setBases(globalBasesOn);
+      gBtn.classList.toggle('layer-on', globalBasesOn);
+      gBtn.title = globalBasesOn
+        ? 'Hide global installations (world view)'
+        : 'Show global installations (world view)';
     });
   }
 

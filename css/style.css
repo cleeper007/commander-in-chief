@@ -326,11 +326,81 @@ button { font-family: var(--mono); }
   border: 1px solid var(--line); color: var(--text); cursor: pointer;
 }
 #map-zoom-controls button:hover { border-color: var(--blue); }
-#toggle-bases {
+#toggle-bases, #toggle-global-bases {
   width: auto !important; padding: 0 9px;
   font-size: 10px; letter-spacing: 1.5px; color: var(--dim) !important;
 }
 #toggle-bases.layer-on { color: var(--amber) !important; border-color: var(--amber) !important; }
+/* Blue, not amber. Amber is the theater's colour all over this chart — the
+   forward ramps, the THEATER ring on the globe, every alert in the bottom bar
+   — and the global layer is the one thing on screen that is explicitly NOT
+   the theater. It also matches the markers it switches, which run the branch
+   palette over a blue field. */
+#toggle-global-bases.layer-on { color: var(--blue) !important; border-color: var(--blue) !important; }
+
+/* ---- the global basing layer ----
+   Ported from css/world.css rather than shared, because the two pages have no
+   stylesheet in common and a second <link> for eleven rules costs a request on
+   every load of a game that reaches this layer maybe once. The rules are
+   IDENTICAL on purpose: globe.js draws both, so a marker that looked different
+   here would mean the renderer had grown a second appearance. Keep them in
+   step — css/world.css is the other copy. */
+.base-marker { cursor: pointer; pointer-events: all; transition: transform 0.05s ease-out; }
+.base-marker .base-ring {
+  stroke-width: 1.2; vector-effect: non-scaling-stroke;
+  transition: r 0.15s, stroke-width 0.15s;
+}
+.base-marker .base-core { transition: r 0.15s; }
+.base-marker .base-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.8px;
+  text-anchor: middle; fill: #94a3b8; pointer-events: none;
+  paint-order: stroke; stroke: var(--bg); stroke-width: 2.5px;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.branch-army .base-core { fill: #4ade80; }
+.branch-army .base-ring { stroke: #4ade80; fill: rgba(74, 222, 128, 0.25); }
+.branch-air-force .base-core, .branch-ang .base-core, .branch-af-reserve .base-core { fill: #38bdf8; }
+.branch-air-force .base-ring, .branch-ang .base-ring, .branch-af-reserve .base-ring { stroke: #38bdf8; fill: rgba(56, 189, 248, 0.25); }
+.branch-navy .base-core { fill: #60a5fa; }
+.branch-navy .base-ring { stroke: #60a5fa; fill: rgba(96, 165, 250, 0.25); }
+.branch-marine-corps .base-core { fill: #f87171; }
+.branch-marine-corps .base-ring { stroke: #f87171; fill: rgba(248, 113, 113, 0.25); }
+.branch-space-force .base-core { fill: #c084fc; }
+.branch-space-force .base-ring { stroke: #c084fc; fill: rgba(192, 132, 252, 0.25); }
+.branch-coast-guard .base-core { fill: #fb923c; }
+.branch-coast-guard .base-ring { stroke: #fb923c; fill: rgba(251, 146, 60, 0.25); }
+.base-marker:hover .base-ring { r: 6; stroke-width: 2; filter: drop-shadow(0 0 5px currentColor); }
+.base-marker:hover .base-core { r: 2.5; }
+.base-marker:hover .base-label { display: block !important; fill: #ffffff; font-weight: bold; }
+
+/* Fixed, not absolute: globe.js places it from clientX/clientY. z-index sits
+   above the chart's own tooltip (20) and well below the modal overlays, which
+   is right — a dialog makes #app inert, so the markers under it cannot be
+   hovered and this can never be the thing on top. */
+.base-tooltip {
+  position: fixed; z-index: 40; pointer-events: none;
+  background: rgba(11, 18, 32, 0.95); border: 1px solid var(--blue);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 10px rgba(77, 163, 255, 0.2);
+  padding: 8px 12px; font-family: var(--mono); font-size: 11px;
+  color: var(--text); max-width: 330px; line-height: 1.4; border-radius: 3px;
+}
+.base-tooltip .tt-title {
+  font-weight: 700; color: #fff; font-size: 11.5px;
+  margin-bottom: 3px; letter-spacing: 0.5px;
+}
+.base-tooltip .tt-badge {
+  display: inline-block; padding: 1px 5px; font-size: 8.5px; font-weight: 700;
+  border-radius: 2px; margin-bottom: 5px; text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.base-tooltip .tt-row { margin-top: 3px; font-size: 10px; color: var(--dim); }
+.base-tooltip .tt-label { color: #8fa0bd; font-weight: 600; letter-spacing: 0.5px; }
+.base-tooltip .tt-val { color: #e2e8f0; }
+.base-tooltip .tt-coords {
+  font-family: var(--mono); font-size: 9px; color: #64748b;
+  margin-top: 6px; padding-top: 5px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08); letter-spacing: 0.5px;
+}
 
 #map-container { flex: 1; position: relative; overflow: hidden; background: var(--water); }
 #map { width: 100%; height: 100%; display: block; cursor: grab; }

@@ -19,9 +19,9 @@
      stays invisible in the tab for as long as that row survives. Renaming the
      URL is the only thing it listens to. Stamp these with the badge on every
      bump, even when only the art changed. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=2.37">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2.37">
-<link rel="manifest" href="site.webmanifest?v=2.37">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=2.38">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2.38">
+<link rel="manifest" href="site.webmanifest?v=2.38">
 <meta name="theme-color" content="#0a1626">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -35,7 +35,7 @@
      version-badge) renames every asset URL, which is the only thing that
      reliably forces the fetch.
      Bump the stamps and the badge together. -->
-<link rel="stylesheet" href="css/style.css?v=2.37">
+<link rel="stylesheet" href="css/style.css?v=2.38">
 </head>
 <body>
 
@@ -57,7 +57,7 @@
 
 <!-- ============ TITLE SCREEN ============ -->
 <div id="title-screen" class="overlay">
-  <div class="version-badge">v2.37<span class="beta-tag">BETA</span></div>
+  <div class="version-badge">v2.38<span class="beta-tag">BETA</span></div>
   <!-- The badge's opposite number. It says the same kind of thing the BETA tag
        says — this build is still moving — but it is a promise rather than a
        disclaimer, so it gets the corner and the movement instead of a footnote.
@@ -103,12 +103,22 @@
              same terms as those seals — alt="" and aria-hidden, because the
              title beside it already reads CENTCOM and a screen reader
              announcing the mark as well would say it twice. -->
-        <img id="cop-seal" src="icons/seal-centcom.png?v=2.37" alt="" aria-hidden="true">
+        <img id="cop-seal" src="icons/seal-centcom.png?v=2.38" alt="" aria-hidden="true">
         <span class="panel-title">CENTCOM COMMON OPERATING PICTURE</span>
         <span id="map-clock">DAY 1 — 20:00 ET</span>
         <div id="map-zoom-controls">
           <!-- shown by default: the class here must match forwardOn in map.js -->
           <button id="toggle-bases" class="layer-on" title="Hide forward basing layer">BASES</button>
+          <!-- The OTHER basing layer, and the two are deliberately not one
+               button. BASES above is the forward posture this war is fought
+               from — the dozen ramps in the theater, on the theater chart.
+               This is the 343 installations the United States actually has,
+               drawn on the world behind it, and it is only ever visible once
+               the chart has handed over (js/globe.js). One switch for both
+               would have to lie about its state in half the zoom range.
+               Starts on, so the markup starts on: the class here must match
+               globalBasesOn in map.js. -->
+          <button id="toggle-global-bases" class="layer-on" title="Hide global installations (world view)">GLOBAL</button>
           <button id="zoom-in" title="Zoom in">+</button>
           <button id="zoom-out" title="Zoom out">−</button>
           <button id="zoom-reset" title="Reset view">⌂</button>
@@ -148,6 +158,17 @@
           <g id="world"></g>
         </svg>
         <div id="tooltip" class="hidden"></div>
+        <!-- The basing layer's readout, and deliberately NOT #tooltip: that one
+             is the game's, hung off attachTooltip in map.js and written in the
+             board's vocabulary (status, condition, last struck). This one is a
+             fact sheet about an installation the war does not model, drawn by
+             globe.js from the same renderer and the same stylesheet block
+             world.html uses. Two panels because they answer two questions.
+             position:FIXED, because globe.js places it from clientX/clientY
+             against window.innerWidth. Nothing clips it — #map-container has
+             overflow:hidden but no transform, and an ancestor only clips a
+             fixed child when it is a containing block. -->
+        <div id="base-tooltip" class="base-tooltip" style="display:none"></div>
         <!-- Shown only when a tap lands on more than one site at once — the
              Kharg / Bushehr / Nav Bushehr cluster is a few map units across and
              at the zoom the war opens at they share a touch target. -->
@@ -646,7 +667,7 @@
          which room this is, and a screen reader announcing two seals before it
          gets there is two pieces of furniture read aloud. -->
     <div class="modal-header brief-head">
-      <img class="brief-seal" src="icons/seal-president.svg?v=2.37" alt="" aria-hidden="true">
+      <img class="brief-seal" src="icons/seal-president.svg?v=2.38" alt="" aria-hidden="true">
       <span class="panel-title" id="brief-modal-title">
         <span id="brief-modal-room">STRIKE OPTIONS</span>
         <span class="brief-count" id="brief-modal-when"></span>
@@ -657,7 +678,7 @@
            making them recognise, so it is the thing that turns a folder into a
            meeting. Filled from BRIEF_STAGES `who`/`role` in showRoom. -->
       <span class="brief-who">
-        <img class="brief-seal" id="brief-modal-seal" src="icons/seal-dod.png?v=2.37" alt="" aria-hidden="true">
+        <img class="brief-seal" id="brief-modal-seal" src="icons/seal-dod.png?v=2.38" alt="" aria-hidden="true">
         <span class="brief-who-name" id="brief-modal-who"></span>
       </span>
       <button class="modal-close" data-close="brief-modal">✕</button>
@@ -824,7 +845,7 @@
     </div>
     <div class="modal-body">
       <div class="nsa-card">
-        <img class="nsa-seal" src="icons/seal-nsa.png?v=2.37" alt="" aria-hidden="true">
+        <img class="nsa-seal" src="icons/seal-nsa.png?v=2.38" alt="" aria-hidden="true">
         <div class="nsa-meta">
           <div class="nsa-from">NSA REYES &middot; NATIONAL SECURITY ADVISOR</div>
           <div class="nsa-head">REQUESTS AN EMERGENCY MEETING</div>
@@ -969,8 +990,8 @@
   </div>
 </div>
 
-<script src="js/text.js?v=2.37"></script>
-<script src="js/geodata.js?v=2.37"></script>
+<script src="js/text.js?v=2.38"></script>
+<script src="js/geodata.js?v=2.38"></script>
 <!-- The theater chart and the planet behind it, in that order and both
      before map.js, which mounts the second under the first. geodata.js is
      the Middle East at Natural Earth 50m in equirectangular std-parallel
@@ -981,22 +1002,27 @@
      worldgeo-50m.js is deliberately NOT here. It is 764KB and the only zoom
      it would be wanted at is one the globe layer is invisible at, because
      geodata.js is already the 50m authority down there. -->
-<script src="js/worldgeo.js?v=2.37"></script>
-<script src="js/globe.js?v=2.37"></script>
-<script src="js/data.js?v=2.37"></script>
-<script src="js/assess.js?v=2.37"></script>
-<script src="js/map.js?v=2.37"></script>
-<script src="js/ai.js?v=2.37"></script>
-<script src="js/audio.js?v=2.37"></script>
-<script src="js/ui.js?v=2.37"></script>
+<script src="js/worldgeo.js?v=2.38"></script>
+     <!-- GENERATED from US_Military_Bases_Corrected.csv by tools/generate_bases.js.
+          Read by globe.js's attach() and by world.html, and by nothing in the
+          simulation — no module below this line knows it exists, which is why
+          globe.js treats it as optional and draws an empty world without it. -->
+<script src="js/bases.js?v=2.38"></script>
+<script src="js/globe.js?v=2.38"></script>
+<script src="js/data.js?v=2.38"></script>
+<script src="js/assess.js?v=2.38"></script>
+<script src="js/map.js?v=2.38"></script>
+<script src="js/ai.js?v=2.38"></script>
+<script src="js/audio.js?v=2.38"></script>
+<script src="js/ui.js?v=2.38"></script>
 <!-- after ui.js: the walkthrough drives the room through UI's exported openPanel
      / openStrikeModal, and ui.js reaches back for Tour.start() at click time -->
-<script src="js/tour.js?v=2.37"></script>
-<script src="js/specops.js?v=2.37"></script>
+<script src="js/tour.js?v=2.38"></script>
+<script src="js/specops.js?v=2.38"></script>
 <!-- before csar.js: the shootdown asks the roster who was in the aircraft, and
      ui.js reaches for Aircrew.renderPanel / endgameHtml at render time -->
-<script src="js/aircrew.js?v=2.37"></script>
-<script src="js/csar.js?v=2.37"></script>
-<script src="js/game.js?v=2.37"></script>
+<script src="js/aircrew.js?v=2.38"></script>
+<script src="js/csar.js?v=2.38"></script>
+<script src="js/game.js?v=2.38"></script>
 </body>
 </html>
