@@ -1,0 +1,7 @@
+{
+  "id": "issue-2-report-watchdog",
+  "issue": "#2",
+  "issueUrl": "https://github.com/CarsonLeeper/commander-in-chief/issues/2",
+  "seed": 31006,
+  "regression": "A report waiting for the player must not be treated as a stalled resolution."
+}

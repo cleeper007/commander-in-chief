@@ -1,0 +1,7 @@
+{
+  "id": "issue-2-overlapping-strike-feeds",
+  "issue": "#2",
+  "issueUrl": "https://github.com/CarsonLeeper/commander-in-chief/issues/2",
+  "seed": 31005,
+  "regression": "Overlapping strike feeds must complete each mission exactly once."
+}

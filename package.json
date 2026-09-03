@@ -1,0 +1,14 @@
+{
+  "name": "commander-in-chief",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "npm run test:static && npm run test:unit && npm run test:save && npm run test:campaign",
+    "test:static": "node tests/repository-smoke.mjs",
+    "test:unit": "node tests/determinism.test.js && node --test tests/unit/*.test.mjs tests/regression/*.test.mjs",
+    "test:save": "node --test tests/save/*.test.mjs",
+    "test:campaign": "node --test tests/simulation/*.test.mjs",
+    "test:browser": "node tests/browser/browser-smoke.mjs",
+    "test:balance": "node tests/simulation/balance-sweep.mjs"
+  }
+}

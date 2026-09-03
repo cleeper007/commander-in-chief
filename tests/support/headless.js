@@ -10,7 +10,7 @@ const ROOT = path.resolve(__dirname, '../..');
 const FILES = [
   'js/random.js', 'js/text.js', 'js/geodata.js', 'js/data.js', 'js/assess.js',
   'js/map.js', 'js/ai.js', 'js/audio.js', 'js/ui.js', 'js/tour.js',
-  'js/specops.js', 'js/aircrew.js', 'js/csar.js', 'js/game.js', 'js/replay.js',
+  'js/specops.js', 'js/aircrew.js', 'js/csar.js', 'js/invariants.js', 'js/game.js', 'js/replay.js',
 ];
 
 function clock() {
@@ -28,6 +28,7 @@ function clock() {
     setInterval: (fn, delay) => add(fn, delay, delay || 1),
     clearInterval: (id) => timers.delete(id),
     now: () => now,
+    pending: () => [...timers.values()].map((timer) => ({ ...timer })),
     advance(duration, budget) {
       const end = now + duration;
       let count = 0;
@@ -75,7 +76,7 @@ function boot() {
 
   const api = vm.runInContext(
     '({Random, CosmeticRandom, CampaignReplay, Game, UI, MapView, IranAI, AudioSys, ' +
-    'SpecOps, CSAR, Aircrew, Txt, Tour, Assess, TARGETS, DIFFICULTY, AIR_ASSETS})',
+    'SpecOps, CSAR, Aircrew, StateInvariants, Txt, Tour, Assess, TARGETS, DIFFICULTY, AIR_ASSETS})',
     context,
   );
   return { api, sandbox, context, clock: time };
@@ -126,7 +127,8 @@ function stubPresentation(api) {
   };
   const keepUi = new Set([
     'showReport', 'showWarPowers', 'showNuclear', 'showNsaAlert',
-    'showNuclearTest', 'showPrimer', 'openLeaderCall',
+    'showNuclearTest', 'showPrimer', 'openLeaderCall', 'stateOptions',
+    'diploActions', 'intelParts', 'coaRows', 'nuclearBody',
   ]);
   for (const key of Object.keys(UI)) {
     if (typeof UI[key] === 'function' && !keepUi.has(key)) UI[key] = noop;

@@ -17,18 +17,24 @@ Then open `http://localhost:8765/`.
 
 ## Run the public checks
 
-The checks use Node.js and Python's standard library only:
+The checks use Node.js and Python's standard library only. The default command
+runs repository/syntax checks, fast unit and invariant coverage, the save/load
+matrix, regressions, and fixed-seed campaign smoke tests:
 
 ```sh
-node tests/repository-smoke.mjs
-for file in js/*.js; do node --check "$file"; done
-python3 -m py_compile tools/worldgeo.py
+npm test
 ```
 
-The GitHub Actions workflow runs the same checks on pushes and pull requests.
-The larger balance harness mentioned in the design notes is developer tooling;
-new regression tests that protect repository behavior should live under
-`tests/` so they run for every contributor.
+Chrome can be exercised separately with `npm run test:browser`. The larger
+fixed-seed sweep is `npm run test:balance`; CI runs it nightly and on manual
+dispatch, while pull requests receive the faster browser smoke test. Each CI
+layer uploads only its compact summary log.
+
+Reusable tests belong in `tests/unit`, `tests/simulation`, `tests/save`, or
+`tests/regression`. Put data-only scenarios in `tests/fixtures`, and commit a
+small reviewed expectation under `tests/baselines` when a deterministic
+campaign result is part of the contract. Historical regression fixtures must
+name the issue that introduced or tracked the failure.
 
 ## Change discipline
 

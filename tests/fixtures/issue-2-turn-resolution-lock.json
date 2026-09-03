@@ -1,0 +1,7 @@
+{
+  "id": "issue-2-turn-resolution-lock",
+  "issue": "#2",
+  "issueUrl": "https://github.com/CarsonLeeper/commander-in-chief/issues/2",
+  "seed": 31002,
+  "regression": "A turn-resolution exception must release the UI lock and return control."
+}

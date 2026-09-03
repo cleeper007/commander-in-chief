@@ -903,6 +903,50 @@ const Game = (() => {
     },
   };
 
+  const EXCLUSIVE_RESOLUTION_DIALOGS = new Set([
+    'report-modal', 'warpowers-modal', 'nsa-alert-modal', 'nuke-feed-modal', 'nuclear-modal',
+  ]);
+
+  // One checkpoint for production transitions and public tests alike. The
+  // checker is intentionally outside Game, while this adapter supplies the few
+  // runtime facts (locks and magazine sizes) that do not belong on saved state.
+  function assertState(phase, serializable) {
+    const specialOpsBusy = SpecOps.busy();
+    const csarBusy = CSAR.busy();
+    const openExclusiveDialogs = typeof document === 'undefined' ? []
+      : [...document.querySelectorAll('.overlay:not(.hidden)')]
+        .map((node) => node.id)
+        .filter((id) => EXCLUSIVE_RESOLUTION_DIALOGS.has(id));
+    const interactiveDialog = typeof document !== 'undefined' &&
+      !!document.querySelector('.overlay:not(.hidden) .modal');
+    try {
+      return StateInvariants.assert(G, TARGETS, {
+        phase,
+        bmdCapacity: bmdCapacity(),
+        nsmCapacity: NSM_LOAD,
+        serializable,
+        runtime: {
+          resolving,
+          resolveGuard,
+          watchdogArmed: !!resolveWatchdog,
+          specialOpsBusy,
+          csarBusy,
+          openExclusiveDialogs,
+          controlPath: (!resolving && !specialOpsBusy && !csarBusy) ||
+            (resolving && resolveGuard && !!resolveWatchdog) ||
+            ((specialOpsBusy || csarBusy) && interactiveDialog),
+        },
+      });
+    } catch (error) {
+      if (error && error.name === 'StateInvariantError') {
+        G.over = true;
+        G.lastResolutionStage = `invariant failure: ${error.rule}`;
+        console.error('CIC: campaign stopped on invalid state', error);
+      }
+      throw error;
+    }
+  }
+
   // ---- save / continue (localStorage) ----
   const Save = (() => {
     // v13: the SAM belt stopped being a one-way ratchet. Air defense sites
@@ -1024,7 +1068,10 @@ const Game = (() => {
     // would say why.
     // v32: every gameplay draw comes from Random. The campaign seed, exact next
     // RNG state and progression diagnostics now round-trip with the war.
-    const VERSION = 32;
+    // v33: the already-briefed course-of-action slate round-trips too. The
+    // slate is deliberately stable within a turn; rebuilding it on Continue
+    // changed the actions, tanker readings and plan slots the player saw.
+    const VERSION = 33;
     const FIELDS = [
       // `approval` is absent on purpose and must stay absent — it is a getter
       // with a throwing setter, and read() assigns every name in this list
@@ -1051,44 +1098,53 @@ const Game = (() => {
       'ew',
     ];
 
+    function capture() {
+      const data = {
+        version: VERSION,
+        seed: G.campaignSeed,
+        random: Random.state(),
+        muted: AudioSys.isMuted(),
+        coaCache: coaCache.list ? JSON.parse(JSON.stringify(coaCache)) : null,
+        fields: {},
+        targets: {},
+      };
+      for (const f of FIELDS) data.fields[f] = G[f];
+      // condition is the source of truth; status is derived from it on load.
+      // Dispersal state travels with it — a launcher group that has driven out
+      // into the country, and whether anyone currently knows where it is —
+      // and so does the reconstitution bookkeeping: the night a site was last
+      // serviced, and whether it has ever been finished. A war reloaded
+      // without those has a SAM belt that comes back on the wrong schedule and
+      // pays a first-kill bump twice.
+      for (const t of TARGETS) {
+        data.targets[t.id] = {
+          hp: t.hp, dispersed: !!t.dispersed, located: !!t.located,
+          lastStruck: t.lastStruck || 0, killedOnce: !!t.killedOnce,
+          // and what the intelligence apparatus has managed to learn about a
+          // site that was never in the folder: the leads accumulated, and
+          // whether they have added up to a box on the plot or a target.
+          // `worked` is how many collection decks have already been flown
+          // against the box — a reload that dropped it would hand back every
+          // night the player spent narrowing it (see workFolder).
+          found: !!t.found, suspected: !!t.suspected, leads: t.leads || 0,
+          worked: t.worked || 0,
+          // and whether the tasking order has caught up with it yet. Without
+          // this a reload hands back a board the player has already been
+          // given — the JIPTL ramp restarting at turn 9 with the whole
+          // interior off the plot again.
+          released: !!t.released,
+        };
+      }
+      return data;
+    }
+
     function write() {
       if (G.over) return;
+      const data = capture();
+      // Outside the storage try/catch: an invariant failure is a campaign
+      // failure, not "storage unavailable", and must never be swallowed.
+      assertState('save', data);
       try {
-        const data = {
-          version: VERSION,
-          seed: G.campaignSeed,
-          random: Random.state(),
-          muted: AudioSys.isMuted(),
-          fields: {},
-          targets: {},
-        };
-        for (const f of FIELDS) data.fields[f] = G[f];
-        // condition is the source of truth; status is derived from it on load.
-        // Dispersal state travels with it — a launcher group that has driven out
-        // into the country, and whether anyone currently knows where it is —
-        // and so does the reconstitution bookkeeping: the night a site was last
-        // serviced, and whether it has ever been finished. A war reloaded
-        // without those has a SAM belt that comes back on the wrong schedule and
-        // pays a first-kill bump twice.
-        for (const t of TARGETS) {
-          data.targets[t.id] = {
-            hp: t.hp, dispersed: !!t.dispersed, located: !!t.located,
-            lastStruck: t.lastStruck || 0, killedOnce: !!t.killedOnce,
-            // and what the intelligence apparatus has managed to learn about a
-            // site that was never in the folder: the leads accumulated, and
-            // whether they have added up to a box on the plot or a target.
-            // `worked` is how many collection decks have already been flown
-            // against the box — a reload that dropped it would hand back every
-            // night the player spent narrowing it (see workFolder).
-            found: !!t.found, suspected: !!t.suspected, leads: t.leads || 0,
-            worked: t.worked || 0,
-            // and whether the tasking order has caught up with it yet. Without
-            // this a reload hands back a board the player has already been
-            // given — the JIPTL ramp restarting at turn 9 with the whole
-            // interior off the plot again.
-            released: !!t.released,
-          };
-        }
         localStorage.setItem(KEY, JSON.stringify(data));
       } catch (e) { /* storage unavailable — play without saves */ }
     }
@@ -1104,7 +1160,7 @@ const Game = (() => {
       try { localStorage.removeItem(KEY); } catch (e) {}
     }
 
-    return { write, read, clear, version: VERSION };
+    return { write, read, clear, capture, version: VERSION };
   })();
 
   // ============================================================
@@ -1127,6 +1183,7 @@ const Game = (() => {
     t.hp = clamp(t.hp - amount, 0, 100);
     syncStatus(t);
     MapView.updateTarget(t);
+    assertState(`target damage (${t.id})`);
   }
 
   // ============================================================
@@ -2384,6 +2441,7 @@ const Game = (() => {
     if (frac <= 0 || tracks <= 0) return { frac: 0, fired: 0, before, left: before };
     const fired = Math.min(before, Math.round(tracks * NAVAL_BMD.perTrack));
     G.bmdPool = Math.max(0, before - fired);
+    assertState('BMD engagement');
     return { frac, fired, before, left: G.bmdPool };
   }
 
@@ -5908,12 +5966,14 @@ const Game = (() => {
           'held down for three nights.',
       });
     }
+    assertState(`turn ${G.turn} target repair`);
     return out;
   }
 
   // ran after any resolved action: persist, then check for an ending
   function afterAction() {
     G.stats.peakOil = Math.max(G.stats.peakOil, G.oil);
+    assertState('player action');
     Save.write();
     const result = checkEnd();
     if (result) finish(result);
@@ -6844,6 +6904,7 @@ const Game = (() => {
     if (ev.hormuz) { G.hormuz = ev.hormuz; MapView.setHormuz(G.hormuz); }
     if (ev.mandab) { G.mandab = ev.mandab; MapView.setMandab(G.mandab); }
     if (ev.flashAsset) MapView.flashAsset(ev.flashAsset);
+    assertState(`turn ${G.turn} simulated event`);
   }
 
   // ---- the turn lock ----
@@ -7043,6 +7104,7 @@ const Game = (() => {
     setResolving(true);
     resolveGuard = true;      // from here to close(), the boundary is live
     armWatchdog();
+    assertState(`turn ${G.turn} orders locked`);
     AudioSys.playThen('strikeForce', guard('resolveTurn', resolveTurn));   // the night steps off
   }
 
@@ -7069,6 +7131,7 @@ const Game = (() => {
     // Haifa tonight has to be able to cost you Incirlik tonight, not next turn.
     resolveMissions(guard('bda', (bda) => {
       markResolutionStage(`turn ${G.turn} strikes resolved`);
+      assertState(`turn ${G.turn} strike resolution`);
       // Israel moves between the BDA and Iran's answer — if they went tonight,
       // Tehran is responding to their strike as much as to yours
       const israeli = israelTurn();
@@ -7140,6 +7203,7 @@ const Game = (() => {
       const day = Txt.day(G.turn);
       const ours = [...bda, ...(israeli ? [israeli] : []), ...dispersals,
         ...repairs, ...phase, ...objectives, ...gaps, ...staffed, ...fleet];
+      assertState(`turn ${G.turn} allied resolution`);
 
       MapView.whenFootageDone(guard('footage', () => {
         // An ally's package flies on the strategic plot before the report that
@@ -7354,6 +7418,8 @@ const Game = (() => {
           const vote = warPowersVote();
           const cutoff = vote && vote.cutoff;
 
+          assertState(`turn ${G.turn} simulation resolution`);
+
           // What the night cost us. Tehran's salvo, what it did to the fleet and
           // to the aircrew still on the ground, and the political ground it took
           // out from under the campaign — the basing is here because it is
@@ -7518,6 +7584,7 @@ const Game = (() => {
     // AFTER renderAll, because renderCoa is what decides whether the panel
     // exists tonight at all.
     openBrief();
+    assertState(`turn ${G.turn} player control`);
     Save.write();
   }
 
@@ -8050,8 +8117,10 @@ const Game = (() => {
     // landing and the bump. A full rack rather than an empty one — a war that
     // resumes with a magazine it cannot explain being empty is the worse bug.
     if (typeof G.nsmPool !== 'number') G.nsmPool = NSM_LOAD;
-    // the brief is rebuilt against the board rather than restored with it
-    coaCache = { turn: -1, list: null };
+    // A slate already briefed this turn is a promise to the player, even though
+    // it is not simulation state. Continue must preserve that exact promise.
+    coaCache = data.coaCache && data.coaCache.turn === G.turn
+      ? data.coaCache : { turn: -1, list: null };
     for (const t of TARGETS) {
       const rec = data.targets[t.id] || {};
       t.hp = typeof rec.hp === 'number' ? rec.hp : (t.dispersal ? 0 : 100);
@@ -8075,6 +8144,7 @@ const Game = (() => {
     AudioSys.setMuted(!!data.muted);
     start(true);
     Random.restore(savedRandom);
+    assertState('restore', data);
     // saved between the coalition cable and answering the phone: it is still
     // ringing when the situation room reconvenes
     maybeLeaderCall(null);
@@ -8268,6 +8338,7 @@ const Game = (() => {
     G.fatigue = 0;
     G.atoPlan = planSize(0);
     markResolutionStage('campaign setup complete');
+    assertState('new-war setup');
   }
 
   // The title-screen button and automated replays use this same door. Keeping
@@ -8364,6 +8435,8 @@ const Game = (() => {
   return { computeStrike, executeStrike, recallMission, doDiplo, endTurn, afterAction,
     startCampaign, noteReport, activeMissionTypes,
     saveVersion: () => Save.version,
+    saveSnapshot: () => JSON.parse(JSON.stringify(Save.capture())),
+    assertInvariants: (phase) => assertState(phase || 'manual check'),
     randomState: () => Random.state(),
     replayToken: () => Random.token(),
     // The country, and the only two doors into it. csar.js and specops.js both

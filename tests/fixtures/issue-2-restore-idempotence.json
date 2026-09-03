@@ -1,0 +1,7 @@
+{
+  "id": "issue-2-restore-idempotence",
+  "issue": "#2",
+  "issueUrl": "https://github.com/CarsonLeeper/commander-in-chief/issues/2",
+  "seed": 31007,
+  "regression": "Restoring a save must not duplicate damage, approval movement, or resource spending."
+}

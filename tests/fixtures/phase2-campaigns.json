@@ -1,0 +1,41 @@
+[
+  {
+    "id": "easy-guided-opening",
+    "script": {
+      "seed": 123456,
+      "difficulty": "easy",
+      "turns": [
+        { "intel": "enrichment", "diplo": "address", "coa": "rollback" }
+      ]
+    }
+  },
+  {
+    "id": "normal-idle-pressure",
+    "script": {
+      "seed": 32002,
+      "difficulty": "normal",
+      "turns": [{}, {}, {}, {}, {}, {}, {}, {}]
+    }
+  },
+  {
+    "id": "hard-idle-pressure",
+    "script": {
+      "seed": 32003,
+      "difficulty": "hard",
+      "turns": [{}, {}, {}, {}, {}, {}, {}, {}]
+    }
+  },
+  {
+    "id": "normal-mobilization",
+    "script": {
+      "seed": 32004,
+      "difficulty": "normal",
+      "turns": [
+        { "intel": "intent", "diplo": "coalition", "deploy": "carrier" },
+        { "intel": "enrichment", "diplo": "sanctions", "deploy": "bombers" },
+        { "intel": "isr-prep", "diplo": "gcc" },
+        {}
+      ]
+    }
+  }
+]
