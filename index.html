@@ -996,9 +996,12 @@
      the two are one chart at two altitudes rather than two charts. globe.js
      is the projector that rolls between them.
 
-     worldgeo-50m.js is deliberately NOT here. It is 764KB and the only zoom
-     it would be wanted at is one the globe layer is invisible at, because
-     geodata.js is already the 50m authority down there. -->
+     worldgeo-50m.js is deliberately NOT here, and from v2.37 that is about
+     WHEN it loads rather than whether. It is 764KB, and the only camera that
+     wants it is one that has walked the chart off the theater and zoomed in
+     on somewhere else — so globe.js fetches it on demand at that arc and a
+     war fought over Iran never asks for it at all. Over the theater
+     geodata.js is the 50m authority anyway. -->
 <script src="js/worldgeo.js?v=2.38"></script>
 <script src="js/globe.js?v=2.38"></script>
 <script src="js/data.js?v=2.38"></script>
