@@ -429,11 +429,22 @@ const MapView = (() => {
     // glyph it names shrank, and it would walk further from the site every
     // click of the zoom — the crowding this whole block exists to relieve,
     // re-created in the labels.
+    //
+    // `anchor` goes in as a STYLE, not a presentation attribute, for the reason
+    // written out over the ISLAND_LABELS loop below: `.target text` sets
+    // `text-anchor: middle` in the stylesheet, and a CSS declaration beats a
+    // presentation attribute however specific the attribute looks. Written as
+    // an attribute the key was dead — both labels asking to hang off one end
+    // rendered centred, half their width right of where they were placed, which
+    // put MSL KERMANSHAH across the Khorramabad icon its dx exists to clear and
+    // laid NAV BUSHEHR straight over its own. A style wins without changing the
+    // default for every other name on the chart, which asks for no anchor and
+    // still takes `middle` from the stylesheet.
     const lab = t.label || {};
     const label = el('text', {
       x: lab.dx || 0,
       y: lab.dy != null ? lab.dy : 20,
-      ...(lab.anchor ? { 'text-anchor': lab.anchor } : {}),
+      ...(lab.anchor ? { style: `text-anchor: ${lab.anchor}` } : {}),
     });
     label.textContent = t.short;
     icon.appendChild(label);
@@ -1398,9 +1409,9 @@ const MapView = (() => {
       // declaration beats a presentation attribute however specific the
       // attribute looks — written as an attribute, every label asking to hang
       // off one end silently rendered centred, half its width from where it was
-      // placed. (data.js's two `label.anchor` targets are the same bug, still
-      // live: targetIcon writes that one as an attribute under `.target text`,
-      // which also sets text-anchor in CSS.)
+      // placed. (data.js's two `label.anchor` targets were the same bug under
+      // `.target text`, which also sets text-anchor in CSS; targetIcon now
+      // writes that one as a style too.)
       const t = el('text', s.anchor ? { style: `text-anchor: ${s.anchor}` } : {});
       t.textContent = s.name;
       sc.appendChild(t);

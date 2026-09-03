@@ -167,10 +167,11 @@ const TARGETS = [
     // nothing simulates on a target's x/y (the covert box's fuzz, the downed
     // crew's marker and the strike animation are all it reaches), and the box
     // now contains the island it is a box about, which it did not before.
-    // The name still hangs ABOVE, as it always did — deliberately no `anchor`,
-    // because that key does not work: targetIcon writes it as a presentation
-    // attribute and `.target text` sets text-anchor in the stylesheet, which
-    // wins. ISLAND_LABELS is tuned around this label where it actually renders.
+    // The name still hangs ABOVE, as it always did, and deliberately carries no
+    // `anchor` — centred is where ISLAND_LABELS is tuned around it. (The key
+    // itself works now: it was dead when this was written, because targetIcon
+    // wrote it as a presentation attribute under a stylesheet that sets
+    // text-anchor, and it goes in as a style since v2.23.)
     type: 'naval', x: 551, y: 514, depth: 1, covert: true, label: { dy: -14 },
     // Deliberately NOT sized to gate iranBroken. navalStrength is a mean over
     // six sites, so no plausible weight puts one hidden base above the 0.5 bar —
