@@ -644,7 +644,7 @@ const CSAR = (() => {
       // in a campaign at most — and a country that got bored of rescued
       // aircrew would be a country this game has no business modelling.
       const cleanGain = Game.movePublic(8);
-      G.world = clamp(G.world + 3, 0, 100);
+      Game.moveWorld(3);
       events.push({
         cls: 'friendly', title: `RECOVERY COMPLETE — ${d.callsign} IS OUT`,
         text: `${crewPhrase(d, true)} ${Txt.are(d.crew)} aboard the recovery ship, dehydrated ` +
@@ -659,7 +659,7 @@ const CSAR = (() => {
     costly(G, d, events) {
       G.stats.aircrewRescued += d.crew;
       Aircrew.setStatus(G, aboardOf(G, d), 'recovering', G.turn);
-      G.casualties.us += 1;
+      Game.addCasualties(1);
       const costlyGain = Game.movePublic(5);
       events.push({
         cls: 'friendly', title: `RECOVERY COMPLETE — ONE PARARESCUEMAN KILLED`,
@@ -697,7 +697,7 @@ const CSAR = (() => {
       // that does this.
       const partialCost = Game.movePublic(saved ? -6 : -9);
       Game.erodeBase(APPROVAL.erode.aircrewTaken);
-      G.world = clamp(G.world - 3, 0, 100);
+      Game.moveWorld(-3);
       const out = on[0], left = on[1];
       events.push({
         cls: 'iran', title: saved
@@ -725,7 +725,7 @@ const CSAR = (() => {
       Aircrew.setStatus(G, aboardOf(G, d), 'pow', G.turn);
       G.stats.aircraftLost += 2;
       const c = rand(4, 9);
-      G.casualties.us += c;
+      Game.addCasualties(c);
       // The worst single event in the game, and the only one that cracks the
       // base twice over: prisoners on television AND a task force that did not
       // come out. Both are charged, because they are two different failures and
@@ -733,7 +733,7 @@ const CSAR = (() => {
       // president made, on top of the shootdown that was not.
       const disasterCost = Game.movePublic(-15);
       Game.erodeBase(APPROVAL.erode.hostages + APPROVAL.erode.raidLost);
-      G.world = clamp(G.world - 8, 0, 100);
+      Game.moveWorld(-8);
       events.push({
         cls: 'iran', title: 'RECOVERY FORCE DESTROYED — THE RESCUE IS NOW THE STORY',
         text: `The beacon was a trap and the package flew into it. A Jolly went in on short final with a ` +
@@ -808,7 +808,7 @@ const CSAR = (() => {
     const d = G.downed;
     const branch = pickBranch(G);   // decided here, before anything is drawn
 
-    G.res.fighters -= 1;            // the fighter escort is a real sortie
+    if (!Game.spendResource('fighters', 1)) return; // the fighter escort is a real sortie
     G.downed = null;                // one attempt: the situation resolves tonight
     syncMap(G);
     lock(true);

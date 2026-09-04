@@ -8,7 +8,8 @@ const { install } = require('./dom');
 const ROOT = path.resolve(__dirname, '../..');
 // Browser order, minus globe.js (MapView is replaced before it renders).
 const FILES = [
-  'js/random.js', 'js/text.js', 'js/geodata.js', 'js/data.js', 'js/assess.js',
+  'js/random.js', 'js/text.js', 'js/geodata.js', 'js/data.js', 'js/rules.js',
+  'js/resolution.js', 'js/assess.js',
   'js/map.js', 'js/ai.js', 'js/audio.js', 'js/ui.js', 'js/tour.js',
   'js/specops.js', 'js/aircrew.js', 'js/csar.js', 'js/invariants.js', 'js/game.js', 'js/replay.js',
 ];
@@ -75,7 +76,7 @@ function boot() {
   }
 
   const api = vm.runInContext(
-    '({Random, CosmeticRandom, CampaignReplay, Game, UI, MapView, IranAI, AudioSys, ' +
+    '({Random, CosmeticRandom, GameRules, ResolutionMachine, CampaignReplay, Game, UI, MapView, IranAI, AudioSys, ' +
     'SpecOps, CSAR, Aircrew, StateInvariants, Txt, Tour, Assess, TARGETS, DIFFICULTY, AIR_ASSETS})',
     context,
   );

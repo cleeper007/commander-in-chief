@@ -303,36 +303,24 @@ const Game = (() => {
   // "another rocket landed at Ain al-Asad" stops being front-page news around
   // the fifth time it is filed. See APPROVAL.habitBad.
   function movePublic(n, cls) {
-    if (!n) return 0;
-    // The unit conversion, applied once and in one place — see
-    // APPROVAL.sensitivity. A caller's number is a push on a fully-fluid
-    // country; what lands is that push against the share still in play.
-    n *= APPROVAL.sensitivity;
-    if (cls) {
-      n *= habitMult(cls);
-      G.habit[cls] = (G.habit[cls] || 0) + 1;
-    }
-    const before = G.middleWith;
-    G.middleWith = clamp(G.middleWith + n, 0, G.middleSize);
-    return G.middleWith - before;   // what actually landed, after the bounds
+    const result = GameRules.Politics.movePublic(G, n, cls, APPROVAL);
+    G.middleWith = result.middleWith;
+    G.habit = result.habit;
+    return result.delta;   // what actually landed, after the bounds
   }
 
   // How much of a payout against this class still registers. Falls with every
   // payout already collected and recovers on the nights the class is left
   // alone (see habitTick), never below APPROVAL.habitFloor.
   function habitMult(cls) {
-    const n = G.habit[cls] || 0;
-    return Math.max(APPROVAL.habitFloor, 1 - APPROVAL.habitStep * n);
+    return GameRules.Politics.habitMultiplier(G, cls, APPROVAL);
   }
 
   // The country's attention coming back, one turn at a time, for every class at
   // once. A class struck tonight has just been incremented by movePublic and so
   // nets out ahead; a class left alone walks back toward full interest.
   function habitTick() {
-    for (const k of Object.keys(G.habit)) {
-      G.habit[k] = Math.max(0, G.habit[k] - APPROVAL.habitRecover / APPROVAL.habitStep);
-      if (!G.habit[k]) delete G.habit[k];
-    }
+    G.habit = GameRules.Politics.recoverHabits(G, APPROVAL);
   }
 
   // A catastrophe cracking the loyal base. Those people do not become
@@ -351,18 +339,12 @@ const Game = (() => {
   // overtime drain passes false, because that one is a slow leak and rounding
   // it up to 1 a turn would crack a base twice as fast as the table says.
   function erodeBase(n, whole = true) {
-    if (!n) return 0;
     const e = (diff().public || APPROVAL).erode;
-    const raw = n * (e == null ? 1 : e);
-    const hit = Math.min(G.base, whole ? Math.max(1, Math.round(raw)) : raw);
-    G.base -= hit;
-    G.opposed += hit;
-    // The middle cannot be wider than the country left over. It never is —
-    // erosion moves base and opposed by the same amount and middleSize is
-    // unchanged — but middleWith is clamped anyway so that a future edit to
-    // this function cannot leave approval reading above its own ceiling.
-    G.middleWith = clamp(G.middleWith, 0, G.middleSize);
-    return hit;
+    const result = GameRules.Politics.erodeBase(G, n, e, whole);
+    G.base = result.base;
+    G.opposed = result.opposed;
+    G.middleWith = result.middleWith;
+    return result.delta;
   }
 
   // The rally expiring. Unconditional and on a fixed schedule: this is the
@@ -374,9 +356,9 @@ const Game = (() => {
   // already lost the middle by turn 4 does not get the rally back to spend.
   function rallyDecay() {
     if (G.rally <= 0) return 0;
-    const before = G.rally;
-    G.rally = Math.max(0, G.rally - APPROVAL.rallyPer);
-    return G.rally - before;
+    const result = GameRules.Politics.decayRally(G, APPROVAL);
+    G.rally = result.rally;
+    return result.delta;
   }
 
   // The news cycle forgetting, in both directions. Runs every turn, after the
@@ -388,10 +370,9 @@ const Game = (() => {
   // stray class argument make the country forget at a rate that depended on
   // what was bombed last night.
   function revertTick() {
-    const neutral = G.middleSize * APPROVAL.revertTo;
-    const before = G.middleWith;
-    G.middleWith = clamp(G.middleWith + (neutral - G.middleWith) * APPROVAL.revert, 0, G.middleSize);
-    return G.middleWith - before;
+    const result = GameRules.Politics.revert(G, APPROVAL);
+    G.middleWith = result.middleWith;
+    return result.delta;
   }
 
   // Does this decision arrive as a dialog rather than as a drawer in the
@@ -692,14 +673,14 @@ const Game = (() => {
     // property would swallow a stray `G.approval = …` in silence — which is
     // exactly the drift this rewrite exists to make impossible. Anything that
     // moves the country goes through movePublic() or erodeBase().
-    get approval() { return this.base + this.middleWith + this.rally; },
+    get approval() { return GameRules.Politics.approval(this); },
     set approval(v) {
       throw new Error('G.approval is derived from the blocs — use movePublic()/erodeBase()');
     },
     // The share actually in play, which is whatever the two fixed camps leave.
     // Never stored, so a difficulty cannot state three numbers that fail to add
     // up to a country.
-    get middleSize() { return 100 - this.base - this.opposed; },
+    get middleSize() { return GameRules.Politics.middleSize(this); },
 
     // Is the flagship out of the anti-ship envelope? Derived rather than stored:
     // with two independently-stationed decks there is no single fleet posture,
@@ -722,13 +703,7 @@ const Game = (() => {
     // be won without. That is the intended weight of the covert hall, and it is
     // why that hall alone carries a `surfaceBy` guarantee (see COVERT).
     nukeDegraded() {
-      let d = 0, max = 0;
-      for (const t of TARGETS) {
-        if (!t.enrichment) continue;
-        max += wt(t);
-        d += wt(t) * (100 - t.hp) / 100;
-      }
-      return max ? Math.round((d / max) * 100) : 0; // 0–100
+      return GameRules.Victory.degradation(TARGETS); // 0–100
     },
     // Iran's remaining ability to fight, 0–100, for the HUD meter:
     // missile force + navy + IRGC command, the set you must break to win.
@@ -751,18 +726,11 @@ const Game = (() => {
     // drift — which is the failure this replaces.
     warMachine() {
       const irgc = TARGETS.find(t => t.id === 'irgc-hq');
-      // pct is "how far to the bar", not "how much is destroyed": at the bar it
-      // reads 100% and the line ticks over. A gate met is a gate met.
-      const toward = (v, bar, full) => Math.max(0, Math.min(100,
-        Math.round(100 * (full - v) / (full - bar))));
-      return [
-        { key: 'missiles', label: 'missile force',
-          done: IranAI.missileStrength(true) <= 0.35, pct: toward(IranAI.missileStrength(true), 0.35, 2) },
-        { key: 'navy', label: 'navy',
-          done: IranAI.navalStrength(true) <= 0.8, pct: toward(IranAI.navalStrength(true), 0.8, 2) },
-        { key: 'command', label: 'IRGC command',
-          done: irgc.status === 'destroyed', pct: toward(irgc.hp, 0, 100) },
-      ];
+      return GameRules.Victory.warMachine({
+        missiles: IranAI.missileStrength(true), navy: IranAI.navalStrength(true),
+        irgcHp: irgc.hp, irgcDestroyed: irgc.status === 'destroyed',
+        missileBar: 0.35, navyBar: 0.8,
+      });
     },
     // warfighting capacity shattered: missile force and navy near zero, IRGC command gone
     //
@@ -810,8 +778,11 @@ const Game = (() => {
       // It does not weaken the covert case: Abu Musa's own note reasons that no
       // single hidden base should gate this, and at 0.276 on the scale it still
       // does not.
-      return IranAI.missileStrength(true) <= 0.35 && IranAI.navalStrength(true) <= 0.8 &&
-        irgc.status === 'destroyed';
+      return GameRules.Victory.warMachine({
+        missiles: IranAI.missileStrength(true), navy: IranAI.navalStrength(true),
+        irgcHp: irgc.hp, irgcDestroyed: irgc.status === 'destroyed',
+        missileBar: 0.35, navyBar: 0.8,
+      }).every((gate) => gate.done);
     },
     // The leadership target died — whether or not the task force came home.
     // 'pyrrhic' bought the same decapitation at the price of the whole team.
@@ -833,8 +804,10 @@ const Game = (() => {
       // what `dealBar` scales is only how much of the fighting has to be over
       // before the pragmatists can move, which is a judgement about Tehran's
       // politics rather than about the objective.
-      const warStr = IranAI.missileStrength() + IranAI.navalStrength(); // 0..4
-      return this.nukeDegraded() >= 100 && warStr <= this.dealBar();
+      return GameRules.Victory.dealProgress({
+        missiles: IranAI.missileStrength(), navy: IranAI.navalStrength(),
+        degradation: this.nukeDegraded(), bar: this.dealBar(),
+      }).open;
     },
     // ---- HOW FAR TEHRAN IS FROM THE TABLE (v2.05) ----
     // The negotiation gate, component by component, scored exactly the way
@@ -861,23 +834,7 @@ const Game = (() => {
       const m = IranAI.missileStrength(), n = IranAI.navalStrength(); // each 0..2
       const deg = this.nukeDegraded();
       const bar = this.dealBar();
-      // Same "how far to the bar" shape warMachine() uses, so a percentage here
-      // and a percentage in the objectives panel mean the same thing — and it
-      // reads against THIS level's bar, so 100% always means "the window is
-      // open" rather than "the window would be open on normal".
-      const pct = Math.max(0, Math.min(100, Math.round(100 * (4 - (m + n)) / (4 - bar))));
-      return {
-        open: this.negotiationReady(),
-        program: { done: deg >= 100, pct: Math.min(100, Math.round(deg)) },
-        machine: { done: m + n <= bar, pct },
-        // The arm with the most left in it, because the bar is on the SUM of two
-        // weighted means and there is no per-arm bar to clear — only the larger
-        // of the two numbers to bring down. Measured over 40 shared seeds on
-        // easy, a bot that re-sorts onto this the night the program finishes
-        // opens the window on turn 25 against 28 and wins 75% against 65%.
-        arm: m >= n ? 'missile force' : 'navy',
-        doctrine: m >= n ? 'counterforce' : 'maritime',
-      };
+      return GameRules.Victory.dealProgress({ missiles: m, navy: n, degradation: deg, bar });
     },
     // The odds the Omani channel closes tonight, as `doDiplo` rolls them. One
     // home, because the panel quotes this number and the resolver spends it:
@@ -1099,43 +1056,16 @@ const Game = (() => {
     ];
 
     function capture() {
-      const data = {
+      return GameRules.Save.serialize({
         version: VERSION,
         seed: G.campaignSeed,
         random: Random.state(),
         muted: AudioSys.isMuted(),
         coaCache: coaCache.list ? JSON.parse(JSON.stringify(coaCache)) : null,
-        fields: {},
-        targets: {},
-      };
-      for (const f of FIELDS) data.fields[f] = G[f];
-      // condition is the source of truth; status is derived from it on load.
-      // Dispersal state travels with it — a launcher group that has driven out
-      // into the country, and whether anyone currently knows where it is —
-      // and so does the reconstitution bookkeeping: the night a site was last
-      // serviced, and whether it has ever been finished. A war reloaded
-      // without those has a SAM belt that comes back on the wrong schedule and
-      // pays a first-kill bump twice.
-      for (const t of TARGETS) {
-        data.targets[t.id] = {
-          hp: t.hp, dispersed: !!t.dispersed, located: !!t.located,
-          lastStruck: t.lastStruck || 0, killedOnce: !!t.killedOnce,
-          // and what the intelligence apparatus has managed to learn about a
-          // site that was never in the folder: the leads accumulated, and
-          // whether they have added up to a box on the plot or a target.
-          // `worked` is how many collection decks have already been flown
-          // against the box — a reload that dropped it would hand back every
-          // night the player spent narrowing it (see workFolder).
-          found: !!t.found, suspected: !!t.suspected, leads: t.leads || 0,
-          worked: t.worked || 0,
-          // and whether the tasking order has caught up with it yet. Without
-          // this a reload hands back a board the player has already been
-          // given — the JIPTL ramp restarting at turn 9 with the whole
-          // interior off the plot again.
-          released: !!t.released,
-        };
-      }
-      return data;
+        state: G,
+        fieldNames: FIELDS,
+        targets: TARGETS,
+      });
     }
 
     function write() {
@@ -1152,7 +1082,13 @@ const Game = (() => {
     function read() {
       try {
         const data = JSON.parse(localStorage.getItem(KEY));
-        return data && data.version === VERSION && data.random ? data : null;
+        const checked = GameRules.Save.validate(data, {
+          version: VERSION,
+          fieldNames: FIELDS,
+          targetIds: TARGETS.map((target) => target.id),
+          requireRandom: true,
+        });
+        return checked.ok ? data : null;
       } catch (e) { return null; }
     }
 
@@ -1173,15 +1109,16 @@ const Game = (() => {
   // damage and repair overnight, while ships and the nuclear sites move in whole
   // steps — 100 → 50 → 0 — and never come back.
   // ============================================================
-  const wearsDown = (t) => TARGET_REPAIR[t.type] !== undefined;
+  const wearsDown = (t) => GameRules.Targets.wearsDown(t, TARGET_REPAIR);
 
   function syncStatus(t) {
-    t.status = t.hp <= 0 ? 'destroyed' : t.hp < 100 ? 'damaged' : 'intact';
+    t.status = GameRules.Targets.status(t.hp);
   }
 
   function damageTarget(t, amount) {
-    t.hp = clamp(t.hp - amount, 0, 100);
-    syncStatus(t);
+    const result = GameRules.Targets.damage(t, amount);
+    t.hp = result.hp;
+    t.status = result.status;
     MapView.updateTarget(t);
     assertState(`target damage (${t.id})`);
   }
@@ -1210,7 +1147,7 @@ const Game = (() => {
     if (!wearsDown(t) && t.type !== 'tel') return;   // step-damage sites read true
     const spread = sharp ? SHARP_SPREAD : FRESH_SPREAD;
     G.intel[t.id] = {
-      hp: clamp(Math.round(t.hp + rand(-spread, spread)), 0, 100),
+      hp: GameRules.Assessment.observe(t.hp, spread, Random.int),
       turn: G.turn, sharp: !!sharp,
     };
   }
@@ -1218,19 +1155,15 @@ const Game = (() => {
   // The band the player is shown. Widens with age, and widens UPWARD faster
   // than down, because the thing that happens to an unobserved site is repair.
   function estimate(t) {
-    if (t.hp <= 0) return { lo: 0, hi: 0, mid: 0, known: true, age: 0 };
-    if (!wearsDown(t) && t.type !== 'tel') return { lo: t.hp, hi: t.hp, mid: t.hp, known: true, age: 0 };
-    const rec = G.intel[t.id];
-    if (!rec) return { lo: 100, hi: 100, mid: 100, known: true, age: 0 };  // never touched
-    const age = Math.max(0, G.turn - rec.turn);
-    const spread = (rec.sharp ? SHARP_SPREAD : FRESH_SPREAD) + AGE_SPREAD * age;
-    const growth = (TARGET_REPAIR[t.type] || 0) * age;
-    return {
-      lo: clamp(Math.round(rec.hp - spread), 0, 100),
-      hi: clamp(Math.round(rec.hp + spread + growth), 0, 100),
-      mid: clamp(Math.round(rec.hp + growth / 2), 0, 100),
-      known: false, age,
-    };
+    return GameRules.Assessment.estimate({
+      target: t,
+      record: G.intel[t.id],
+      turn: G.turn,
+      repairRates: TARGET_REPAIR,
+      freshSpread: FRESH_SPREAD,
+      sharpSpread: SHARP_SPREAD,
+      ageSpread: AGE_SPREAD,
+    });
   }
 
   // ============================================================
@@ -4255,9 +4188,6 @@ const Game = (() => {
     const ad = airDefenseWeight();
     const prof = assetProfile(pkg.asset);
     const raw = unsuppressed(pkg);
-    // TLAMs fly under the SAM belt — air defense doesn't degrade a Tomahawk.
-    // Its misses come from weather, targeting, or launch faults, not the threat.
-    const adPenalty = prof.ad * ad + (raw ? RAW_PENALTY : 0);
     // What it costs to fly outside the tasking order (see ATO in data.js). A
     // late frag is a package the staff had thirty-six hours less to plan: a
     // hasty target study, whatever tanker happens to be airborne, and a crew
@@ -4265,8 +4195,6 @@ const Game = (() => {
     // into adPenalty, because the planning modal names each penalty out loud
     // and "air defenses degrade this package" is the wrong sentence for it.
     const over = atoOver(pkg);
-    const surge = over * ATO.surgeEffects;
-    const surgeLoss = 1 + over * ATO.surgeLoss;
     const dmgBonus = target.hp < 100 ? 0.15 : 0;
     // What Iran has learned about the way this campaign is being flown. Fly one
     // platform into the ground and this is the bill for it (see IranAI.adaptStep).
@@ -4277,7 +4205,6 @@ const Game = (() => {
     // beside dmgBonus rather than onto pkg.base, so it is still bounded by the
     // same clamp and a package flown raw into a live belt does not get it back.
     const lvl = strikeScale();
-    const success = clamp(pkg.base - adPenalty - adaptPenalty - surge + dmgBonus + lvl.edge, 0.05, 0.95);
     // A packed bomber cell over a live SAM belt is not a risk, it is a funeral —
     // hence the higher cap when the tier is being flown outside its phase.
     //
@@ -4292,8 +4219,6 @@ const Game = (() => {
     // tired, at the end of a cycle, off a plan written in an hour, and the
     // things that kill aircrew with the belt already down are exactly the
     // things fatigue makes worse.
-    const lossRisk = clamp(((prof.attrition || 0) + prof.loss * ad * (raw ? RAW_LOSS : 1)) * surgeLoss,
-      0, raw ? 0.70 : 0.35);
     // What the player is buying: full effects on the good half of the success
     // band, half effects on the rest of it. Sites that wear down lose condition;
     // the buried nuclear sites take a whole step.
@@ -4304,10 +4229,35 @@ const Game = (() => {
     // follow up, and nothing about a sunk hull ever comes back.
     const gradual = wearsDown(target);
     const oneShot = target.type === 'ship';
+    const calculated = GameRules.Strike.estimate({
+      profile: prof,
+      airDefense: ad,
+      raw,
+      rawPenalty: RAW_PENALTY,
+      rawLossMultiplier: RAW_LOSS,
+      over,
+      surgeEffects: ATO.surgeEffects,
+      surgeLoss: ATO.surgeLoss,
+      base: pkg.base,
+      adaptPenalty,
+      damageBonus: dmgBonus,
+      levelEdge: lvl.edge,
+      gradual,
+      oneShot,
+    });
     return {
-      success, adPenalty, adaptPenalty, lossRisk, gradual, oneShot, raw,
-      over, surge, surgeLoss, slots: atoSlots(),
-      fullOdds: success * (oneShot ? 1 : gradual ? 0.5 : 0.6),
+      success: calculated.success,
+      adPenalty: calculated.adPenalty,
+      adaptPenalty,
+      lossRisk: calculated.lossRisk,
+      gradual,
+      oneShot,
+      raw,
+      over,
+      surge: calculated.surge,
+      surgeLoss: calculated.surgeLoss,
+      slots: atoSlots(),
+      fullOdds: calculated.fullOdds,
       // Scaled only for sites that wear down. A buried hall moves in whole steps
       // and a hull is on the bottom or she is not, so there is no such thing as
       // a heavier package against either — multiplying `50` there would be a
@@ -4340,6 +4290,42 @@ const Game = (() => {
   // only package in the game that costs a turn.
   const MISSION_ETA = { f35: 1, fighter: 1, cruise: 1, stealth: 2, heavy: 1 };
 
+  // The frequently shared resource and campaign meters have one write boundary.
+  // Mission subsystems call these instead of assigning Game.G across modules.
+  function spendResource(key, amount) {
+    if (!Object.prototype.hasOwnProperty.call(G.res, key) || G.res[key] < amount) return false;
+    G.res[key] = GameRules.Resources.spend(G.res[key], amount);
+    return true;
+  }
+
+  function refillResource(key, amount, capacity) {
+    if (!Object.prototype.hasOwnProperty.call(G.res, key)) return false;
+    const cap = capacity == null ? G.caps[key] : capacity;
+    G.res[key] = GameRules.Resources.refill(G.res[key], amount, cap);
+    return true;
+  }
+
+  function moveWorld(amount) {
+    const before = G.world;
+    G.world = clamp(G.world + amount, 0, 100);
+    return G.world - before;
+  }
+
+  function moveOil(amount) {
+    const before = G.oil;
+    G.oil = Math.max(60, G.oil + amount);
+    return G.oil - before;
+  }
+
+  function addCasualties(amount) {
+    G.casualties.us += amount;
+    return G.casualties.us;
+  }
+
+  function noteAdaptation(asset, level) {
+    G.adaptSeen[asset] = level;
+  }
+
   // `coaId` is set only when the package is a leg of a staffed course of action
   // (see takeCoa). It is carried on the mission so the panel can say which
   // option is already flying and so scrubbing the last leg puts that option
@@ -4360,26 +4346,32 @@ const Game = (() => {
     // fuel in the air is booked before anything leaves the deck
     const { cost, ok } = tankersFor(target, pkg);
     if (!ok) return;
+    const bill = GameRules.Resources.strikeBill(pkg, {
+      resourceKey: resKey(pkg.asset),
+      tankers: cost,
+      pgm: pgmLedger() ? pgmCost(pkg) : 0,
+      surge: atoOver(pkg) > 0,
+    });
     // The boat pays for her own shot out of her tubes; everything else comes off
     // the theater magazine. Tomahawks come out of the finite reservoir as well
     // as the ready launchers — every round fired is one the war never gets back.
     if (pkg.sub) {
-      G.torpedoes = Math.max(0, (G.torpedoes ?? 0) - pkg.qty);
+      G.torpedoes = GameRules.Resources.spend(G.torpedoes ?? 0, bill.magazineAmount);
     } else if (pkg.escort === 'sm6') {
       // The interesting one. No Tomahawk left the ship and no ready launcher was
       // spent — what came out is the umbrella over Al Udeid and Al Dhafra, two
       // rounds of it, at the shoot-shoot rate the screen engages everything else
       // at (NAVAL_BMD.perTrack). One magazine, two missions.
-      G.bmdPool = Math.max(0, (G.bmdPool || 0) - pkg.qty);
+      G.bmdPool = GameRules.Resources.spend(G.bmdPool || 0, bill.magazineAmount);
     } else if (pkg.escort === 'nsm') {
-      G.nsmPool = Math.max(0, (G.nsmPool || 0) - pkg.qty);
+      G.nsmPool = GameRules.Resources.spend(G.nsmPool || 0, bill.magazineAmount);
     } else {
-      G.res[resKey(pkg.asset)] -= pkg.qty;
-      if (pkg.asset === 'cruise') G.tlamPool = Math.max(0, (G.tlamPool || 0) - pkg.qty);
+      spendResource(bill.readyAsset, bill.readyAmount);
+      if (bill.tlam) G.tlamPool = GameRules.Resources.spend(G.tlamPool || 0, bill.tlam);
     }
     // the bombs themselves, where anyone is counting them
-    if (pgmLedger()) G.pgm = Math.max(0, (G.pgm ?? 0) - pgmCost(pkg));
-    G.tankers -= cost;
+    if (bill.pgm) G.pgm = GameRules.Resources.spend(G.pgm ?? 0, bill.pgm);
+    G.tankers = GameRules.Resources.spend(G.tankers, bill.tankers);
 
     // the joint option is one-shot: committing it against either site spends it
     if (pkg.joint) { G.israelJointAvailable = false; syncJointPackages(); }
@@ -4456,7 +4448,7 @@ const Game = (() => {
     else if (pkg.escort === 'sm6') G.bmdPool = Math.min(bmdCapacity(), (G.bmdPool || 0) + pkg.qty);
     else if (pkg.escort === 'nsm') G.nsmPool = Math.min(NSM_LOAD, (G.nsmPool || 0) + pkg.qty);
     else {
-      G.res[resKey(pkg.asset)] += pkg.qty;
+      refillResource(resKey(pkg.asset), pkg.qty, Number.POSITIVE_INFINITY);
       if (pkg.asset === 'cruise') G.tlamPool = (G.tlamPool || 0) + pkg.qty;
     }
     // weapons that were never built up go back on the rack. No clamp against
@@ -5864,8 +5856,7 @@ const Game = (() => {
   // permanently capped. Finish a battery once and that ground never carries
   // more than 60% of the threat it opened the war at, however many nights
   // Tehran is given to work on it.
-  const repairCeiling = (t) =>
-    (t.type === 'airdefense' && t.killedOnce) ? AD_RECONSTITUTION.cap : 100;
+  const repairCeiling = (t) => GameRules.Targets.repairCeiling(t, AD_RECONSTITUTION);
 
   function repairTargets() {
     // a decapitated command chain cannot organize a national repair effort:
@@ -5900,35 +5891,27 @@ const Game = (() => {
     const back = [];
     const returned = [];
     for (const t of TARGETS) {
-      if (!wearsDown(t) || t.hp >= repairCeiling(t)) continue;
-      if (G.struckThisTurn.includes(t.id)) continue;   // still burning
-      // ---- the reserve moves ----
-      // Rubble does not repair; a destroyed site is replaced. The `quiet` window
-      // is the decision: go back and keep the wreckage smoking and it stays
-      // wreckage, because the reserve will not roll a battery into a place that
-      // is still being serviced nightly. This runs on the national repair
-      // effort like everything else, so a decapitated command chain and a
-      // wrecked fuel network slow it down too.
-      if (t.hp <= 0) {
-        if (t.type !== 'airdefense') continue;
-        if (G.turn - (t.lastStruck || 0) < AD_RECONSTITUTION.quiet) continue;
-        const wasDown = t.status === 'destroyed';
-        t.hp = Math.min(AD_RECONSTITUTION.cap,
-          t.hp + Math.max(1, Math.round(AD_RECONSTITUTION.rate * eff)));
-        syncStatus(t);
-        MapView.updateTarget(t);
+      const result = GameRules.Targets.repair({
+        target: t,
+        repairRates: TARGET_REPAIR,
+        reconstitution: AD_RECONSTITUTION,
+        turn: G.turn,
+        struck: G.struckThisTurn.includes(t.id),
+        efficiency: eff,
+      });
+      if (!result) continue;
+      t.hp = result.hp;
+      t.status = result.status;
+      MapView.updateTarget(t);
+      if (result.reconstituted) {
         // The player is told the belt is back, and NOT told how strong it is —
         // observe() is deliberately not called. The stale intel record from
         // before the site died is what the estimate keeps working from, which
         // means the band opens up over exactly the nights the threat is
         // returning. That is the collection tasking earning its slot.
-        if (wasDown) returned.push(t.short);
+        if (result.returned) returned.push(t.short);
         continue;
       }
-      const rate = Math.max(1, Math.round(TARGET_REPAIR[t.type] * eff));
-      t.hp = Math.min(repairCeiling(t), t.hp + rate);
-      syncStatus(t);
-      MapView.updateTarget(t);
       // Note what is happening, not by how much: nobody is standing over these
       // sites with a clipboard. The player knows the crews are working and can
       // see their own estimate widen — the exact number is the thing they are
@@ -6995,6 +6978,7 @@ const Game = (() => {
   // into its caller. A try around the outside would catch essentially nothing.
   let resolveGuard = false;    // a turn is inside the boundary right now
   let resolveWatchdog = 0;
+  let resolution = null;
   // Deliberately NOT on G and NOT in FIELDS: both are true only between END TURN
   // and close(), and busy() makes writing a save in that window impossible by
   // construction. A save can never observe them set.
@@ -7010,7 +6994,7 @@ const Game = (() => {
   // slowly is not a stall. So it re-arms while any dialog is on screen, and
   // guard() re-arms it on every hop — each leg gets the full budget rather than
   // the whole night sharing one.
-  const RESOLVE_TIMEOUT = 45000;
+  const RESOLVE_WATCHDOG = 15 * 60 * 1000;
 
   function armWatchdog() {
     clearTimeout(resolveWatchdog);
@@ -7018,8 +7002,8 @@ const Game = (() => {
       if (!resolveGuard) return;
       // a modal is up: the turn is waiting on a person, not stuck
       if (document.querySelector('.overlay:not(.hidden) .modal')) { armWatchdog(); return; }
-      recoverFromResolution(new Error(`turn resolution stalled for ${RESOLVE_TIMEOUT}ms`));
-    }, RESOLVE_TIMEOUT);
+      recoverFromResolution(new Error(`turn resolution watchdog stalled for ${RESOLVE_WATCHDOG}ms`));
+    }, RESOLVE_WATCHDOG);
   }
 
   // Turns "campaign destroyed" into "strange turn, keep playing."
@@ -7027,6 +7011,7 @@ const Game = (() => {
     if (!resolveGuard) return;   // already recovered, or the turn handed on cleanly
     resolveGuard = false;
     clearTimeout(resolveWatchdog);
+    if (resolution && resolution.diagnostics().stage !== 'idle') resolution.reset(err);
     console.error('CIC: turn resolution failed, recovering', err);
 
     // The map first, and through the teardown that already exists for this
@@ -7077,7 +7062,10 @@ const Game = (() => {
   // One hop of the resolution chain. `label` names the hop so a console trace
   // says where the night came apart.
   const guard = (label, fn) => function () {
-    if (resolveGuard) armWatchdog();   // this leg started; give it a fresh budget
+    if (resolveGuard) {
+      armWatchdog();   // final safety net
+      if (resolution) resolution.heartbeat();
+    }
     try { return fn.apply(this, arguments); }
     catch (err) {
       // Surfaced, never swallowed. A recovered freeze that leaves no stack is a
@@ -7087,6 +7075,12 @@ const Game = (() => {
       recoverFromResolution(err);
     }
   };
+
+  resolution = ResolutionMachine.create({
+    waitingOnPlayer: () => !!document.querySelector('.overlay:not(.hidden) .modal'),
+    onRecover: (error) => recoverFromResolution(error),
+    onTransition: () => { if (resolveGuard) armWatchdog(); },
+  });
 
   // Pressing END TURN opens with the watch floor's call, and nothing flies
   // until it has finished. Resolution below fills the map with launch clips,
@@ -7105,7 +7099,10 @@ const Game = (() => {
     resolveGuard = true;      // from here to close(), the boundary is live
     armWatchdog();
     assertState(`turn ${G.turn} orders locked`);
-    AudioSys.playThen('strikeForce', guard('resolveTurn', resolveTurn));   // the night steps off
+    resolution.begin(() => {
+      AudioSys.playThen('strikeForce',
+        resolution.callback('opening-call', 'allied-missions', resolveTurn));
+    });
   }
 
   function resolveTurn() {
@@ -7129,7 +7126,7 @@ const Game = (() => {
     // force flow depends on, and the Hill's count of the dead — is deliberately
     // still resolved in the second half, after the salvo lands. Iran hitting
     // Haifa tonight has to be able to cost you Incirlik tonight, not next turn.
-    resolveMissions(guard('bda', (bda) => {
+    resolveMissions(resolution.callback('allied-missions', 'bda', (bda) => {
       markResolutionStage(`turn ${G.turn} strikes resolved`);
       assertState(`turn ${G.turn} strike resolution`);
       // Israel moves between the BDA and Iran's answer — if they went tonight,
@@ -7205,7 +7202,7 @@ const Game = (() => {
         ...repairs, ...phase, ...objectives, ...gaps, ...staffed, ...fleet];
       assertState(`turn ${G.turn} allied resolution`);
 
-      MapView.whenFootageDone(guard('footage', () => {
+      MapView.whenFootageDone(resolution.callback('bda', 'allied-event', () => {
         // An ally's package flies on the strategic plot before the report that
         // explains it, in the same order the watch floor got it: tracks inbound
         // from the west first, prose afterwards. Nothing here can change an
@@ -7213,10 +7210,11 @@ const Game = (() => {
         // skips the animation loses only the picture.
         const allied = israeli && israeli.alliedStrike ? israeli.alliedTargets : null;
         MapView.alliedStrike(allied, guard('alliedStrike', () => {
-          if (!ours.length) { iranianResponse(); return; }
+          const respond = resolution.callback('allied-event', 'iranian-response', iranianResponse);
+          if (!ours.length) { respond(); return; }
           AudioSys.play('bdaReport');   // the watch floor reads the night back to you
           UI.showReport(`BATTLE DAMAGE ASSESSMENT — DAY ${day}, TURN ${G.turn}`, ours,
-            guard('iranianResponse', iranianResponse));
+            respond);
         }));
       }));
 
@@ -7247,7 +7245,8 @@ const Game = (() => {
 
         // Iran's salvos fly on the map — missiles, drone swarms, intercepts —
         // before the damage assessment lands and covers the screen
-        MapView.animateIranianAttacks(events, guard('retaliation', () => {
+        MapView.animateIranianAttacks(events,
+          resolution.callback('iranian-response', 'retaliation-report', () => {
           for (const ev of events) applyEvent(ev);
           markResolutionStage(`turn ${G.turn} retaliation applied`);
 
@@ -7436,7 +7435,7 @@ const Game = (() => {
           recordTurn(all);
           const result = cutoff ? buildResult('defeat', 'cutoff') : checkEnd();
 
-          const close = guard('close', () => {
+          const close = resolution.callback('retaliation-report', 'close', () => {
             // the turn is over: the map animates at speed again and the button
             // goes back to END TURN for the next one
             MapView.setFastForward(false);
@@ -7445,7 +7444,12 @@ const Game = (() => {
             // dropped rather than played under the endgame screen
             if (result) {
               markResolutionStage(`turn ${G.turn} complete`);
-              arrivalCalls = []; resolveGuard = false; clearTimeout(resolveWatchdog); finish(result); return;
+              arrivalCalls = [];
+              resolveGuard = false;
+              clearTimeout(resolveWatchdog);
+              resolution.finish();
+              finish(result);
+              return;
             }
             markResolutionStage(`turn ${G.turn} complete`);
             nextTurn();
@@ -7456,6 +7460,7 @@ const Game = (() => {
             // already cost the player nothing but a leader call.
             resolveGuard = false;
             clearTimeout(resolveWatchdog);
+            resolution.finish();
             // This is the quiet the arrival calls were held for — the reports are
             // closed and nothing else is talking (see arrivalCalls). Paris was
             // always going to be a night behind London, so the second coalition
@@ -7639,45 +7644,25 @@ const Game = (() => {
 
   // ---- endings ----
   function checkEnd() {
-    if (G.over) return null;
-    // primary win: the nuclear program is gone and Iran can no longer fight
-    if (G.nukeDegraded() >= 100 && G.iranBroken()) return buildResult('victory', 'military');
-    // The race the whole war was against: they got there first. Through v2.17
-    // this fired on the tick the progress crossed, so the test and the ending
-    // were the same instant. They are now NUCLEAR.window turns apart — the
-    // crossing is stamped in breakoutTick and this reads the clock it started —
-    // and what the ending describes is the weapon leaving the assembly building
-    // rather than the test itself. A tactical release defuses it; nothing else
-    // does, and running out the window is the default because doing nothing is
-    // what most presidents in this position would in fact do.
-    if (G.nuclear.tested && !G.nuclear.defused &&
-        G.turn - G.nuclear.testedTurn >= NUCLEAR.window) return buildResult('defeat', 'breakout');
-    // the losses are military and political:
-    if (G.casualties.us >= casualtyLimit()) return buildResult('defeat', 'casualties');
-    // An approval collapse means two different things depending on when it
-    // happens, and they are not the same ending. Inside the plan the country
-    // turned on the president over how the war was being fought — impeachment.
-    // Past the plan it simply outlasted the country's patience, which is what
-    // the old turn-30 wall used to model, so the wall's two endings live here
-    // now: culminated for nothing, or frozen with the program mostly gone.
-    if (G.approval <= collapseAt()) {
-      if (G.turn <= G.softCap) return buildResult('defeat', 'impeachment');
-      return G.nukeDegraded() < 50
-        ? buildResult('defeat', 'exhaustion')
-        : buildResult('stalemate', 'time');
-    }
-    // The strait wall was 7 and it was calibrated against a game whose campaigns
-    // ended on turn 7 — it could barely fire, so nobody noticed it was brittle.
-    // With v1.65's campaigns running to twenty turns it became the single most
-    // common way competent play lost: HALF of scripted campaigns died here, and
-    // the median longest closed run was exactly 7, i.e. wars ran up to the wall
-    // and stopped on it. A closure is already punished hard and continuously —
-    // a $55 premium on the barrel, and the approval that costs every night — so
-    // the instant loss on top of it was charging twice for one Iranian decision.
-    // Twelve is still a strait shut for most of a week and a half, which is a
-    // genuine economic catastrophe rather than a bad fortnight.
-    if (G.hormuzClosedTurns >= HORMUZ_LIMIT || G.oil >= 240) return buildResult('defeat', 'economy');
-    return null;
+    const ending = GameRules.Victory.ending({
+      over: G.over,
+      degradation: G.nukeDegraded(),
+      iranBroken: G.iranBroken(),
+      nuclearTested: G.nuclear.tested,
+      nuclearDefused: G.nuclear.defused,
+      nuclearTestedTurn: G.nuclear.testedTurn,
+      nuclearWindow: NUCLEAR.window,
+      turn: G.turn,
+      casualties: G.casualties.us,
+      casualtyLimit: casualtyLimit(),
+      approval: G.approval,
+      collapseAt: collapseAt(),
+      softCap: G.softCap,
+      hormuzClosedTurns: G.hormuzClosedTurns,
+      hormuzLimit: HORMUZ_LIMIT,
+      oil: G.oil,
+    });
+    return ending ? buildResult(ending.kind, ending.reason) : null;
   }
 
   // ---- grading ----
@@ -8446,6 +8431,7 @@ const Game = (() => {
     // what approval was allowed to be. `G.approval` is a getter that throws on
     // assignment; these are what it throws you toward.
     movePublic, erodeBase, habitMult, collapseAt,
+    spendResource, refillResource, moveWorld, moveOil, addCasualties, noteAdaptation,
     // the turn lock, read-only: anything that reaches for the board — the
     // walkthrough, the primer — has to answer to it (see Tour.start)
     busy,
@@ -8511,5 +8497,6 @@ const Game = (() => {
     // the southern front, for the council panel — `houthiStrength` is what the
     // readout draws and `reachesYemen` is why the aimpoints are greyed out
     houthiStrength, reachesYemen, yemenTargets,
+    resolutionStatus: () => resolution.diagnostics(),
     FORD_TRANSIT_TURNS, B2_TRANSIT_TURNS, HEAVY_TRANSIT_TURNS, WAR_POWERS_TURN, HORMUZ_LIMIT, G };
 })();

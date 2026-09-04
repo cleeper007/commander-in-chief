@@ -416,8 +416,8 @@ const SpecOps = (() => {
   function successAftermath(G, events) {
     if (Random.float() < 0.45) {
       const c = rand(4, 10);
-      G.casualties.us += c;
-      G.oil += 8;
+      Game.addCasualties(c);
+      Game.moveOil(8);
       events.push({
         cls: 'iran', title: 'Leaderless IRGC units lash out',
         text: `Before the paralysis sets in, a rogue missile brigade empties its launchers at US positions on standing orders no one is alive to countermand. ${c} Americans are dead in a retaliation nobody in Tehran ordered.`,
@@ -459,8 +459,8 @@ const SpecOps = (() => {
     heloDown(G, events) {
       G.raid = 'success';
       const heloGain = Game.movePublic(6);
-      G.world = clamp(G.world - 3, 0, 100);
-      G.casualties.us += 1;
+      Game.moveWorld(-3);
+      Game.addCasualties(1);
       G.stats.aircraftLost++;
       G.regimeChaosTurns = 2;
       events.push({
@@ -474,9 +474,9 @@ const SpecOps = (() => {
     mixed(G, events) {
       G.raid = 'pyrrhic';
       const mixedCost = Game.movePublic(-3);
-      G.world = clamp(G.world - 5, 0, 100);
+      Game.moveWorld(-5);
       const c = rand(10, 16);
-      G.casualties.us += c;
+      Game.addCasualties(c);
       G.stats.aircraftLost += 2;
       G.hostageCrisis = true;
       G.regimeChaosTurns = 2;
@@ -508,9 +508,9 @@ const SpecOps = (() => {
       // decision, and it is the president's alone. See APPROVAL.erode.
       const failCost = Game.movePublic(-9);
       Game.erodeBase(APPROVAL.erode.raidLost);
-      G.world = clamp(G.world - 7, 0, 100);
+      Game.moveWorld(-7);
       const c = rand(9, 14);
-      G.casualties.us += c;
+      Game.addCasualties(c);
       G.stats.aircraftLost += 2;
       G.hostageCrisis = true;
       events.push({
@@ -592,10 +592,10 @@ const SpecOps = (() => {
     // The night is decided here, before anything is drawn.
     const branch = pickBranch(G);
 
-    G.res.specops = 0;
+    if (!Game.spendResource('specops', 1)) return;
     G.raidThisTurn = true;
     // the insert is an act the world sees, whatever happens on the objective
-    G.world = clamp(G.world - 4, 0, 100);
+    Game.moveWorld(-4);
     lock(true);
     UI.renderAll(G);
 

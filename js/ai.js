@@ -405,7 +405,7 @@ const IranAI = (() => {
     for (const asset of ['cruise', 'f35', 'fighter', 'stealth', 'heavy']) {
       const lvl = adaptLevel(asset);
       if (lvl <= (G.adaptSeen[asset] || 0)) continue;
-      G.adaptSeen[asset] = lvl;
+      Game.noteAdaptation(asset, lvl);
       const pool = ADAPT_TEXT[asset];
       return {
         cls: 'iran', title: `IRAN ADAPTS — ${LABEL[asset]} EFFECTIVENESS DEGRADED`,

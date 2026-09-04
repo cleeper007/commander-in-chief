@@ -120,3 +120,7 @@ const CosmeticRandom = (() => {
   const chance = (probability) => float() < probability;
   return { float, int, pick, chance };
 })();
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { Random, CosmeticRandom };
+}
