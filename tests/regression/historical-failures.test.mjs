@@ -79,6 +79,23 @@ test('fast-forward closes strike-wall and live mission artifacts exactly once', 
   assert.equal(completed, 1, 'watchdog completed the skipped mission twice');
 });
 
+test('backgrounding the tab completes presentation callbacks exactly once', () => {
+  const harness = boot();
+  harness.api.Random.seed(24004);
+  const fx = harness.sandbox.document.getElementById('fx-layer');
+  let completed = 0;
+  harness.api.MapView.alliedStrike(['ad-tehran'], () => { completed++; }, 'israel');
+  harness.clock.advance(0);
+  assert.ok(fx.children.length > 0, 'fixture did not create live flight artifacts');
+
+  harness.sandbox.document.hidden = true;
+  harness.sandbox.document.dispatchEvent({ type: 'visibilitychange' });
+  assert.equal(completed, 1);
+  assert.equal(fx.children.length, 0);
+  harness.clock.advance(20000);
+  assert.equal(completed, 1, 'presentation watchdog completed the hidden-tab mission twice');
+});
+
 test('overlapping strike feeds complete every mission once', () => {
   const data = fixture('issue-2-overlapping-strike-feeds');
   const harness = start(data.seed, 'normal');

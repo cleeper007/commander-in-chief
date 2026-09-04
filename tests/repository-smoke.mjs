@@ -95,6 +95,32 @@ const invariantsAt = html.indexOf('js/invariants.js');
 const gameAt = html.indexOf('js/game.js');
 assert.ok(invariantsAt >= 0 && invariantsAt < gameAt, 'invariants.js must load before game.js');
 
+// Phase 4 accessibility contracts. These are intentionally structural rather
+// than snapshot tests: copy and layout may evolve, but the alternate route and
+// the state exposed to assistive technology must not disappear unnoticed.
+assert.match(html, /<meta name="viewport" content="[^"]*width=device-width(?![^"]*user-scalable=no)[^"]*">/,
+  'the viewport must allow browser zoom');
+assert.match(html, /id="btn-comfort-title"[^>]*aria-pressed="false"/,
+  'the title must expose the comfortable-reading toggle state');
+assert.match(html, /id="operations-panel"[\s\S]*?id="operations-index"/,
+  'the situation room needs a list-based operational picture');
+for (const id of ['toggle-bases', 'zoom-in', 'zoom-out', 'zoom-reset', 'btn-mute', 'btn-music', 'btn-feedback']) {
+  assert.match(html, new RegExp(`id="${id}"[^>]*aria-label="[^"]+"`), `${id} needs an explicit accessible name`);
+}
+for (const button of html.matchAll(/<button\b[^>]*class="[^"]*modal-close[^"]*"[^>]*>/g)) {
+  assert.match(button[0], /aria-label="[^"]+"/, `icon-only dialog close needs a name: ${button[0]}`);
+}
+for (const dialog of html.matchAll(/<[^>]+role="dialog"[^>]*>/g)) {
+  assert.match(dialog[0], /aria-labelledby="[^"]+"|aria-label="[^"]+"/,
+    `dialog needs an accessible name: ${dialog[0]}`);
+}
+
+const style = fs.readFileSync(path.join(ROOT, 'css/style.css'), 'utf8');
+assert.match(style, /html\[data-reading="comfortable"\][\s\S]*?--essential-font-size:\s*14px/,
+  'comfortable reading must raise essential text to at least 14px');
+assert.match(style, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?#ticker-text[\s\S]*?animation:\s*none/,
+  'reduced motion must stop the news crawl without dropping its text');
+
 for (const file of filesUnder('js').filter((name) => name.endsWith('.js') && name !== 'js/random.js')) {
   const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
   assert.equal(/Math\.random\s*\(/.test(source), false, `${file} bypasses the campaign RNG`);

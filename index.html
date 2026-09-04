@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Commander in Chief: Crisis in the Gulf</title>
 
 <!-- Home-screen / tab icons. iOS only reads apple-touch-icon (PNG, no alpha);
@@ -19,9 +19,9 @@
      stays invisible in the tab for as long as that row survives. Renaming the
      URL is the only thing it listens to. Stamp these with the badge on every
      bump, even when only the art changed. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=2.39">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2.39">
-<link rel="manifest" href="site.webmanifest?v=2.39">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png?v=2.40">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=2.40">
+<link rel="manifest" href="site.webmanifest?v=2.40">
 <meta name="theme-color" content="#0a1626">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -35,7 +35,7 @@
      version-badge) renames every asset URL, which is the only thing that
      reliably forces the fetch.
      Bump the stamps and the badge together. -->
-<link rel="stylesheet" href="css/style.css?v=2.39">
+<link rel="stylesheet" href="css/style.css?v=2.40">
 </head>
 <body>
 
@@ -57,7 +57,7 @@
 
 <!-- ============ TITLE SCREEN ============ -->
 <div id="title-screen" class="overlay">
-  <div class="version-badge">v2.39<span class="beta-tag">BETA</span></div>
+  <div class="version-badge">v2.40<span class="beta-tag">BETA</span></div>
   <!-- The badge's opposite number. It says the same kind of thing the BETA tag
        says — this build is still moving — but it is a promise rather than a
        disclaimer, so it gets the corner and the movement instead of a footnote.
@@ -85,8 +85,11 @@
     <div id="difficulty-select">
       <div class="diff-label">DIFFICULTY</div>
     </div>
+    <button id="btn-comfort-title" class="btn-secondary reading-toggle" type="button"
+            aria-pressed="false">COMFORTABLE READING: OFF</button>
     <button id="btn-start" class="btn-primary">ENTER THE SITUATION ROOM</button>
-    <button id="btn-continue" class="btn-secondary" disabled>CONTINUE SAVED WAR</button>
+    <button id="btn-continue" class="btn-secondary" aria-describedby="continue-help" disabled>CONTINUE SAVED WAR</button>
+    <span id="continue-help" class="control-help">No saved campaign is available on this device.</span>
   </div>
 </div>
 
@@ -103,28 +106,31 @@
              same terms as those seals — alt="" and aria-hidden, because the
              title beside it already reads CENTCOM and a screen reader
              announcing the mark as well would say it twice. -->
-        <img id="cop-seal" src="icons/seal-centcom.png?v=2.39" alt="" aria-hidden="true">
+        <img id="cop-seal" src="icons/seal-centcom.png?v=2.40" alt="" aria-hidden="true">
         <span class="panel-title" id="map-panel-title">CENTCOM COMMON OPERATING PICTURE</span>
         <span id="map-clock">DAY 1 — 20:00 ET</span>
         <div id="map-zoom-controls">
           <!-- shown by default: the class here must match forwardOn in map.js -->
-          <button id="toggle-bases" class="layer-on" title="Hide forward basing layer">BASES</button>
-          <button id="zoom-in" title="Zoom in">+</button>
-          <button id="zoom-out" title="Zoom out">−</button>
-          <button id="zoom-reset" title="Reset view">⌂</button>
+          <button id="toggle-bases" class="layer-on" title="Hide forward basing layer"
+                  aria-label="Forward bases" aria-controls="forward-layer" aria-pressed="true">BASES</button>
+          <button id="zoom-in" title="Zoom in" aria-label="Zoom map in">+</button>
+          <button id="zoom-out" title="Zoom out" aria-label="Zoom map out">−</button>
+          <button id="zoom-reset" title="Reset view" aria-label="Reset map view">⌂</button>
           <!-- Mute lives with the map controls, not in the status row. It is the
                only CONTROL among eight readouts, and it was parked at the far
                right of a row that overflows on a narrow landscape phone — so the
                one thing in there a player needs to press was the first thing to
                scroll off an edge nothing marked. -->
-          <button id="btn-mute" title="Toggle sound">🔊</button>
+          <button id="btn-mute" title="Sound on — click to mute"
+                  aria-label="Mute sound effects and voice" aria-pressed="false">🔊</button>
           <!-- The score's own switch, next to the master. Separate because the
                two are wanted separately: plenty of players keep the watch-floor
                calls and drop the music. -->
           <!-- Starts off, so the markup starts off too — setMusicOff at boot
                rewrites both attributes, but the pre-script paint should not
                claim the score is playing. -->
-          <button id="btn-music" class="off" title="Music off — click to play" aria-pressed="false">🎵</button>
+          <button id="btn-music" class="off" title="Music off — click to play"
+                  aria-label="Background music" aria-pressed="false">🎵</button>
           <!-- The beta's one piece of instrumentation, and it lives here for the
                same reason mute does: it is a CONTROL, and the status row is the
                row that overflows first on a narrow landscape phone. An icon
@@ -132,7 +138,7 @@
                BASES is the only label with room. Reachable on every turn of
                every night, because the turn a tester finds something is the turn
                they can still describe it. -->
-          <button id="btn-feedback" title="Report a problem">⚑</button>
+          <button id="btn-feedback" title="Report a problem" aria-label="Report a problem">⚑</button>
         </div>
       </div>
       <div id="map-container">
@@ -144,7 +150,8 @@
              zoom out and they are there. Widening the frame to hold them would
              cost about 30% off everything else on the chart, which is the whole
              board. Being off the picture is what "out of reach" looks like. -->
-        <svg id="map" viewBox="0 0 1000 760" preserveAspectRatio="xMidYMid meet">
+        <svg id="map" viewBox="0 0 1000 760" preserveAspectRatio="xMidYMid meet"
+             role="img" aria-label="CENTCOM operational map. A complete text alternative is available in the Operations index.">
           <g id="world"></g>
         </svg>
         <div id="tooltip" class="hidden"></div>
@@ -343,6 +350,27 @@
         </div></div>
       </div>
 
+      <!-- A keyboard and screen-reader path through the operational picture.
+           It contains only information the player has already earned: hidden
+           sites stay out until Game.plotted() releases them. On hard, target
+           rows open the same strike planner as the map. -->
+      <div class="panel collapsed" id="operations-panel" data-panel="operations">
+        <button type="button" class="panel-head" aria-expanded="false">
+          <span class="panel-caret" aria-hidden="true">▾</span>
+          <span class="panel-title">OPERATIONS INDEX</span>
+          <span class="panel-badge"></span>
+          <span class="panel-meta" id="operations-status"></span>
+        </button>
+        <div class="panel-body"><div class="panel-body-inner">
+          <p id="operations-help" class="ops-help">Text access to targets, assessments, bases, carriers, missions, and map controls.</p>
+          <div class="ops-map-controls" aria-label="Map controls">
+            <button id="ops-toggle-bases" type="button" aria-pressed="true">FORWARD BASES SHOWN</button>
+            <button id="ops-reset-map" type="button">RESET MAP VIEW</button>
+          </div>
+          <div id="operations-index"></div>
+        </div></div>
+      </div>
+
       <div class="panel collapsed" id="resources-panel" data-panel="resources">
         <button type="button" class="panel-head" aria-expanded="false">
           <span class="panel-caret" aria-hidden="true">▾</span>
@@ -533,6 +561,8 @@
         <button id="btn-nuclear" class="btn-secondary btn-nuclear hidden">RELEASE AUTHORITY</button>
         <button id="btn-brief" class="btn-secondary hidden">BRIEF ME</button>
         <button id="btn-recovery" class="btn-secondary hidden">RECOVERY</button>
+        <button id="btn-comfort" class="btn-secondary reading-toggle" type="button"
+                aria-label="Comfortable reading mode" aria-pressed="false">READING</button>
         <button id="btn-primer" class="btn-secondary">HOW TO PLAY</button>
         <button id="btn-save-quit" class="btn-secondary">SAVE &amp; QUIT</button>
         <button id="btn-new-game" class="btn-secondary">NEW GAME</button>
@@ -542,7 +572,7 @@
 
   <!-- Bottom status bar -->
   <div id="bottom-bar">
-    <div id="status-row">
+    <div id="status-row" role="region" aria-label="Campaign status">
       <!-- TURN leads the row. The row scrolls sideways on a narrow landscape
            phone, and whatever sits last is what falls off the edge; the campaign
            clock is the one readout that orients every other number in here, so
@@ -553,7 +583,8 @@
       </div>
       <div class="stat" id="stat-capacity">
         <div class="stat-label">IRAN WAR CAPACITY</div>
-        <div class="defcon-meter" id="capacity-meter"></div>
+        <div class="defcon-meter" id="capacity-meter" role="meter" aria-label="Iran war capacity"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"></div>
         <div class="stat-value" id="capacity-value">100%</div>
       </div>
       <div class="stat">
@@ -601,7 +632,7 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="strike-modal-title">
     <div class="modal-header">
       <span class="panel-title" id="strike-modal-title">STRIKE PLANNING — <span id="strike-target-name"></span></span>
-      <button class="modal-close" data-close="strike-modal">✕</button>
+      <button class="modal-close" data-close="strike-modal" aria-label="Close strike planning">✕</button>
     </div>
     <div class="modal-body">
       <p id="strike-target-desc" class="dim"></p>
@@ -609,8 +640,9 @@
       <div id="strike-estimate" class="estimate-box hidden"></div>
     </div>
     <div class="modal-footer">
+      <span id="strike-confirm-help" class="control-help">Choose a strike package to enable authorization.</span>
       <button class="btn-secondary" data-close="strike-modal">ABORT</button>
-      <button id="btn-confirm-strike" class="btn-danger" disabled>AUTHORIZE STRIKE</button>
+      <button id="btn-confirm-strike" class="btn-danger" aria-describedby="strike-confirm-help" disabled>AUTHORIZE STRIKE</button>
     </div>
   </div>
 </div>
@@ -625,7 +657,7 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="target-card-title">
     <div class="modal-header">
       <span class="panel-title" id="target-card-title">TARGET FOLDER — <span id="target-card-name"></span></span>
-      <button class="modal-close" data-close="target-card">✕</button>
+      <button class="modal-close" data-close="target-card" aria-label="Close target folder">✕</button>
     </div>
     <div class="modal-body">
       <p id="target-card-status"></p>
@@ -663,7 +695,7 @@
          which room this is, and a screen reader announcing two seals before it
          gets there is two pieces of furniture read aloud. -->
     <div class="modal-header brief-head">
-      <img class="brief-seal" src="icons/seal-president.svg?v=2.39" alt="" aria-hidden="true">
+      <img class="brief-seal" src="icons/seal-president.svg?v=2.40" alt="" aria-hidden="true">
       <span class="panel-title" id="brief-modal-title">
         <span id="brief-modal-room">STRIKE OPTIONS</span>
         <span class="brief-count" id="brief-modal-when"></span>
@@ -674,10 +706,10 @@
            making them recognise, so it is the thing that turns a folder into a
            meeting. Filled from BRIEF_STAGES `who`/`role` in showRoom. -->
       <span class="brief-who">
-        <img class="brief-seal" id="brief-modal-seal" src="icons/seal-dod.png?v=2.39" alt="" aria-hidden="true">
+        <img class="brief-seal" id="brief-modal-seal" src="icons/seal-dod.png?v=2.40" alt="" aria-hidden="true">
         <span class="brief-who-name" id="brief-modal-who"></span>
       </span>
-      <button class="modal-close" data-close="brief-modal">✕</button>
+      <button class="modal-close" data-close="brief-modal" aria-label="Close nightly briefing">✕</button>
     </div>
     <div class="modal-body">
       <div id="brief-modal-notes"></div>
@@ -711,7 +743,7 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="recovery-modal-title">
     <div class="modal-header">
       <span class="panel-title" id="recovery-modal-title">PERSONNEL RECOVERY — <span id="recovery-modal-who"></span></span>
-      <button class="modal-close" data-close="recovery-modal">✕</button>
+      <button class="modal-close" data-close="recovery-modal" aria-label="Close personnel recovery brief">✕</button>
     </div>
     <div class="modal-body">
       <div id="recovery-brief"></div>
@@ -728,7 +760,7 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="specops-modal-title">
     <div class="modal-header">
       <span class="panel-title" id="specops-modal-title">SPECIAL OPERATIONS — LEADERSHIP DECAPITATION</span>
-      <button class="modal-close" data-close="specops-modal">✕</button>
+      <button class="modal-close" data-close="specops-modal" aria-label="Close special operations brief">✕</button>
     </div>
     <div class="modal-body">
       <p id="specops-brief" class="dim">JSOC has a compartmented plan on the shelf: a deniable
@@ -751,7 +783,7 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="csar-modal-title">
     <div class="modal-header">
       <span class="panel-title" id="csar-modal-title">PERSONNEL RECOVERY — COMBAT SEARCH AND RESCUE</span>
-      <button class="modal-close" data-close="csar-modal">✕</button>
+      <button class="modal-close" data-close="csar-modal" aria-label="Close personnel recovery authorization">✕</button>
     </div>
     <div class="modal-body">
       <p id="csar-brief-text" class="dim"></p>
@@ -841,7 +873,7 @@
     </div>
     <div class="modal-body">
       <div class="nsa-card">
-        <img class="nsa-seal" src="icons/seal-nsa.png?v=2.39" alt="" aria-hidden="true">
+        <img class="nsa-seal" src="icons/seal-nsa.png?v=2.40" alt="" aria-hidden="true">
         <div class="nsa-meta">
           <div class="nsa-from">NSA REYES &middot; NATIONAL SECURITY ADVISOR</div>
           <div class="nsa-head">REQUESTS AN EMERGENCY MEETING</div>
@@ -924,7 +956,7 @@
             <span id="lc-state-text">INCOMING — SECURE LINE</span>
           </div>
           <!-- audio level meter: animates only while the leader is talking -->
-          <div class="call-levels" id="lc-levels">
+          <div class="call-levels" id="lc-levels" aria-hidden="true">
             <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
           </div>
         </div>
@@ -955,13 +987,14 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
     <div class="modal-header">
       <span class="panel-title" id="feedback-title">REPORT A PROBLEM</span>
-      <button class="modal-close" data-close="feedback-modal">✕</button>
+      <button class="modal-close" data-close="feedback-modal" aria-label="Close problem report">✕</button>
     </div>
     <div class="modal-body">
       <p class="dim">Anything at all — something broke, a number looked wrong, a sentence read badly,
         or the war just felt off. Half a sentence is a useful report.</p>
+      <label class="field-label" for="feedback-note">What happened?</label>
       <textarea id="feedback-note" rows="5" placeholder="What happened?"></textarea>
-      <p class="dim feedback-legend">Attached so the turn can be reconstructed. Edit or delete any of it:</p>
+      <label class="dim feedback-legend" for="feedback-diag">Attached so the turn can be reconstructed. Edit or delete any of it:</label>
       <textarea id="feedback-diag" rows="8" spellcheck="false"></textarea>
     </div>
     <div class="modal-footer">
@@ -986,9 +1019,9 @@
   </div>
 </div>
 
-<script src="js/random.js?v=2.39"></script>
-<script src="js/text.js?v=2.39"></script>
-<script src="js/geodata.js?v=2.39"></script>
+<script src="js/random.js?v=2.40"></script>
+<script src="js/text.js?v=2.40"></script>
+<script src="js/geodata.js?v=2.40"></script>
 <!-- The theater chart and the planet behind it, in that order and both
      before map.js, which mounts the second under the first. geodata.js is
      the Middle East at Natural Earth 50m in equirectangular std-parallel
@@ -999,26 +1032,26 @@
      worldgeo-50m.js is deliberately NOT here. It is 764KB and the only zoom
      it would be wanted at is one the globe layer is invisible at, because
      geodata.js is already the 50m authority down there. -->
-<script src="js/worldgeo.js?v=2.39"></script>
-<script src="js/globe.js?v=2.39"></script>
-<script src="js/data.js?v=2.39"></script>
-<script src="js/rules.js?v=2.39"></script>
-<script src="js/resolution.js?v=2.39"></script>
-<script src="js/assess.js?v=2.39"></script>
-<script src="js/map.js?v=2.39"></script>
-<script src="js/ai.js?v=2.39"></script>
-<script src="js/audio.js?v=2.39"></script>
-<script src="js/ui.js?v=2.39"></script>
+<script src="js/worldgeo.js?v=2.40"></script>
+<script src="js/globe.js?v=2.40"></script>
+<script src="js/data.js?v=2.40"></script>
+<script src="js/rules.js?v=2.40"></script>
+<script src="js/resolution.js?v=2.40"></script>
+<script src="js/assess.js?v=2.40"></script>
+<script src="js/map.js?v=2.40"></script>
+<script src="js/ai.js?v=2.40"></script>
+<script src="js/audio.js?v=2.40"></script>
+<script src="js/ui.js?v=2.40"></script>
 <!-- after ui.js: the walkthrough drives the room through UI's exported openPanel
      / openStrikeModal, and ui.js reaches back for Tour.start() at click time -->
-<script src="js/tour.js?v=2.39"></script>
-<script src="js/specops.js?v=2.39"></script>
+<script src="js/tour.js?v=2.40"></script>
+<script src="js/specops.js?v=2.40"></script>
 <!-- before csar.js: the shootdown asks the roster who was in the aircraft, and
      ui.js reaches for Aircrew.renderPanel / endgameHtml at render time -->
-<script src="js/aircrew.js?v=2.39"></script>
-<script src="js/csar.js?v=2.39"></script>
-<script src="js/invariants.js?v=2.39"></script>
-<script src="js/game.js?v=2.39"></script>
-<script src="js/replay.js?v=2.39"></script>
+<script src="js/aircrew.js?v=2.40"></script>
+<script src="js/csar.js?v=2.40"></script>
+<script src="js/invariants.js?v=2.40"></script>
+<script src="js/game.js?v=2.40"></script>
+<script src="js/replay.js?v=2.40"></script>
 </body>
 </html>

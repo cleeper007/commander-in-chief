@@ -866,6 +866,7 @@ const AudioSys = (() => {
       btn.classList.toggle('off', musicOff);
       btn.title = musicOff ? 'Music off — click to play' : 'Music on — click to stop';
       btn.setAttribute('aria-pressed', musicOff ? 'false' : 'true');
+      btn.setAttribute('aria-label', `Background music: ${musicOff ? 'off' : 'on'}`);
     }
   }
 
@@ -907,6 +908,8 @@ const AudioSys = (() => {
     if (btn) {
       btn.textContent = muted ? '🔇' : '🔊';
       btn.title = muted ? 'Sound off — click to unmute' : 'Sound on — click to mute';
+      btn.setAttribute('aria-pressed', String(muted));
+      btn.setAttribute('aria-label', `${muted ? 'Unmute' : 'Mute'} sound effects and voice`);
     }
   }
 

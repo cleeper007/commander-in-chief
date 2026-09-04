@@ -8388,6 +8388,9 @@ const Game = (() => {
     const saved = Save.read();
     const btnContinue = document.getElementById('btn-continue');
     btnContinue.disabled = !saved;
+    const continueHelp = document.getElementById('continue-help');
+    if (continueHelp) continueHelp.classList.toggle('hidden', !!saved);
+    if (saved) btnContinue.removeAttribute('aria-describedby');
     if (saved) btnContinue.addEventListener('click', () => restoreAndStart(saved));
 
     document.getElementById('btn-save-quit').addEventListener('click', () => {

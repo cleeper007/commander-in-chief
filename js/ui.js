@@ -20,6 +20,41 @@ const UI = (() => {
   let selectedPkg = null;
   let currentTarget = null;
 
+  // ---- persisted reading preference ----
+  // This changes prose and decision surfaces, never SVG map micro-labels. The
+  // operations index below is the text alternative for those labels.
+  const READING_KEY = 'cic-comfortable-reading';
+  let comfortableReading = false;
+
+  function setComfortableReading(on, persist = true) {
+    comfortableReading = !!on;
+    if (comfortableReading) document.documentElement.dataset.reading = 'comfortable';
+    else delete document.documentElement.dataset.reading;
+    if (persist) {
+      try { localStorage.setItem(READING_KEY, comfortableReading ? '1' : '0'); } catch (e) {}
+    }
+    for (const btn of document.querySelectorAll('.reading-toggle')) {
+      btn.setAttribute('aria-pressed', String(comfortableReading));
+      btn.title = comfortableReading
+        ? 'Comfortable reading mode on — click for compact text'
+        : 'Comfortable reading mode off — click for larger text and stronger contrast';
+      if (btn.id === 'btn-comfort-title') {
+        btn.textContent = `COMFORTABLE READING: ${comfortableReading ? 'ON' : 'OFF'}`;
+      } else {
+        btn.textContent = comfortableReading ? 'READING ON' : 'READING';
+        btn.setAttribute('aria-label', `Comfortable reading mode: ${comfortableReading ? 'on' : 'off'}`);
+      }
+    }
+  }
+
+  function initReadingMode() {
+    try { comfortableReading = localStorage.getItem(READING_KEY) === '1'; } catch (e) {}
+    setComfortableReading(comfortableReading, false);
+    for (const btn of document.querySelectorAll('.reading-toggle')) {
+      btn.addEventListener('click', () => setComfortableReading(!comfortableReading));
+    }
+  }
+
   // ============================================================
   // COLLAPSIBLE SIDEBAR PANELS
   // ------------------------------------------------------------
@@ -95,7 +130,7 @@ const UI = (() => {
     // the sense a raid is. It exists on hard only and hides itself elsewhere,
     // so on the two levels that do not order it this group is what it was.
     { key: 'tonight',  label: 'TONIGHT', panels: ['coa', 'specops', 'ew'] },
-    { key: 'mission',  label: 'MISSION', panels: ['objectives', 'intel'] },
+    { key: 'mission',  label: 'MISSION', panels: ['operations', 'objectives', 'intel'] },
     // SQUADRON used to ride with FORCES rather than take a seventh chip. The
     // panel came off at v2.09 and the roster did not — see aircrew.js and the
     // note where the markup used to be in index.html.
@@ -416,12 +451,21 @@ const UI = (() => {
 
   function initPanels() {
     for (const panel of document.querySelectorAll('#sidebar-scroll .panel[data-panel]')) {
-      panel.querySelector('.panel-head').addEventListener('click', () => {
+      const head = panel.querySelector('.panel-head');
+      const body = panel.querySelector('.panel-body');
+      if (body) {
+        body.id = body.id || `${panel.id}-body`;
+        head.setAttribute('aria-controls', body.id);
+      }
+      head.addEventListener('click', () => {
         const opening = panel.classList.contains('collapsed');
         setPanelOpen(panel, opening);
         // a section opened at the bottom of the list would otherwise expand
         // off-screen: pull it back into the scroll once it has finished growing
-        if (opening) setTimeout(() => panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 200);
+        if (opening) setTimeout(() => {
+          const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          panel.scrollIntoView({ block: 'nearest', behavior: still ? 'auto' : 'smooth' });
+        }, 200);
       });
     }
   }
@@ -618,6 +662,8 @@ const UI = (() => {
     const meter = $('capacity-meter');
     meter.innerHTML = '';
     const cap = G.iranCapacity();
+    meter.setAttribute('aria-valuenow', String(cap));
+    meter.setAttribute('aria-valuetext', `${cap} percent remaining`);
     const lvl = Math.round(cap / 10);
     for (let i = 1; i <= 10; i++) {
       const seg = document.createElement('div');
@@ -1618,6 +1664,127 @@ const UI = (() => {
     wireWhy('#fleet-buttons');
   }
 
+  // ============================================================
+  // OPERATIONS INDEX — THE MAP IN TEXT
+  // ------------------------------------------------------------
+  // Only plotted targets enter this list. That is both an accessibility rule
+  // and an intelligence rule: a text alternative must not reveal a covert site
+  // the visual map is still withholding. On free-targeting levels each live
+  // target opens the same planner as its map marker, making hard-mode strike
+  // planning possible without a pointer.
+  const opsOpen = new Set();
+
+  function opsDetails(key, label, rows, openByDefault) {
+    const open = opsOpen.has(key) || (openByDefault && !opsOpen.has(`closed-${key}`));
+    return `<details class="ops-section" data-ops-section="${key}"${open ? ' open' : ''}>` +
+      `<summary>${label}</summary><ul class="ops-list">${rows}</ul></details>`;
+  }
+
+  function syncOperationsControls() {
+    const shown = typeof MapView.basesVisible === 'function' ? MapView.basesVisible() : true;
+    const btn = $('ops-toggle-bases');
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', String(shown));
+    btn.textContent = `FORWARD BASES ${shown ? 'SHOWN' : 'HIDDEN'}`;
+  }
+
+  function renderOperations(G) {
+    const box = $('operations-index');
+    if (!box) return;
+    const targets = TARGETS.filter((t) => Game.plotted(t));
+    const missions = G.missions || [];
+
+    const missionRows = missions.length ? missions.map((m, i) => {
+      const t = TARGETS.find((x) => x.id === m.targetId);
+      const label = (m.pkg && m.pkg.label) || 'Strike package';
+      const recall = m.turn === G.turn && !Game.busy()
+        ? `<button type="button" class="ops-recall" data-ops-recall="${i}" ` +
+          `aria-label="Recall mission to ${t ? t.name : m.targetId}">RECALL</button>` : '';
+      return `<li class="ops-item"><div class="ops-mission-head">` +
+        `<span class="ops-name">${t ? t.name : m.targetId}</span>${recall}</div>` +
+        `<span class="ops-state">${easyText(label)} · ${turns(m.eta)} to target</span></li>`;
+    }).join('') : '<li class="ops-item ops-empty">No missions are in flight.</li>';
+
+    const carrierRows = (G.carriers || []).map((cv) => {
+      const info = CARRIER_INFO[cv.id];
+      const st = carrierLine(cv, G);
+      return `<li class="ops-item"><span class="ops-name">${info ? info.name : cv.id}</span>` +
+        `<span class="ops-state">${st ? `${st.label} — ${st.note}` : 'NOT IN THEATER'}</span></li>`;
+    }).join('');
+
+    const bases = US_ASSETS.filter((a) => a.kind !== 'carrier' && a.kind !== 'submarine');
+    const baseRows = bases.map((a) => {
+      const active = a.active !== false;
+      const layer = a.forward && active && typeof MapView.basesVisible === 'function' && !MapView.basesVisible()
+        ? ' · hidden on map by the forward-bases layer' : '';
+      return `<li class="ops-item"><span class="ops-name">${a.name}</span>` +
+        `<span class="ops-state${active ? '' : ' blocked'}">${active ? 'ACTIVE' : 'NOT ACTIVE'}${layer} — ${a.desc}</span></li>`;
+    }).join('');
+
+    const targetRows = targets.map((t) => {
+      const status = t.status || 'intact';
+      const band = Game.estimate(t);
+      const barred = Game.barred(t);
+      const perishable = t.dispersal && t.located;
+      const state = status === 'destroyed' ? 'ASSESSED DESTROYED'
+        : `ASSESSED ${status.toUpperCase()} — ${Game.condition(t)}`;
+      const note = perishable ? ' · URGENT — fix expires after this turn'
+        : !band.known && band.age > 0 ? ` · last assessed ${plural(band.age, 'turn')} ago`
+        : '';
+      const blocked = barred ? ` · UNAVAILABLE — ${barred}` : '';
+      const content = `<span class="ops-name">${t.name}</span>` +
+        `<span class="ops-state${perishable ? ' urgent' : barred ? ' blocked' : ''}">${state}${note}${blocked}</span>`;
+      if (status === 'destroyed') return `<li class="ops-item">${content}</li>`;
+      const action = Game.freeTargeting() ? 'Plan strike against' : 'Read assessment for';
+      return `<li class="ops-item"><button type="button" class="ops-target" data-ops-target="${t.id}" ` +
+        `aria-label="${action} ${t.name}. ${state}${perishable ? '. Urgent, fix expires after this turn' : ''}">` +
+        `${content}</button></li>`;
+    }).join('') || '<li class="ops-item ops-empty">No targets are currently plotted.</li>';
+
+    box.innerHTML =
+      opsDetails('missions', `MISSIONS IN FLIGHT — ${missions.length}`, missionRows, missions.length > 0) +
+      opsDetails('carriers', `CARRIERS — ${(G.carriers || []).length}`, carrierRows || '<li class="ops-item ops-empty">None.</li>', false) +
+      opsDetails('bases', `BASES AND STAGING — ${bases.length}`, baseRows, false) +
+      opsDetails('targets', `TARGETS AND ASSESSMENTS — ${targets.length}`, targetRows, false);
+
+    for (const details of box.querySelectorAll('.ops-section')) {
+      details.addEventListener('toggle', () => {
+        const key = details.dataset.opsSection;
+        if (details.open) { opsOpen.add(key); opsOpen.delete(`closed-${key}`); }
+        else { opsOpen.delete(key); opsOpen.add(`closed-${key}`); }
+      });
+    }
+    for (const btn of box.querySelectorAll('[data-ops-target]')) {
+      btn.addEventListener('click', () => {
+        const target = TARGETS.find((t) => t.id === btn.dataset.opsTarget);
+        if (!target || G.over || Game.busy()) return;
+        Game.freeTargeting() ? openStrikeModal(G, target) : openTargetCard(G, target);
+      });
+    }
+    for (const btn of box.querySelectorAll('[data-ops-recall]')) {
+      btn.addEventListener('click', () => Game.recallMission(Number(btn.dataset.opsRecall)));
+    }
+
+    const status = $('operations-status');
+    if (status) status.textContent = `— ${plural(targets.length, 'target')} · ${plural(missions.length, 'mission')} airborne`;
+    const panel = $('operations-panel');
+    if (panel) {
+      const badge = panel.querySelector('.panel-badge');
+      if (badge) badge.textContent = missions.length ? `${missions.length} AIRBORNE` : `${targets.length} TARGETS`;
+    }
+    syncOperationsControls();
+  }
+
+  function initOperations() {
+    const bases = $('ops-toggle-bases');
+    if (bases) bases.addEventListener('click', () => {
+      MapView.setBasesVisible(!MapView.basesVisible());
+      syncOperationsControls();
+    });
+    const reset = $('ops-reset-map');
+    if (reset) reset.addEventListener('click', () => MapView.resetView());
+  }
+
   // Which advisors the player has opened, and the turn that was true for.
   // Deliberately NOT on `G` and NOT in save/load `FIELDS`: what you had open
   // when you quit is not part of the war, and an advisor says something
@@ -1737,17 +1904,18 @@ const UI = (() => {
     // rail chip carries it when the panel is shut. Four places say it. The
     // paragraph is the ARGUMENT, and an argument is something a president asks
     // for.
-    $('advisors-list').innerHTML = advice.map(a => {
+    $('advisors-list').innerHTML = advice.map((a, index) => {
       const open = advOpen.has(a.name);
+      const detailId = `advisor-detail-${index}`;
       return `<div class="advisor ${a.cls}${a.urgent ? ' urgent' : ''}${open ? ' open' : ''}" data-adv="${a.name}">` +
-        `<button type="button" class="adv-head" aria-expanded="${open}">` +
+        `<button type="button" class="adv-head" aria-expanded="${open}" aria-controls="${detailId}">` +
         `<span class="adv-caret" aria-hidden="true">▾</span>` +
         advIcon(a.name) +
         `<span class="adv-name">${a.name}</span>` +
         (a.urgent ? '<span class="adv-flag">URGENT</span>' : '') +
         `<span class="adv-line">${easyText(a.line)}</span>` +
         `</button>` +
-        `<div class="adv-text">${easyText(a.text)}</div></div>`;
+        `<div class="adv-text" id="${detailId}">${easyText(a.text)}</div></div>`;
     }).join('');
 
     for (const head of $('advisors-list').querySelectorAll('.adv-head')) {
@@ -2375,8 +2543,9 @@ const UI = (() => {
   // some order that may already be spent.
   function gaugeRow(id, name, pct, tone, meta, drivers) {
     const open = actOpen.has(`gauge-${id}`);
+    const detailId = `gauge-detail-${id}`;
     return `<div class="gauge-row${open ? ' open' : ''}" data-action="gauge-${id}">` +
-      `<button type="button" class="gauge-head" aria-expanded="${open}" ` +
+      `<button type="button" class="gauge-head" aria-expanded="${open}" aria-controls="${detailId}" ` +
       `aria-label="What is moving ${name}">` +
         `<span class="gauge-name">${name}</span>` +
         `<span class="gauge-val" style="color:${tone}">${pct}%</span>` +
@@ -2385,7 +2554,7 @@ const UI = (() => {
       `<div class="israel-gauge"><div class="israel-gauge-fill" ` +
       `style="width:${pct}%;background:${tone}"></div></div>` +
       `<div class="israel-gauge-meta">${meta}</div>` +
-      `<div class="gauge-why">${gulfWhy(drivers)}</div>` +
+      `<div class="gauge-why" id="${detailId}">${gulfWhy(drivers)}</div>` +
     `</div>`;
   }
 
@@ -2462,13 +2631,13 @@ const UI = (() => {
         `</div>`;
     }).join('');
     return `<div class="gauge-row council-row${open ? ' open' : ''}" data-action="gauge-council">` +
-      `<button type="button" class="gauge-head" aria-expanded="${open}" ` +
+      `<button type="button" class="gauge-head" aria-expanded="${open}" aria-controls="gauge-detail-council" ` +
       `aria-label="Who is in which camp, and what they are holding">` +
         `<span class="gauge-name">THE COUNCIL</span>` +
         `<span class="gauge-val dim">who holds what</span>` +
         `<span class="why-caret">▾</span>` +
       `</button>` +
-      `<div class="gauge-why">${roster}${southHtml(G)}</div>` +
+      `<div class="gauge-why" id="gauge-detail-council">${roster}${southHtml(G)}</div>` +
     `</div>`;
   }
 
@@ -3501,6 +3670,7 @@ const UI = (() => {
 
     renderCoa(G);          // first in the sidebar; absent entirely on hard
     renderObjectives(G);
+    renderOperations(G);   // complete list/keyboard alternative to the map
     renderResources(G);
     renderFleet(G);
     renderAdvisors(G);
@@ -3574,6 +3744,8 @@ const UI = (() => {
     $('strike-target-desc').textContent = Game.targetDesc(target);
     $('strike-estimate').classList.add('hidden');
     $('btn-confirm-strike').disabled = true;
+    $('strike-confirm-help').textContent = 'Choose a strike package to enable authorization.';
+    $('strike-confirm-help').classList.remove('hidden');
 
     const box = $('strike-packages');
     box.innerHTML = '';
@@ -3590,6 +3762,7 @@ const UI = (() => {
     const block = Game.barred(target);
     if (block) {
       box.innerHTML = `<div class="pkg-blocked">${block}</div>`;
+      $('strike-confirm-help').textContent = 'Authorization is unavailable for this target.';
       $('strike-modal').classList.remove('hidden');
       return;
     }
@@ -3632,6 +3805,7 @@ const UI = (() => {
 
     if (!flyable.length) {
       box.innerHTML = heldReasons(held).map(r => `<div class="pkg-blocked">${r}</div>`).join('');
+      $('strike-confirm-help').textContent = 'No strike package is available for this target tonight.';
       $('strike-modal').classList.remove('hidden');
       return;
     }
@@ -3716,6 +3890,7 @@ const UI = (() => {
       selectedPkg = pkg;
       showEstimate(G, target, pkg);
       $('btn-confirm-strike').disabled = false;
+      $('strike-confirm-help').classList.add('hidden');
       if (!reveal) return;
       // On a landscape phone the package list alone fills the window, and
       // the estimate this choice just produced — the tanker bill, the
@@ -4111,6 +4286,7 @@ const UI = (() => {
       const sync = () => {
         const all = verbose();
         toggle.textContent = all ? 'HIDE DETAIL' : 'FULL DETAIL';
+        toggle.setAttribute('aria-pressed', String(all));
         body.querySelectorAll('.ev-detail').forEach(el => el.classList.toggle('hidden', !all));
         body.querySelectorAll('.ev-row').forEach(r => {
           r.setAttribute('aria-expanded', all);
@@ -4119,6 +4295,9 @@ const UI = (() => {
       };
       toggle.onclick = () => { setVerbose(!verbose()); sync(); };
       toggle.textContent = verbose() ? 'HIDE DETAIL' : 'FULL DETAIL';
+      toggle.setAttribute('aria-pressed', String(verbose()));
+    } else {
+      toggle.removeAttribute('aria-pressed');
     }
 
     $('report-modal').classList.remove('hidden');
@@ -4341,7 +4520,6 @@ const UI = (() => {
       if (onAccept) onAccept();
     };
     modal.classList.remove('hidden');
-    try { $('btn-nsa-accept').focus(); } catch (e) { /* silent */ }
   }
 
   const TEST_CLIP = 'video/nuclear-test.mp4';
@@ -4442,7 +4620,7 @@ const UI = (() => {
     // else's on the way out.
     if (spec.voice) AudioSys.lineOpen([spec.voice]);
 
-    let ended = false, over = false;
+    let ended = false, over = false, onVisibility = null;
     const timers = [];
 
     // The beat is finished: the meter stops, the frame goes cold, and the button
@@ -4472,6 +4650,7 @@ const UI = (() => {
       if (over) return;
       over = true;
       for (const id of timers) clearTimeout(id);
+      if (onVisibility) document.removeEventListener('visibilitychange', onVisibility);
       if (spec.voice) {
         // Safe on a clip that already finished, and on one that never started.
         // A skip is the player saying they have heard this one.
@@ -4481,6 +4660,16 @@ const UI = (() => {
       try { video.pause(); } catch (e) { /* silent */ }
       if (onDone) onDone(ended);
     };
+
+    // Media completion events and timers may both be heavily throttled in a
+    // background tab. The visual is optional; hand the beat on as soon as the
+    // page is hidden so returning to the game never reveals a stranded feed.
+    onVisibility = () => {
+      if (!document.hidden) return;
+      frame.classList.add('no-visual');
+      settle();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
 
     // The voice gates nothing — playThen falls straight through when the clip
     // cannot play, so a muted game reaches `settle` on the watchdog below and
@@ -4518,7 +4707,6 @@ const UI = (() => {
 
     btn.onclick = go;
     modal.classList.remove('hidden');
-    try { btn.focus(); } catch (e) { /* silent */ }
   }
 
   function hideFeed() {
@@ -5212,6 +5400,7 @@ const UI = (() => {
   // underneath. Cheap enough to run on a keystroke — six elements and a class
   // check — and being idempotent is what makes it safe to call from both.
   function syncStack() {
+    let restoreFocus = null;
     for (let i = modalStack.length - 1; i >= 0; i--) {
       if (modalOpen(modalStack[i])) continue;
       const gone = modalStack.splice(i, 1)[0];
@@ -5219,12 +5408,15 @@ const UI = (() => {
       // order — so keyboard play does not restart from the top of the document
       const prev = lastFocus.get(gone);
       lastFocus.delete(gone);
-      if (prev && document.contains(prev) && prev.offsetParent !== null) prev.focus();
+      if (prev && document.contains(prev) && prev.offsetParent !== null) restoreFocus = prev;
     }
     let opened = null;
     for (const o of modalOverlays()) {
       if (!modalOpen(o) || modalStack.includes(o)) continue;
-      lastFocus.set(o, document.activeElement);
+      // A report can close and open the next decision in the same microtask.
+      // In that case the active element still belongs to the now-hidden report;
+      // carry its saved origin forward so the final dialog returns to the board.
+      lastFocus.set(o, restoreFocus || document.activeElement);
       modalStack.push(o);
       opened = o;
     }
@@ -5234,7 +5426,7 @@ const UI = (() => {
     if (opened) {
       const f = focusablesIn(opened);
       (f[0] || opened.querySelector('.modal')).focus();
-    }
+    } else if (restoreFocus) restoreFocus.focus();
     // The board is clear, so a briefing that stood down over the answer to a
     // slot order can walk back in. This is the one place that knows it: an
     // intelligence product can have an ally's phone call chained behind it, and
@@ -5329,7 +5521,6 @@ const UI = (() => {
     // that it describes the turn the tester is looking at.
     $('feedback-diag').value = feedbackDiagnostics();
     $('feedback-modal').classList.remove('hidden');
-    $('feedback-note').focus();
   }
 
   function feedbackBody() {
@@ -5372,12 +5563,14 @@ const UI = (() => {
 
   // ---- wiring ----
   function init() {
+    initReadingMode();
     initPanels();
     initRail();      // after initPanels: the rail drives the same open/shut state
     initScrollEdge();
     initModalScrollEdge();
     initModals();
     initFeedback();
+    initOperations();
     document.querySelectorAll('[data-close]').forEach(btn => {
       btn.addEventListener('click', () => $(btn.dataset.close).classList.add('hidden'));
     });

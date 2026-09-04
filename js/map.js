@@ -2056,6 +2056,32 @@ const MapView = (() => {
     applyView();
   }
 
+  function resetView() {
+    view = { x: 0, y: 0, k: 1 };
+    applyView();   // clamps up off 1 if the window is too wide for it
+  }
+
+  function setBasesVisible(on) {
+    forwardOn = !!on;
+    const layer = document.getElementById('forward-layer');
+    if (layer) layer.classList.toggle('hidden', !forwardOn);
+    const btn = document.getElementById('toggle-bases');
+    if (btn) {
+      btn.classList.toggle('layer-on', forwardOn);
+      btn.title = forwardOn ? 'Hide forward basing layer' : 'Show forward basing layer';
+      btn.setAttribute('aria-pressed', String(forwardOn));
+    }
+    // Keep the text alternative synchronized even when the compact map-header
+    // control is the one that changed the layer.
+    const ops = document.getElementById('ops-toggle-bases');
+    if (ops) {
+      ops.setAttribute('aria-pressed', String(forwardOn));
+      ops.textContent = `FORWARD BASES ${forwardOn ? 'SHOWN' : 'HIDDEN'}`;
+    }
+  }
+
+  function basesVisible() { return forwardOn; }
+
   // convert client coords to svg user-space coords
   function clientToSvg(clientX, clientY) {
     const pt = svg.createSVGPoint();
@@ -2100,10 +2126,7 @@ const MapView = (() => {
 
     document.getElementById('zoom-in').addEventListener('click', () => zoomAt(500, 350, 1.3));
     document.getElementById('zoom-out').addEventListener('click', () => zoomAt(500, 350, 1 / 1.3));
-    document.getElementById('zoom-reset').addEventListener('click', () => {
-      view = { x: 0, y: 0, k: 1 };
-      applyView();   // clamps up off 1 if the window is too wide for it
-    });
+    document.getElementById('zoom-reset').addEventListener('click', resetView);
     // The cue hides itself the instant the theater is in frame, so this is a
     // one-way trip: tap it and it is gone, and RESET brings the chart back to
     // the war. There is deliberately no toggle — a button that pans away and
@@ -2116,13 +2139,7 @@ const MapView = (() => {
     // element rather than the window catches all of them, including the ones
     // that never fire a window resize. (Same reason ui.js observes the sidebar.)
     new ResizeObserver(() => applyView()).observe(svg);
-    document.getElementById('toggle-bases').addEventListener('click', () => {
-      forwardOn = !forwardOn;
-      const btn = document.getElementById('toggle-bases');
-      document.getElementById('forward-layer').classList.toggle('hidden', !forwardOn);
-      btn.classList.toggle('layer-on', forwardOn);
-      btn.title = forwardOn ? 'Hide forward basing layer' : 'Show forward basing layer';
-    });
+    document.getElementById('toggle-bases').addEventListener('click', () => setBasesVisible(!forwardOn));
   }
 
   // ---- touch: one finger pans, two fingers pinch-zoom ----
@@ -3782,6 +3799,14 @@ const MapView = (() => {
   // backgrounded tab stops requestAnimationFrame cold, and a skip must land
   // whether or not the browser is still handing out frames.
   const skipEnders = new Set();
+  // Browsers may freeze both requestAnimationFrame and media `ended` events in
+  // a background tab. Finish the presentation immediately when the document is
+  // hidden; simulation outcomes were decided before these visuals began.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) return;
+    for (const end of [...clipEnders]) end();
+    for (const end of [...skipEnders]) end();
+  });
   function clipEnded() {
     activeClips = Math.max(0, activeClips - 1);
     if (activeClips === 0) { const w = clipWaiters; clipWaiters = []; w.forEach(fn => fn()); }
@@ -5502,6 +5527,7 @@ const MapView = (() => {
   return { render, updateTarget, syncCovert, setHormuz, setMandab, setGulfMood, flashAsset, animateStrike, playStrikeHit,
     whenFootageDone, updateTransit, animateIranianAttacks, alliedStrike,
     setTargetClickHandler, setFastForward, isFastForward, syncSouthCue, focusSouth,
+    resetView, setBasesVisible, basesVisible,
     setCarrierPosture, setCarrierIngress, setAssetActive, raidOpen,
     csarOpen, setSurvivor };
 })();

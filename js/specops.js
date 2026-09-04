@@ -543,7 +543,7 @@ const SpecOps = (() => {
     // beats cut to footage that has already arrived
     view.preload(steps.map(s => s.clip));
 
-    let phase = 'INFIL', contested = false, done = false;
+    let phase = 'INFIL', contested = false, done = false, onVisibility = null;
     const timers = [];
 
     // The bar runs on wall-clock time, not on steps: the mission is a timeline,
@@ -574,13 +574,20 @@ const SpecOps = (() => {
       if (done) return;
       done = true;
       for (const id of timers) clearTimeout(id);
+      if (onVisibility) document.removeEventListener('visibilitychange', onVisibility);
       AudioSys.cut('raidInfil');
       view.phase(1, skipped ? 'SKIPPED' : phase, false);
       view.close(skipped ? 300 : 4500);
       onDone();
     }
 
+    // A hidden tab can suspend the raid's rAF clock and delay its timers by
+    // minutes. The branch was already decided, so leaving finishes only the
+    // presentation and delivers the same debrief once.
+    onVisibility = () => { if (document.hidden) finish(true); };
+    document.addEventListener('visibilitychange', onVisibility);
     timers.push(setTimeout(() => finish(false), total));
+    if (document.hidden) finish(true);
   }
 
   // ---- resolution ----

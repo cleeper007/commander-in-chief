@@ -3181,7 +3181,7 @@ const DIFFICULTY = {
     coaSigns: 1, coaSurge: 2, strike: { base: 1.30, perFlow: 0.08, edge: 0.03 }, dealBar: 2.5,
     plainAssets: true, plainLanguage: true, intelSlate: 3, ew: { auto: 0.30, orders: false },
     public: { base: 32, opposed: 26, erode: 0.6 }, pollDetail: false,
-    railPanels: ['advisors', 'resources', 'specops'],
+    railPanels: ['operations', 'advisors', 'resources', 'specops'],
     popups: ['brief', 'recovery', 'diplo', 'intel'], autoTheater: true,
     tag: 'RECOMMENDED FOR FIRST-TIME PLAYERS',
     desc: 'You\'re President. Each night, your military staff explains the situation, shows what each choice will do, and warns what it leaves undone. You pick one plan. No military jargon or micromanaging required.' },
