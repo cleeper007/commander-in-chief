@@ -19,6 +19,7 @@ Repository guides:
 
 - [Contributing and local checks](CONTRIBUTING.md)
 - [Architecture and invariants](docs/ARCHITECTURE.md)
+- [Canonical scenario facts](docs/CANONICAL-FACTS.md)
 - [Mode roadmap](ROADMAP-MODES.md)
 - [Balance notes](BALANCE-TIER1.md)
 - [World-map specification](WORLDMAP-SPEC.md)
@@ -35,19 +36,24 @@ Open `index.html` in any modern browser — no build step, no server, no depende
 
 ### The situation
 
-Iranian ballistic missiles have struck Al Asad Air Base in Iraq, killing seven
+Iranian ballistic missiles have struck Ain al-Asad Air Base in Iraq, killing seven
 Americans. This is not a crisis to be managed — it is a war to be won. Each turn is
-12 in-game hours; you have 30 turns (15 days) before the campaign culminates.
+12 in-game hours. The operation has a 30-turn (15-day) plan; continuing beyond it
+accelerates political exhaustion until the campaign ends.
 
 ### How you win
 
-1. **Decisive military victory** (the primary path) — destroy the nuclear program
-   (Natanz and Fordow, 100% degradation) **and** break Iran's war machine: its missile
-   bases, its naval bases, and the IRGC command complex.
+1. **Decisive military victory** (the primary path) — destroy all enrichment capacity
+   (the declared Natanz and Fordow sites plus any undeclared hall intelligence finds,
+   reaching 100% degradation) **and** break Iran's war machine: its missile force, its
+   navy, and the IRGC command complex.
 2. **Armistice** (rare, conditional) — Tehran only comes to the table once the program
    is destroyed and its forces are collapsing, and even then each overture is a gamble.
    Diplomacy is a face-saving off-ramp from a war you are already dominating — not a
    strategy to open with. Attempt it too early and the rebuff costs you at home.
+3. **Capitulation under nuclear threat** (post-test only) — after Iran tests a device,
+   a US demonstration or tactical release can coerce Tehran. This is an emergency path
+   with catastrophic political and diplomatic costs, not an alternate conventional plan.
 
 There is no abstract escalation meter. Iran's behavior is driven by what it actually
 has left: while its missile force, navy, and IRGC command function, it fights at full
@@ -57,20 +63,23 @@ fight — the mission is driving it to zero.
 
 ### How you lose
 
-- **Iran goes nuclear** — the enrichment clock runs out. This is the race the whole war
-  is against, and it is the only loss condition you cannot see coming exactly (see below).
+- **Iran fields a nuclear weapon** — the enrichment clock produces a test, then opens a
+  four-turn assembly window. If the device is not destroyed and Tehran is not coerced
+  before that window closes, the campaign is lost.
 - **Unsustainable losses** — the casualty ceiling is passed. What the country will absorb
   depends on the difficulty you chose: 320 on easy, 250 on normal, 190 on hard.
-- **Impeachment** — approval collapses below 20%.
+- **Presidency collapse** — approval reaches the mode's floor: 24% on easy, 20% on
+  normal, or 16% on hard (before any catastrophe erodes the president's base).
 - **Congress cuts off the war** — you lose the War Powers vote (see below).
 - **Economic collapse** — the Strait of Hormuz stays closed too long, or oil passes $240.
-- **Campaign culmination** — 30 turns expire with the program still standing (defeat);
-  expire with real damage done and it's a graded stalemate instead.
+- **Campaign exhaustion after the plan** — turn 30 is a soft culmination point, not an
+  instant ending. Political exhaustion accelerates in overtime; collapse is a defeat if
+  less than half the program is gone and a graded stalemate if substantial damage was done.
 
 ### The enrichment clock
 
 Iran is enriching the entire time, and the war exists to stop it. The halls run every
-turn they are standing, Natanz and Fordow contribute at different rates, and the total
+turn they are standing; Natanz, Fordow, and any undeclared hall contribute at different rates; and the total
 required for a device is **rolled fresh for every war** — so what you are shown is a
 genuine estimate with a band on it, not a countdown wearing a fog filter:
 
@@ -93,8 +102,8 @@ because the site has been repairing the whole time and nobody has looked.
 - The strike planner tells you "an estimated 1–2 more packages on target to finish it."
   Deciding under that is the game.
 
-A collection deck tasking narrows the three worst estimates to ±3. It costs the same
-action slot as diplomacy — knowing costs exactly what doing costs.
+A collection deck tasking narrows the three worst estimates to ±3. It spends the turn's
+intelligence slot; diplomacy has a separate slot of its own.
 
 ### Tehran has a war plan
 
@@ -194,7 +203,7 @@ strength in one volley and the whole brigade gets clear.
 
 ### Congress votes
 
-Around turn 13 the authorization the campaign has been running on lapses and the Hill
+On turn 10 the authorization the campaign has been running on lapses and the Hill
 votes. It is scored on your approval, the casualty list, whether you still have allies,
 whether you ever went on television to explain the war, and whether there is anything to
 show for it. Three outcomes: **authorized** (+8 approval and a free hand), **authorized
@@ -205,34 +214,37 @@ Each Oval Office address is worth five points on that floor. They are not just a
 
 ### Theater forces and the naval transit
 
-You open the war with one deck — the *Abraham Lincoln*, on station in the North Arabian
-Sea, well east of Oman — and everything else is somewhere else. Two forces can be brought in, and **Fifth
-Fleet cuts one naval transit plan a night**, so only one deployment order goes out per
-turn and the order you put them in is the decision:
+You open the war with one deck — the *Abraham Lincoln*, forward in the Gulf of Oman —
+and the USS *Toledo* on patrol in the same waters. The forward land-based force is already
+operating from Al Udeid, Al Dhafra, Ain al-Asad, and partner bases. Three major formations
+can be brought forward, and **Fifth Fleet cuts one transit plan a night**, so only one
+deployment order goes out per turn and the order you put them in is the decision:
 
-- **USS Gerald R. Ford** — five turns out. She arrives at standoff in the Arabian Sea
-  and roughly doubles what you can put in the air in a day. Every fighter sortie and
-  every Tomahawk in this war comes off a deck, so the second one is the difference
-  between servicing the target list and picking at it.
+- **USS Gerald R. Ford** — five turns out from the eastern Mediterranean. She transits
+  Suez and takes a fixed station in the Red Sea, adding an air wing and the only US reach
+  against the Yemeni coast. Her escorts do not cover Gulf bases from behind Sinai.
 - **509th Bomb Wing (B-2)** — one turn out, Whiteman AFB to Diego Garcia. There is not
   a stealth bomber in the hemisphere until you send for it, and the GBU-57 is the only
   thing in the inventory that reaches Fordow. Two sustainable missions off the ramp,
   regenerating one every three turns.
+- **B-1/B-52 heavy bomber force** — two turns out from Dyess AFB and Barksdale AFB to RAF
+  Fairford. It adds mass once the air-defense network is degraded, but cannot survive a
+  contested sky.
 
-One goes tonight, the other tomorrow. The bombers are cheap in time and priceless in
-reach; the carrier is slow and pays out for the rest of the war. Sending the Ford first
-costs a turn before the 509th can follow — she does not have to arrive first, but that
-lost night still puts Fordow a turn further away.
+One transit order goes tonight, the next tomorrow. The B-2s are cheap in time and
+priceless in reach; the carrier is slow and pays out for the rest of the war. Sending the
+Ford first costs a turn before the 509th can follow — she does not have to arrive first,
+but that lost night still puts Fordow a turn further away.
 
-Once in theater, each deck is either **forward** in the North Arabian Sea box east of
-Oman or **back** in the deep Arabian Sea toward the Indian Ocean approaches. The air wing
-flies at **full sortie generation from either station** — posture is no longer a strike
-tradeoff. What forward buys is **presence**: Aegis BMD over the Gulf-state bases (thinning
-the ballistic salvos aimed at Al Udeid and Al Dhafra), weight on the Strait of Hormuz that
-makes it harder for Iran to close, and a lid on the oil-war premium — paid for by sitting
-a hull inside the longest-legged anti-ship weapons Iran owns. Back is untouchable but gives
-up all three. Repositioning takes a turn, exposed and without the presence effects until
-she is on station.
+The *Lincoln* can work **forward** in the Gulf of Oman or **back** in the deep Arabian Sea
+toward the Indian Ocean approaches. Her air wing flies at **full sortie generation from
+either station** — posture is not a strike-volume tradeoff. What forward buys is
+**presence**: Aegis BMD over the Gulf-state bases (thinning the ballistic salvos aimed at
+Al Udeid and Al Dhafra), weight on the Strait of Hormuz that makes it harder for Iran to
+close, and a lid on the oil-war premium — paid for by sitting a hull inside the
+longest-legged anti-ship weapons Iran owns. Back gives up all three. Repositioning takes a
+turn, exposed and without the presence effects until she is on station. The *Ford* remains
+at her fixed Red Sea station.
 
 ### Israel
 
@@ -251,15 +263,15 @@ You have two ways this goes, and only one of them is your choice:
   it risks aircrew, and it is **one-shot** — spend it at Natanz and Fordow still needs
   a bomber. Most of all, it makes Israel a live target: Iranian salvos start going
   west, and your war acquires a second front you don't command.
-- **Ignore them.** Each turn they sit out while the program is still largely intact
-  (under 50% degraded), their patience drops. At zero they **fly the mission
+- **Ignore them.** Each turn they sit out while the program is still largely intact,
+  Israeli strike pressure rises. At 100 they **fly the mission
   themselves**, on their timetable, without telling you. They have no penetrators, so
   the results are partial — real damage at Natanz, very little at Fordow — but the
   escalation is total: a heavy world-opinion hit, an oil spike, an approval hit, and
   every capital in the region convinced Washington authorized it. You inherit the
   consequences of a strike you did not plan and could not aim.
 
-Your SecState and NSA will warn you as the clock runs down — the patience count is in
+Your SecState and NSA will warn you as the pressure rises — the gauge is in
 the advisor panel and on the diplomacy button. Coordinating openly widens the war;
 letting it happen by default widens it *and* wastes the shot.
 
@@ -288,7 +300,7 @@ that happens, and *only* when that happens:
   the ground and helicopters are flying a pattern over it. Do nothing long enough and
   they are taken alive: hostage crisis, −10 approval, −4 world opinion, and Tehran
   running the footage for the rest of the war.
-- **Push ISR** (spends the turn's action slot) to lock the position: +10% recovery,
+- **Push ISR** (spends the turn's intelligence slot) to lock the position: +10% recovery,
   −8% capture risk.
 - **Launch the recovery** — a pair of HH-60W Jolly Green IIs with pararescuemen, an
   A-10 Sandy flight as on-scene commander, tankers off the coast. Costs one fighter
@@ -333,10 +345,10 @@ the cheapest shot in the game: USS *Toledo* is on patrol in the Gulf of Oman, an
 does. It is the only package in the war that spends nothing off the theater magazine —
 the weapon is already aboard — puts no aircrew at risk, teaches Iran nothing (she is
 never held on sonar, and a pattern nobody can observe is a pattern nobody can counter),
-and gives no warning at all. What it costs is **two turns**, because the boat has to
-close inside firing range submerged first, and **one of four war shots**: nobody reloads
-a boat on patrol. The Caspian flotilla is the exception and always will be: no submarine
-has ever reached a landlocked sea.
+and gives no warning at all. The *Toledo* is already trailing the surface force, so the
+shot resolves in the turn it is ordered. What it costs is **one of four war shots**:
+nobody reloads a boat on patrol. The Caspian flotilla is the exception and always will
+be: no submarine has ever reached a landlocked sea.
 
 The run is fought on its own display — a sonar plot, not a radar scope. There is nothing
 to shoot back with, so there is no threat ring and no sweep; there is a weapon walking
@@ -359,16 +371,17 @@ warhead does not touch the hull, it takes the water out from under it.
   - *Fighter sorties* — flexible, but at risk from whatever SAMs are alive at TOT.
   - *Cruise missiles (TLAM)* — no aircrew risk, ineffective against buried sites.
   - *B-2 missions (GBU-57)* — scarce, slow to arrive, and not in theater until the
-    509th is deployed forward; the **only** weapon that can kill Fordow.
-- **Move forces** — surge the *Ford*, deploy the B-2s forward, or shift a deck between
-  the North Arabian Sea and the deep Arabian Sea. Only one deployment order can be cut per turn
+    509th is deployed forward; the **only unilateral US package** that can kill Fordow.
+- **Move forces** — surge the *Ford*, deploy the B-2s or heavy bombers forward, or shift
+  the *Lincoln* between the Gulf of Oman and the deep Arabian Sea. Only one deployment order can be cut per turn
   (see above); posture changes are free of it.
-- **Spend the action slot — on doing, or on knowing.** There is one slot a turn and
-  everything competes for it: backchannel talks, UN pressure, sanctions, coalition
-  building, **coordinating with Israel**, an address to the nation, **ISR prep** for the
-  raid, a **recovery push** for downed aircrew — and the four intelligence taskings:
-  reassess damaged sites, hunt dispersed launchers, reassess the enrichment timeline,
-  or assess the Iranian war plan. That contention is the point.
+- **Spend two independent action slots — one on diplomacy and one on intelligence.**
+  The diplomatic slot covers backchannel talks, UN pressure, sanctions, coalition
+  building, **coordinating with Israel**, and an address to the nation. The intelligence
+  slot covers **ISR prep** for the raid, a **recovery push** for downed aircrew, and four
+  collection taskings: reassess damaged sites, hunt dispersed launchers, reassess the
+  enrichment timeline, or assess the Iranian war plan. Each room must choose its own
+  priority for the turn.
 - **Decide what to do about Israel** — see below. Doing nothing is also a decision.
 - **Launch the leadership raid** — a single Tier-1 SOF task force, one attempt for
   the whole game. Base odds are low; ISR prep and degraded air defenses / IRGC

@@ -1621,7 +1621,7 @@ const UI = (() => {
       } else {
         acts.push({ id: 'b2-go', name: 'DEPLOY B-2 FORCE — WHITEMAN → DIEGO GARCIA',
           attrs: 'data-bomber-order="1"',
-          current: `${turns(Game.B2_TRANSIT_TURNS)} out. Unlocks the GBU-57 — the only way to reach Fordow.`,
+          current: `${turns(Game.B2_TRANSIT_TURNS)} out. Unlocks the GBU-57 — the only unilateral US way to reach Fordow.`,
           desc: 'Moves the 509th into theater. Takes tonight\'s naval transit, so the ' +
             `${CARRIER_INFO['csg-ford'].short} cannot be surged until next turn.` });
       }
@@ -5694,9 +5694,9 @@ const UI = (() => {
       // existed to prevent cannot happen there. Same rule the primer has
       // followed since v1.77 — a card describing a different game than the one
       // running is worse than no card.
-      ...(d.autoTheater ? [] : [{ cls: '', title: 'THE NUCLEAR SITES NEED THE B-2',
-        text: 'Fordow and Natanz are buried, and only the B-2 reaches them. It is still in Missouri, ' +
-          'so call it forward from THEATER FORCES, one turn out.' }]),
+      ...(d.autoTheater ? [] : [{ cls: '', title: 'FORDOW NEEDS THE B-2',
+        text: 'Fordow is buried, and the B-2 is the only unilateral US aircraft that reaches it. Natanz ' +
+          'has other packages. The B-2 is still in Missouri, so call it forward from THEATER FORCES, one turn out.' }]),
       // What does NOT come off with it is the home front. The slots were only
       // ever half of that card and the warning was the other half — this game is
       // lost at home more often than it is lost over Iran, on every level — so

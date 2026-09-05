@@ -1022,7 +1022,7 @@ const JIPTL = {
   // rather than as difficulty.
   order: [
     'msl-khorramabad',  // finishes the missile picture; an Israeli priority
-    'arak',             // the nuclear objective needs it, and so does Jerusalem
+    'arak',             // closes the plutonium path, and Jerusalem prioritizes it
     'abadan',           // the economic lever's second half
     'bushehr-npp',      // the politically expensive one
     'rail-sirjan',
@@ -3265,7 +3265,7 @@ const APPROVAL = {
   openMiddle: 30,
 
   // ---- the rally, which is BORROWED and sits OUTSIDE the blocs ----
-  // Iran killed seven Americans at Al Asad before turn 1, and a country that
+  // Iran killed seven Americans at Ain al-Asad before turn 1, and a country that
   // has just been attacked rallies to its president. `approval` is therefore
   // base + middle + rally, and during the first week it can and should read
   // ABOVE the structural ceiling the rest of this table describes. That is not

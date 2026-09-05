@@ -55,8 +55,8 @@ const Game = (() => {
   //
   // The hard cap was the only thing standing between this game and a guaranteed
   // win, because every other loss condition is one the player can switch off.
-  // Breakout stops dead the moment Natanz and Fordow are rubble — enrichRate is
-  // a function of their hp and nuclear sites never come back from zero. The
+  // Breakout stops dead the moment every enrichment hall is rubble — enrichRate
+  // is a function of their hp and nuclear sites never come back from zero. The
   // casualty ceiling and the oil economy are avoided by not flying and leaving
   // the strait alone. And the flat -0.5 weariness tick is outrun by the +1 a
   // night that cheap oil pays back, so a quiet war's approval RISES. Kill the
@@ -432,7 +432,7 @@ const Game = (() => {
     oil: 84,               // $/bbl Brent
     world: 60,             // world opinion 0–100
     hormuz: 'OPEN', hormuzClosedTurns: 0,
-    casualties: { us: 7 }, // the Al Asad missile strike that starts the crisis
+    casualties: { us: 7 }, // the Ain al-Asad missile strike that starts the crisis
     // Fighter and TLAM capacity is DERIVED from where the carriers are (see
     // fleetCapacity) — these are the opening values with the Lincoln alone,
     // forward. The SOF task force is not carrier-based, and the B-2s are not
@@ -2206,7 +2206,7 @@ const Game = (() => {
       G.world = clamp(G.world + 5, 0, 100);
       out.push({
         cls: 'friendly', title: 'OBJECTIVE MET — IRANIAN NUCLEAR PROGRAM DESTROYED',
-        text: 'CENTCOM assesses the enrichment complex — Natanz and Fordow — as functionally destroyed. The ' +
+        text: 'CENTCOM assesses every declared and undeclared enrichment hall as functionally destroyed. The ' +
           'centrifuge halls are collapsed and the breakout timeline is gone. The reason the country went to ' +
           'war has been achieved, and the country knows it. The capitals that spent twenty years failing to ' +
           'negotiate this away are not going to say so out loud, but the condemnations have stopped.',
@@ -6182,7 +6182,7 @@ const Game = (() => {
         G.world = clamp(G.world + 8, 0, 100);
         events.push({
           cls: 'world', title: 'UN Security Council session',
-          text: 'US diplomats rally broad condemnation of the attack on Al Asad. Russia and China block binding action but the diplomatic cover is valuable.',
+          text: 'US diplomats rally broad condemnation of the attack on Ain al-Asad. Russia and China block binding action but the diplomatic cover is valuable.',
           dWorld: 8,
         });
         break;
@@ -7859,7 +7859,7 @@ const Game = (() => {
       capitulation: 'Tehran accepted terms rather than find out whether the next weapon would be aimed at something inhabited. The nuclear crisis is over and the objectives are met — by a threat the United States had not made since 1962 and had to demonstrate to make credible.',
     };
     const narratives = {
-      military: `CENTCOM's assessment is unambiguous: enrichment halted, missile brigades combat-ineffective, the IRGC command chain severed.` +
+      military: `CENTCOM's assessment is unambiguous: enrichment halted, missile brigades combat-ineffective, the navy neutralized, and the IRGC command chain severed.` +
         (G.hostageCrisis ? ' The American prisoners were recovered in the final hours as the regime\'s prison apparatus dissolved.' : '') +
         ` It took ${G.turn} turns and ${G.casualties.us} American lives.`,
       deal: `Backchannel talks in Muscat produced a framework: verified dismantlement against phased sanctions relief — terms dictated by the battlefield.` +
@@ -8020,7 +8020,7 @@ const Game = (() => {
       for (const t of TARGETS) MapView.updateTarget(t);
       UI.setTicker(IranAI.headlines(G, [{ title: 'SITUATION ROOM RECONVENES — THE WAR CONTINUES' }]));
     } else {
-      UI.setTicker(IranAI.headlines(G, [{ title: 'AL ASAD AIR BASE STRUCK BY IRANIAN MISSILES — SEVEN AMERICANS DEAD' }]));
+      UI.setTicker(IranAI.headlines(G, [{ title: 'AIN AL-ASAD AIR BASE STRUCK BY IRANIAN MISSILES — SEVEN AMERICANS DEAD' }]));
     }
     UI.renderAll(G);
     // First-war primer: the single most common way a new player loses is by
@@ -8164,7 +8164,7 @@ const Game = (() => {
     // one's boredom already accrued and a poll comparing against another war.
     //
     // The middle opens at APPROVAL.rallyAt rather than at half, because the war
-    // opens four days after Iran killed seven Americans at Al Asad. It is spent
+    // opens four days after Iran killed seven Americans at Ain al-Asad. It is spent
     // by turn 7 whatever happens — see rallyDecay.
     const pub = diff().public || APPROVAL;
     G.base = pub.base;

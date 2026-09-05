@@ -188,7 +188,7 @@ const Tour = (() => {
     { sel: '#fleet-panel', panel: 'fleet',
       title: 'BRING IN MORE FIREPOWER',
       text: 'Not everything is in theater yet. Order it forward from here, including the B-2, ' +
-        'the only aircraft that reaches Fordow.' },
+        'the only unilateral US aircraft that reaches Fordow.' },
     // The folder replaced "assess Tehran's intent" here rather than joining it,
     // because a card listing all six taskings is a menu and this one has to be a
     // recommendation. Naming the folder was defensible to leave out while the
@@ -220,8 +220,8 @@ const Tour = (() => {
         'URGENT. When they agree on something, do it.' },
     { sel: '#btn-end-turn', next: 'DONE',
       title: 'THEN END THE TURN',
-      text: 'Tehran answers overnight and the assessment lands in the morning. Thirty turns is ' +
-        'the whole war.' },
+      text: 'Tehran answers overnight and the assessment lands in the morning. The plan runs ' +
+        'thirty turns; overtime rapidly exhausts the country.' },
   ];
 
   // ------------------------------------------------------------
@@ -308,7 +308,7 @@ const Tour = (() => {
     { sel: endOrReady, next: 'DONE',
       title: 'MAKE THREE CHOICES, THEN END THE TURN',
       text: 'Choose one intelligence action, one strike plan, and one diplomatic action. Then end ' +
-        'the turn to see the results. The war lasts thirty turns.' },
+        'the turn to see the results. The plan runs thirty turns; overtime carries a rising political cost.' },
   ];
 
   // Chosen in start(), off the same knob the primer reads.

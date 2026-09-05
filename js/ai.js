@@ -217,7 +217,7 @@ const IranAI = (() => {
       // Whose soil it landed on. The random pick was always choosing a host
       // government as well as a base and it never mattered before: a salvo on Al
       // Udeid is a Qatari problem and pushes Doha toward the exit, the same salvo
-      // on Al Dhafra hardens Abu Dhabi, and Al Asad is in Iraq and moves neither.
+      // on Al Dhafra hardens Abu Dhabi, and Ain al-Asad is in Iraq and moves neither.
       const host = { udeid: { dStrain: GULF.dove.struck }, dhafra: { dResolve: GULF.hawk.struck }, asad: {} }[base];
       const c = Math.round(rand(2, 8) * bite(str));
       return scaled({
