@@ -1,0 +1,898 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "node tools/media-manifest.mjs --write",
+  "maximumAssetBytes": 4194304,
+  "assets": [
+    {
+      "path": "audio/aircraft-lost.wav",
+      "sizeBytes": 48554,
+      "durationSeconds": 1.1,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "ffed3e61a30b08d502287489010ae4f16abaf79b05df8de10530843ae65adbc1",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/b2-arrival.mp3",
+      "sizeBytes": 88228,
+      "durationSeconds": 3.291,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "62e568d863709a23821b9bb67d5ca8fb47d05ee1a488d0973a9e4666b1845776",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/bda-report.mp3",
+      "sizeBytes": 66495,
+      "durationSeconds": 1.933,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "0cddf4eaf28449721c7db0ffff422e04177272dc28b3432fa83fd218bcb96fa8",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/brief-ready.mp3",
+      "sizeBytes": 51793,
+      "durationSeconds": 2.194,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "852e174e1f085c5757f026dbe98a4a0f4a681b5aaf6941bb80e366f8c6094d26",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/cable.wav",
+      "sizeBytes": 22094,
+      "durationSeconds": 0.5,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "3913d19875197e6e8b623b8f61476c88ee3817e7d8e6fc40a80776dc21582dfe",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/carrier-reposition.mp3",
+      "sizeBytes": 50084,
+      "durationSeconds": 2.09,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "02457315f320b533e18828992322a7220b74e1c9b403063a0fb773ebecdf51d6",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/defeat.wav",
+      "sizeBytes": 79424,
+      "durationSeconds": 1.8,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "e67d00b3620e15b24a05a8fde6e7bf394016b680a8a41f5a86630b9ac95a154d",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/ford-arrival.mp3",
+      "sizeBytes": 94080,
+      "durationSeconds": 3.657,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "59c192761e3e76b01de4e6f0155c2d7e2e10729c4bc7e491c0efc3ae6a89a0b7",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/ford-ordered.mp3",
+      "sizeBytes": 67639,
+      "durationSeconds": 3.187,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "d97b88d59ea58005e7012b4f38fa3e1023b7f73faa9f90168edad2233e63ece1",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/france-pm-call-strong.mp3",
+      "sizeBytes": 166387,
+      "durationSeconds": 8.176,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "d7b6289c30a8ddf9173030dac6a9c5e765b076f7ec95cee265ec59719d23af3a",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/france-pm-call.mp3",
+      "sizeBytes": 110403,
+      "durationSeconds": 4.676,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "2bb7fff03dfc36fdfac035a3fbae027e1361f0470273c4660bafc1b1278dd137",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/game-start.mp3",
+      "sizeBytes": 25389,
+      "durationSeconds": 1,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "4416fcd88afb669c2a59370470ae9ba0b15d2d9ba00c856f284dcb5d6e5dd652",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/hormuz-closure.mp3",
+      "sizeBytes": 88251,
+      "durationSeconds": 3.291,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "a376274442c380c548ae00b6aba844fbfd4a33bf7ccf93f50317ba39abb024df",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/impact.wav",
+      "sizeBytes": 39734,
+      "durationSeconds": 0.9,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "9813c61baa67d2d9b651de84fef2cc9d94ad06b4ed0258d9dcef1dbc800091ae",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/israel-pm-call.mp3",
+      "sizeBytes": 155125,
+      "durationSeconds": 7.471,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "ca22ba38ed6365900a1fd2ab1f9e77192096e326f9cdb77fe7d525ebe97f28a5",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/klaxon.wav",
+      "sizeBytes": 70604,
+      "durationSeconds": 1.6,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "32368bd6c831844f77d28ff03988316f376f31ec9a00f56f2e15fa9abcbedcad",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/launch.wav",
+      "sizeBytes": 26504,
+      "durationSeconds": 0.6,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "02d67e6d5527284f688594d2e3c9e33e9e4cab5443520696b2f0152bfefef8ef",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/nsa-nuclear-call.mp3",
+      "sizeBytes": 190937,
+      "durationSeconds": 10.893,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "9e807d4e99358fb3e0ac1d2c2e5a30cc3a6c1f499ab7d87f6f8ad434d2cd1f87",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/nuclear-alert.mp3",
+      "sizeBytes": 37485,
+      "durationSeconds": 1.5,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "023b1ec2bcc4eba97891b96ec8e95ea9777367018b83e01dcc004627a08b31fa",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/phone-ring.m4a",
+      "sizeBytes": 21253,
+      "durationSeconds": 2.368,
+      "codecs": [
+        "audio:aac"
+      ],
+      "sha256": "b47115b19831783983f8ba6e2ef29d9ff38aaf7486e0f1fa3d8f0d705bf1352e",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/radio-chatter-1.m4a",
+      "sizeBytes": 144144,
+      "durationSeconds": 16.704,
+      "codecs": [
+        "audio:aac"
+      ],
+      "sha256": "2b81c211256b0f0d2c119b7225a955068f48eddcca705d3a08d1294fe39557fc",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/radio-chatter-2.m4a",
+      "sizeBytes": 130320,
+      "durationSeconds": 15.083,
+      "codecs": [
+        "audio:aac"
+      ],
+      "sha256": "cca53269d2128b6723fbe4a0890bcbaf6bb16582ad887681f9942e1cdb9a86cf",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/retaliation.wav",
+      "sizeBytes": 39734,
+      "durationSeconds": 0.9,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "2fd0a5a4864fa5c9e365d67f4c009a31ab7871604f0c037b5135f4ae7dbe0ea5",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/ship-underway.mp3",
+      "sizeBytes": 121581,
+      "durationSeconds": 5,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "5971e19e0fb57223e49d8697a59b85ba61af83dea1af4dae5a076cb66fce9c79",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/sonar-ping.wav",
+      "sizeBytes": 30912,
+      "durationSeconds": 0.7,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "508f1c44717959330c02ef3ce48d95a0d9c9d166a4943331a583dedb7a2a5c62",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/soundtrack.mp3",
+      "sizeBytes": 2881454,
+      "durationSeconds": 180.036,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "a86b92336d4c555c3899328114813f3fce2eae92ebb4b1a01526b00a8079b3f1",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/spec-ops-infil.m4a",
+      "sizeBytes": 248155,
+      "durationSeconds": 28.139,
+      "codecs": [
+        "audio:aac"
+      ],
+      "sha256": "eafc652b505f52bc008050abd94ab2c29677cae441dde2fc4eaaa06753062a51",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/strike-force-initiated.mp3",
+      "sizeBytes": 121665,
+      "durationSeconds": 5.381,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "12a3147b6d728502f9f548aa18b32e6c74e84fd4219938867948b9f0d3f2693a",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/target-marked.mp3",
+      "sizeBytes": 51866,
+      "durationSeconds": 1.019,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "6b4c76053d76683989bd9ec978b881e06918ad6b9d6f5b9963b6dc0096d531fe",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/uk-pm-call-strong.mp3",
+      "sizeBytes": 153453,
+      "durationSeconds": 7.367,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "6d57cc3f17c520cccb3e81dff80e67e4fe54322bc66ec6720bbee765d0aab582",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/uk-pm-call.mp3",
+      "sizeBytes": 215288,
+      "durationSeconds": 11.233,
+      "codecs": [
+        "audio:mp3"
+      ],
+      "sha256": "3ba5267ce72218453ee5895b9af48a2e70d391b9c21f530bb3f952522b68313a",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "audio/victory.wav",
+      "sizeBytes": 61782,
+      "durationSeconds": 1.4,
+      "codecs": [
+        "audio:pcm_s16le"
+      ],
+      "sha256": "a5ab8ea0496f6e460e8a446b53f374ce91cba856b1ca96acfcb8249335df5485",
+      "usageOwner": [
+        "AudioSys"
+      ]
+    },
+    {
+      "path": "video/airbase-hit-a.mp4",
+      "sizeBytes": 267989,
+      "durationSeconds": 4.417,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "deb1f4fd1397cc4746047f37aa106663eeec20d28ce4064a3d92a8e8d096d70b",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/airbase-hit-b.mp4",
+      "sizeBytes": 423224,
+      "durationSeconds": 5.033,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "8f397fabec33f392149ed4eeb440e5d5e4f64720923628d9c49601757660ea4b",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/airdefense-hit-a.mp4",
+      "sizeBytes": 347931,
+      "durationSeconds": 4.483,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "22700a496b271c8b6d7e1081a442f116b7b6875efd02bb854f7bc4300b9a31a1",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/airdefense-hit-b.mp4",
+      "sizeBytes": 207700,
+      "durationSeconds": 2.5,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "1130a431e8dfd610a583df11a72472c06f0df034c980d2f24d76135a8d060c73",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/airdefense-hit-c.mp4",
+      "sizeBytes": 157847,
+      "durationSeconds": 2.517,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "5dd1a01e69548584b33c68feb8c0226f0d4343ab68cfad263f64ad579f0580c7",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/b52-launch.mp4",
+      "sizeBytes": 222389,
+      "durationSeconds": 5.533,
+      "codecs": [
+        "video:h264",
+        "audio:aac"
+      ],
+      "sha256": "cf4e6b7a6e3cb742a99c0981f577f19ebafb455fcf5225eb9a38626b98d31597",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/carrier-launch.mp4",
+      "sizeBytes": 351189,
+      "durationSeconds": 4.133,
+      "codecs": [
+        "video:h264",
+        "audio:aac"
+      ],
+      "sha256": "b7e2b918643aea63bf437d0784939dfd07d70260cca21c183a2bcf1f29e2dd84",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/f14-hit.mp4",
+      "sizeBytes": 238774,
+      "durationSeconds": 5.65,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "5809b9b7ce658894f5db3ee49830a41119532bbf1ea2f87121fd4d17301d8566",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/irgc-hq-kill.mp4",
+      "sizeBytes": 1091882,
+      "durationSeconds": 8.033,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "167320ac6ed29c5dbc8675f12e51a410eb0aee21e9110b0c96b569c3acd19d0b",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/naval-bandar-hit.mp4",
+      "sizeBytes": 327950,
+      "durationSeconds": 4.583,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "73ea67c814df08e4b87fdc874850c5c353c388e346a1ccb193facf07ef08e8bb",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/naval-hit-a.mp4",
+      "sizeBytes": 177113,
+      "durationSeconds": 2.95,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "d9f62385641c93e8837c1aa84ebc526233b1eaa853792cfcbe3168f4ee0416be",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/naval-hit-b.mp4",
+      "sizeBytes": 84184,
+      "durationSeconds": 3.167,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "0c652586abc9239727998bc4b0f029d8405024e230608f8cb031fafbfed8cbb3",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/naval-hit-c.mp4",
+      "sizeBytes": 228808,
+      "durationSeconds": 4.583,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "b0b74ddc8db4a38f5986720a376149812c646c1a48a8bfceefedbca2b82f710c",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/nuclear-strike.mp4",
+      "sizeBytes": 513178,
+      "durationSeconds": 16.183,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "6732f7c14d035dc317f6a5eca7e6fea6415fcd194031c7482968e54df428ce5a",
+      "usageOwner": [
+        "Game content data"
+      ]
+    },
+    {
+      "path": "video/nuclear-test.mp4",
+      "sizeBytes": 608986,
+      "durationSeconds": 16.017,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "35625f7997860108c79e42015ec9ce1082a54f88d2a46ec3072a1f186bb64b22",
+      "usageOwner": [
+        "UI"
+      ]
+    },
+    {
+      "path": "video/ship-hit-a.mp4",
+      "sizeBytes": 267510,
+      "durationSeconds": 4.25,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "7ca6818f6a2de804fe4ccbd942b080e5e3cbb54dc3a7abc4c494f2c3ddbcf516",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/ship-hit-b.mp4",
+      "sizeBytes": 182837,
+      "durationSeconds": 4.233,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "b960e0c6627d1b8b740a416e61b0b511747b65d40d2f976171fc8005a0d44c95",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/ship-hit-c.mp4",
+      "sizeBytes": 135838,
+      "durationSeconds": 3.8,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "54dd4ffb727cc12d4f2a8f0fdc3903642f4276870b6719e2d6f7d6fc7db22c53",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/ship-hit-d.mp4",
+      "sizeBytes": 69211,
+      "durationSeconds": 1.983,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "60f96af07e4ce44ea37f0d4750e2283fc339143f1920331105a43db98522318f",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/shiraz-hit.mp4",
+      "sizeBytes": 192790,
+      "durationSeconds": 4,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "e4d3b7bbf76c3a5b896d55281e6b998a8540a4b9177cb02bd556cea7295b1cf3",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/slbm-launch.mp4",
+      "sizeBytes": 303739,
+      "durationSeconds": 10.033,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "11cef50533dd33f1ba08d01ebcefa6ce0795d84513531bbea6775aff0d30e0fd",
+      "usageOwner": [
+        "Game content data"
+      ]
+    },
+    {
+      "path": "video/spec-ops-assault/Breachcharge.mp4",
+      "sizeBytes": 498830,
+      "durationSeconds": 3.917,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "fa91ebadfc977b1c8b2eae47cb2a457d74a4630372d5861f594adf2e17dbf7e4",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-assault/Courtyardsupressedcontact.mp4",
+      "sizeBytes": 525089,
+      "durationSeconds": 5.1,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "2b32fadb14e4c9bb928c21d194e66d4d9d24628465abe8303f1c64c6e6d68bae",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-assault/Interiorstackmovement.mp4",
+      "sizeBytes": 612292,
+      "durationSeconds": 5.017,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "b848d8ab1cfa6061449e27aec3fe6e73d73b278bd288ed44064fe487e1de227a",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-assault/fastrope.mp4",
+      "sizeBytes": 646812,
+      "durationSeconds": 5.017,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "68cb7827ab6e17e882368b53dd397479ef2702804afcb0eddd382f86c5ba375d",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-assault/roomentry-jackpot.mp4",
+      "sizeBytes": 626110,
+      "durationSeconds": 4.983,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "84244ce9770e7c8b15e518087ad8a12b32ab41004feadc6c746964a0e3d49d87",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-assault/sse-documents.mp4",
+      "sizeBytes": 613251,
+      "durationSeconds": 5.017,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "6f3381bfc4b6d1c324140e45b4a3bc960197a29caab92cc912b7d899ab1f8616",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-assault/static.mp4",
+      "sizeBytes": 882522,
+      "durationSeconds": 0.983,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "d8f0bb26d3085a6fe52bbab59d33652eb666973acd97fa3e12401cc08561ff42",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-infil/1takeoff.mp4",
+      "sizeBytes": 419694,
+      "durationSeconds": 5,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "452d1522d0b79b0c56890607c154f21ddd9ed61011a00c702065b0bc4caa4aa1",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-infil/2twohelicopterformation.mp4",
+      "sizeBytes": 440806,
+      "durationSeconds": 4.017,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "7e08a086b97c38fd211435d862076f7a0a030c3f43d1a0c8a568f2a9592c44dd",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-infil/3inheloenroute.mp4",
+      "sizeBytes": 652261,
+      "durationSeconds": 5.017,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "6cc15a8e1cebcabe7bdf14bd960e8200497a8f6510d28dd6629a675fd112ce08",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-infil/5ridgelineterrain.mp4",
+      "sizeBytes": 467969,
+      "durationSeconds": 5.533,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "2c772bd25f24377d594f44f24379518d4e294d8eebc551a7d8ecd36e3ac7732b",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-infil/6Missionisgomov.mp4",
+      "sizeBytes": 2006233,
+      "durationSeconds": 7.6,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "421ca4ecfae33bfda8b2b884f4298d55b67ea65c718fcce0bcc51bb84bcdda56",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/spec-ops-infil/staticoverhead.mp4",
+      "sizeBytes": 108692,
+      "durationSeconds": 6.017,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "6bd58b55bd74568f0195634c4e4678dd1134941ec29cb8ccee7fd33dfba3fc6e",
+      "usageOwner": [
+        "SpecOps"
+      ]
+    },
+    {
+      "path": "video/strike-hit.mp4",
+      "sizeBytes": 440305,
+      "durationSeconds": 4.017,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "c97b228a22fb0ecb4f6e36a7237ae52c43cebd8dbc542bc15dd5404dbfc03af1",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/tabriz-hit.mp4",
+      "sizeBytes": 420486,
+      "durationSeconds": 3.3,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "f981d552c145857e2f68789c8fbe26b946b6beda9bb36635ab787f29d6dd9341",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/tel-hit-a.mp4",
+      "sizeBytes": 204610,
+      "durationSeconds": 3.15,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "fc2105b93d57a8bdbd1eb282600199ef0c1ab8890f3b80feebe889c3b01aa0b9",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/tel-hit-b.mp4",
+      "sizeBytes": 364988,
+      "durationSeconds": 3.35,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "2f98c7a2046c1089f9f122bef1172cdf812dc7383c8f732e4684dc56df72ad26",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/tel-hit-c.mp4",
+      "sizeBytes": 193851,
+      "durationSeconds": 3.55,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "7062c6e4f8a24bf7cfc677dc88e0f43d410cd61f679d533c1a84451dd9538e8f",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/tel-hit-d.mp4",
+      "sizeBytes": 94766,
+      "durationSeconds": 2.317,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "cd2fd56d26a69130a6a99b51cf62a28fd82a497a45b76083968de16a32246023",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/tlam-launch.mp4",
+      "sizeBytes": 240472,
+      "durationSeconds": 4.161,
+      "codecs": [
+        "video:h264",
+        "audio:aac"
+      ],
+      "sha256": "052039f0f7ef55cecdc354fd06cbd71d9a6e50b6dc59c6b6166f62b4f5c47360",
+      "usageOwner": [
+        "MapView"
+      ]
+    },
+    {
+      "path": "video/torpedo-hit.mp4",
+      "sizeBytes": 188188,
+      "durationSeconds": 7.1,
+      "codecs": [
+        "video:h264"
+      ],
+      "sha256": "462742567730462683e8434bcb4ee173dda3ef8a122054aa1ed82a754a6c16c7",
+      "usageOwner": [
+        "MapView"
+      ]
+    }
+  ]
+}

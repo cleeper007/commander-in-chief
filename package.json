@@ -5,12 +5,15 @@
   "scripts": {
     "lint": "node tools/lint.js",
     "check": "npm run lint && npm test",
-    "test": "npm run test:static && npm run test:unit && npm run test:save && npm run test:campaign",
+    "test": "npm run test:static && npm run test:media && npm run test:unit && npm run test:save && npm run test:campaign",
     "test:static": "node tests/repository-smoke.mjs",
+    "test:media": "node tools/media-manifest.mjs --check",
     "test:unit": "node tests/determinism.test.js && node tests/run.js && node --test tests/unit/*.test.mjs tests/regression/*.test.mjs",
     "test:save": "node --test tests/save/*.test.mjs",
     "test:campaign": "node --test tests/simulation/*.test.mjs",
     "test:browser": "node tests/browser/browser-smoke.mjs",
-    "test:balance": "node tests/simulation/balance-sweep.mjs"
+    "test:balance": "node tests/simulation/balance-sweep.mjs",
+    "media:manifest": "node tools/media-manifest.mjs --write",
+    "measure:performance": "node tools/measure-performance.mjs"
   }
 }

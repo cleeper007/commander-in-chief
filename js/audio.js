@@ -216,6 +216,7 @@ const AudioSys = (() => {
   const MUSIC_KEY = 'cic-music-off-v2';
   const MUSIC_KEY_OLD = 'cic-music-off';
   const clips = {};
+  const failed = new Set();
   let muted = false;
   let unlocked = false;   // browsers require a user gesture before audio
 
@@ -324,36 +325,97 @@ const AudioSys = (() => {
     try { const p = actx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* silent */ }
   }
 
-  function preload() {
-    for (const [name, file] of Object.entries(FILES)) {
-      try {
-        const a = new Audio(`audio/${file}`);
-        a.preload = 'auto';
-        if (VOLUME[name] !== undefined) { route(a); setLevel(a, VOLUME[name]); }
-        a.addEventListener('error', () => delete clips[name]);
-        clips[name] = a;
-      } catch (e) { /* no Audio support — game plays silent */ }
-    }
+  // ---- staged loading ----
+  // The title has no sound and browsers cannot play any until a gesture, so it
+  // must not pay for an Audio element — and a network request — for every sound
+  // in the war. A clip is constructed either when its stage is warmed or at the
+  // moment an unscheduled branch asks to play it. The latter is important:
+  // staging is a performance hint, never a new condition on whether sound works.
+  function ensureClip(name) {
+    if (clips[name]) return clips[name];
+    if (!FILES[name] || failed.has(name)) return null;
+    try {
+      const a = new Audio(`audio/${FILES[name]}`);
+      a.preload = 'auto';
+      if (VOLUME[name] !== undefined) { route(a); setLevel(a, VOLUME[name]); }
+      a.addEventListener('error', () => {
+        if (clips[name] === a) delete clips[name];
+        failed.add(name);
+      });
+      clips[name] = a;
+      return a;
+    } catch (e) { return null; }   // no Audio support — game plays silent
+  }
+
+  function ensureMissionTracks() {
+    if (missionAudio.length) return;
     for (const file of MISSION_TRACKS) {
+      const key = `mission:${file}`;
+      if (failed.has(key)) continue;
       try {
         const a = new Audio(`audio/${file}`);
         a.preload = 'auto';
         a.loop = false;   // plays through once — never repeats within a mission
         route(a);         // it is a bed, and a bed has to be able to get down
         setLevel(a, MISSION_VOLUME);
-        a.addEventListener('error', () => { const i = missionAudio.indexOf(a); if (i >= 0) missionAudio.splice(i, 1); });
+        a.addEventListener('error', () => {
+          const i = missionAudio.indexOf(a);
+          if (i >= 0) missionAudio.splice(i, 1);
+          failed.add(key);
+        });
         missionAudio.push(a);
       } catch (e) { /* no Audio support — game plays silent */ }
     }
+  }
+
+  function ensureMusic() {
+    if (music || failed.has('music')) return music;
     try {
       const m = new Audio(`audio/${MUSIC_FILE}`);
       m.preload = 'auto';
       m.loop = true;
       route(m);
       setLevel(m, MUSIC_VOLUME);
-      m.addEventListener('error', () => { music = null; });
+      m.addEventListener('error', () => { if (music === m) music = null; failed.add('music'); });
       music = m;
-    } catch (e) { /* no Audio support — game plays silent */ }
+      return m;
+    } catch (e) { return null; }   // no Audio support — game plays silent
+  }
+
+  // Opening-night sounds are warmed as soon as the room opens. The second set
+  // waits until the player has had time to start reading the board. Rare branch
+  // media is deliberately absent from both lists and comes through ensureClip
+  // on demand: nuclear release, special operations, and country calls.
+  const FIRST_TURN = [
+    'briefReady', 'cable', 'shipUnderway', 'carrierReposition', 'fordOrdered',
+    'fordArrival', 'b2Arrival', 'targetMarked', 'launch', 'strikeForce', 'impact',
+    'bdaReport', 'aircraftLost', 'retaliation',
+  ];
+  const LIKELY_NEXT = ['klaxon', 'hormuzClosure', 'sonarPing', 'victory', 'defeat'];
+  let campaignStaged = false;
+
+  function idleWarm(names, delayMs, then) {
+    setTimeout(() => {
+      const load = () => {
+        // Do not spend bandwidth for a session whose master switch is off.
+        // Any later unmute or direct play still constructs the clip on demand.
+        if (!muted) names.forEach(ensureClip);
+        if (then) then();
+      };
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(load, { timeout: 2000 });
+      else setTimeout(load, 0);
+    }, delayMs);
+  }
+
+  function stageCampaign() {
+    if (campaignStaged) return;
+    campaignStaged = true;
+    idleWarm(FIRST_TURN, 0, () => {
+      // Radar chatter is ordinary first-night media but can hold two decoders;
+      // build it after the event clips rather than alongside the opening sting.
+      if (!muted) ensureMissionTracks();
+    });
+    idleWarm(LIKELY_NEXT, 4000);
   }
 
   // ---- ducking ----
@@ -365,6 +427,7 @@ const AudioSys = (() => {
   // leave the bed stuck quiet for the rest of the war.
   const ducks = new Set();
   const duckTimers = {};   // per-clip watchdog: no clip holds the bed forever
+  const duckMetadata = {}; // metadata re-arms an on-demand clip to its real length
   const ramps = new WeakMap();   // bed element -> the interval walking its gain
 
   // Every hold except the chatter's own. The chatter bed must not duck under
@@ -388,12 +451,27 @@ const AudioSys = (() => {
   function duckClip(name, clip) {
     duckAdd('sfx:' + name);
     clearTimeout(duckTimers[name]);
-    const dur = isFinite(clip.duration) && clip.duration > 0 ? clip.duration : 6;
-    duckTimers[name] = setTimeout(() => duckDrop('sfx:' + name), dur * 1000 + 300);
+    if (duckMetadata[name]) clip.removeEventListener('loadedmetadata', duckMetadata[name]);
+    const arm = () => {
+      clearTimeout(duckTimers[name]);
+      const dur = isFinite(clip.duration) && clip.duration > 0 ? clip.duration : 6;
+      duckTimers[name] = setTimeout(() => duckDrop('sfx:' + name), dur * 1000 + 300);
+    };
+    arm();
+    // Preloaded clips already have duration. An on-demand clip usually does
+    // not, and the 28-second raid ambience must not release a six-second
+    // fallback hold merely because metadata arrived after play() was called.
+    if (!(isFinite(clip.duration) && clip.duration > 0)) {
+      duckMetadata[name] = () => { delete duckMetadata[name]; arm(); };
+      clip.addEventListener('loadedmetadata', duckMetadata[name], { once: true });
+    }
   }
 
   function duckClipDrop(name) {
     clearTimeout(duckTimers[name]);
+    const clip = clips[name];
+    if (clip && duckMetadata[name]) clip.removeEventListener('loadedmetadata', duckMetadata[name]);
+    delete duckMetadata[name];
     duckDrop('sfx:' + name);
   }
 
@@ -502,7 +580,8 @@ const AudioSys = (() => {
   // no-op if either switch is off. Resumes from where it was rather than
   // restarting — a mute and unmute mid-campaign shouldn't rewind the track.
   function musicStart() {
-    if (!music || musicOff || muted || !unlocked) return;
+    if (musicOff || muted || !unlocked) return;
+    if (!ensureMusic()) return;
     // Level AFTER the play, not before: on the pause-path (canLevel false) the
     // duck IS a pause, and a play() underneath it would start the bed back up
     // over whatever the hold is protecting. This way the last word belongs to
@@ -522,7 +601,9 @@ const AudioSys = (() => {
   // Pick a random track and start it (no ref-counting). No-op if one is already
   // playing, if muted, if audio isn't unlocked yet, or if no tracks loaded.
   function playMissionTrack() {
-    if (missionCur || muted || !unlocked || !missionAudio.length) return;
+    if (missionCur || muted || !unlocked) return;
+    ensureMissionTracks();
+    if (!missionAudio.length) return;
     // Only ever one chatter stream at a time: silence every track first so a
     // big package launching several scopes at once can never stack audio.
     for (const a of missionAudio) {
@@ -573,7 +654,8 @@ const AudioSys = (() => {
   }
 
   function play(name, delayMs = 0) {
-    if (muted || !unlocked || !clips[name]) return;
+    if (muted || !unlocked) return;
+    if (!ensureClip(name)) return;
     const go = () => {
       const c = clips[name];
       if (!c) return;
@@ -616,15 +698,25 @@ const AudioSys = (() => {
     // the same exit: `cb` runs immediately, so a chain waiting on a voice that
     // is not allowed to speak over the call hands straight on rather than
     // stalling behind a sound nobody is going to hear.
-    if (muted || !unlocked || !clips[name] || (onLine && !lineAudio(name))) { go(); return; }
+    if (muted || !unlocked || (onLine && !lineAudio(name))) { go(); return; }
+    if (!ensureClip(name)) { go(); return; }
     const c = clips[name];
     let done = false;
+    let watchdog = 0;
+    const armWatchdog = () => {
+      clearTimeout(watchdog);
+      const dur = isFinite(c.duration) && c.duration > 0 ? c.duration : 10;
+      watchdog = setTimeout(finish, dur * 1000 + 1000);
+    };
+    const metadata = () => armWatchdog();
     const finish = () => {
       if (done) return;
       done = true;
+      clearTimeout(watchdog);
       if (pendingThen[name] === finish) delete pendingThen[name];
       c.removeEventListener('ended', finish);
       c.removeEventListener('error', finish);
+      c.removeEventListener('loadedmetadata', metadata);
       duckClipDrop(name);   // the voice has cleared; the bed can come back up
       voiceLower(name);     // …and the card comes down with it
       go();
@@ -635,6 +727,7 @@ const AudioSys = (() => {
     duckAdd('sfx:' + name);
     c.addEventListener('ended', finish);
     c.addEventListener('error', finish);
+    c.addEventListener('loadedmetadata', metadata);
     try {
       c.currentTime = 0;
       const p = c.play();
@@ -644,8 +737,7 @@ const AudioSys = (() => {
       if (p && p.then) p.then(() => { if (!done) voiceRaise(name, c); }, finish);
       else voiceRaise(name, c);
     } catch (e) { finish(); return; }
-    const dur = isFinite(c.duration) && c.duration > 0 ? c.duration : 10;
-    setTimeout(finish, dur * 1000 + 1000);
+    armWatchdog();
   }
 
   // Cut a playThen clip short: silence it and hand straight on to whatever was
@@ -674,8 +766,9 @@ const AudioSys = (() => {
   let ringing = false, ringTimer = null, ringOnEnd = null;
 
   function ringStart() {
-    const c = clips.phoneRing;
-    if (ringing || muted || !unlocked || !c) return;
+    if (ringing || muted || !unlocked) return;
+    const c = ensureClip('phoneRing');
+    if (!c) return;
     ringing = true;
     const ring = () => {
       if (!ringing) return;
@@ -726,8 +819,9 @@ const AudioSys = (() => {
   let alarming = false;
 
   function alarmStart() {
-    const c = clips.nukeAlarm;
-    if (alarming || muted || !unlocked || !c) return;
+    if (alarming || muted || !unlocked) return;
+    const c = ensureClip('nukeAlarm');
+    if (!c) return;
     alarming = true;
     c.loop = true;
     // One hold for the whole alarm, on the same argument as the ring's: the
@@ -922,8 +1016,6 @@ const AudioSys = (() => {
     // migrating — every device that ever loaded the old build carries the same
     // '0' whether or not anyone asked for music.
     try { localStorage.removeItem(MUSIC_KEY_OLD); } catch (e) {}
-    preload();
-
     // Respect autoplay policy: unlock only after the first real interaction.
     // That gesture is also the earliest moment the score is allowed to start,
     // so it opens there rather than on load — anything sooner is refused.
@@ -950,5 +1042,5 @@ const AudioSys = (() => {
   // strike footage in map.js plays its own audio and has to take a hold like
   // everything else, or the bed sits on top of it. Named keys, dropped by the
   // caller; see the ducks set for why it is a set and not a counter.
-  return { init, play, playThen, cut, ringStart, ringStop, alarmStart, alarmStop, lineOpen, lineClose, alertCheck, isMuted, setMuted, isMusicOff, setMusicOff, missionMusicStart, missionMusicStop, missionMusicStopAll, duckHold: duckAdd, duckRelease: duckDrop };
+  return { init, stageCampaign, play, playThen, cut, ringStart, ringStop, alarmStart, alarmStop, lineOpen, lineClose, alertCheck, isMuted, setMuted, isMusicOff, setMusicOff, missionMusicStart, missionMusicStop, missionMusicStopAll, duckHold: duckAdd, duckRelease: duckDrop };
 })();

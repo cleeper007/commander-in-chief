@@ -8128,6 +8128,7 @@ const Game = (() => {
     G.res.heavy = Math.min(G.res.heavy, G.caps.heavy);
     AudioSys.setMuted(!!data.muted);
     start(true);
+    AudioSys.stageCampaign();
     Random.restore(savedRandom);
     assertState('restore', data);
     // saved between the coalition cable and answering the phone: it is still
@@ -8333,6 +8334,11 @@ const Game = (() => {
     newWar(difficulty, seedValue);
     AudioSys.play('gameStart');
     start(false);
+    // The title pays for no media. Once the player has opened the room, warm
+    // the ordinary first-night catalog and then the likely next-turn sounds
+    // while the primer and briefing are being read. Rare branches stay on
+    // demand inside AudioSys.
+    AudioSys.stageCampaign();
     return G.campaignSeed;
   }
 

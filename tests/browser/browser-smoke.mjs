@@ -133,6 +133,14 @@ try {
     return result.result && result.result.value;
   }, 'game boot');
 
+  // The title contains no playable media and audio is still gesture-locked.
+  // Loading any catalog entry here spends mobile bandwidth on something the
+  // browser is not allowed to play and regresses Phase 6 staged loading.
+  const titleMedia = await evaluate(`performance.getEntriesByType('resource')
+    .map(entry => new URL(entry.name).pathname)
+    .filter(name => /^\\/(?:audio|video)\\//.test(name))`);
+  assert.deepEqual(titleMedia, [], `title requested media before interaction: ${titleMedia.join(', ')}`);
+
   // The reading preference is available before a campaign, reaches 14px, and
   // survives a real navigation rather than only living in module state.
   await viewport(390, 844, true);

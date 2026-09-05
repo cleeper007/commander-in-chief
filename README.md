@@ -487,7 +487,8 @@ commander-in-chief/
 ├── video/            # Strike, maritime, nuclear, and special-operations footage
 ├── icons/            # App icons and interface seals
 ├── tests/            # Dependency-free public checks
-├── tools/            # Deterministic geographic-data generator
+├── media-manifest.json # Owned, hashed technical inventory of shipped media
+├── tools/            # Data, media-validation, and performance tools
 └── js/
     ├── data.js       # Targets, forces, difficulty, and static configuration
     ├── assess.js     # Player-visible estimates of hidden simulation state
@@ -495,7 +496,7 @@ commander-in-chief/
     ├── globe.js      # Globe/flat-map projection and world interaction
     ├── map.js        # SVG map, pan/zoom, icons, strike animations, the strike wall
     ├── ai.js         # Iranian AI opponent, advisors, headlines
-    ├── audio.js      # Sound manager: preload, play, mute toggle
+    ├── audio.js      # Sound manager: staged loading, play, mute toggle
     ├── ui.js         # HUD, sidebar, modal rendering
     ├── tour.js       # Contextual onboarding
     ├── aircrew.js    # Persistent aircrew roster

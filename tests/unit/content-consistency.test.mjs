@@ -125,16 +125,16 @@ test('advisor identities, target identities, and abbreviations have one canonica
 
 test('release badge, cache stamps, beta copy, and mode availability agree', () => {
   const version = index.match(/<div class="version-badge">v([^<]+)/)?.[1];
-  assert.equal(version, '2.40');
-  assert.match(index, /version-badge">v2\.40<span class="beta-tag">BETA/);
+  assert.equal(version, '2.41');
+  assert.match(index, /version-badge">v2\.41<span class="beta-tag">BETA/);
   assert.match(readme, /\*\*Beta, actively developed\.\*\*/);
-  assert.match(facts, /Current playable build: \*\*v2\.40\*\*/);
+  assert.match(facts, /Current playable build: \*\*v2\.41\*\*/);
   assert.match(facts, /Status: \*\*BETA — actively developed\*\*/);
 
   const cacheVersions = [...index.matchAll(/(?:src|href)="(?:css|js)\/[^"?]+\?v=([0-9.]+)"/g)]
     .map((match) => match[1]);
   assert.ok(cacheVersions.length > 10, 'primary app cache stamps were not found');
-  assert.deepEqual([...new Set(cacheVersions)], ['2.40']);
+  assert.deepEqual([...new Set(cacheVersions)], ['2.41']);
 
   const { api } = start(1640, 'normal');
   assert.equal(api.DIFFICULTY.normal.soon, true);

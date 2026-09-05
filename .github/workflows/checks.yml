@@ -23,12 +23,13 @@ jobs:
           node-version: 22
       - run: npm run lint
       - run: mkdir -p artifacts && npm run test:static 2>&1 | tee artifacts/static.log
+      - run: npm run test:media 2>&1 | tee artifacts/media.log
       - run: python3 -m py_compile tools/worldgeo.py
       - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: static-summary
-          path: artifacts/static.log
+          path: artifacts/*.log
           retention-days: 7
 
   unit:

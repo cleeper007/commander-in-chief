@@ -127,7 +127,7 @@ Use **Strait of Hormuz** on first reference and **Hormuz** thereafter. Use
 
 ## Release identity
 
-- Current playable build: **v2.40**.
+- Current playable build: **v2.41**.
 - Status: **BETA — actively developed**.
 - Easy and hard are playable. Normal is implemented but remains visibly marked
   **COMING SOON** on the title screen.
@@ -136,7 +136,7 @@ The title-screen badge and every primary-app cache stamp in `index.html` must
 carry the same version. The README status and this sheet must change with any
 release-status change.
 
-## Surfaces checked for v2.40
+## Surfaces checked for v2.41
 
 - title screen and version badge;
 - README rules and force-disposition sections;

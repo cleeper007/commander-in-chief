@@ -17,9 +17,9 @@ Then open `http://localhost:8765/`.
 
 ## Run the public checks
 
-The checks use Node.js and Python's standard library only. The default command
-runs repository/syntax checks, fast unit and invariant coverage, the save/load
-matrix, regressions, and fixed-seed campaign smoke tests:
+The checks use Node.js, Python's standard library, and `ffprobe`. The default
+command runs repository/syntax and media-manifest checks, fast unit and invariant
+coverage, the save/load matrix, regressions, and fixed-seed campaign smoke tests:
 
 ```sh
 npm test
@@ -29,6 +29,13 @@ Chrome can be exercised separately with `npm run test:browser`. The larger
 fixed-seed sweep is `npm run test:balance`; CI runs it nightly and on manual
 dispatch, while pull requests receive the faster browser smoke test. Each CI
 layer uploads only its compact summary log.
+
+Every shipped audio/video file is inventoried in `media-manifest.json`. After
+adding or intentionally re-encoding media, run `npm run media:manifest`, review
+its owner, codec, duration, size, and hash, then commit the updated inventory.
+The validator rejects missing or orphaned media, duplicate content, unsupported
+codecs, stale profiles, and individual assets over 4 MiB. An orphan is a review
+finding, not permission to delete the file.
 
 Reusable tests belong in `tests/unit`, `tests/simulation`, `tests/save`, or
 `tests/regression`. Put data-only scenarios in `tests/fixtures`, and commit a
